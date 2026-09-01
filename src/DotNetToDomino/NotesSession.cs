@@ -57,6 +57,8 @@ public sealed class NotesSession : IDisposable
     public string NotesVersion { get; }
     public long NotesBuildVersion { get; }
     public string Platform { get; }
+    /// <summary>When true, MIME parts are converted to composite rich text when documents are opened.</summary>
+    public bool ConvertMIME { get; set; } = true;
     public bool IsRecycled => _recycled;
     internal NotesNativeApi Api => _api;
 
