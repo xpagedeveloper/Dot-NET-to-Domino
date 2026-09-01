@@ -8,7 +8,7 @@ internal sealed partial class NotesNativeApi
     private const ushort ErrItemNotFound = 0x0222;
 
     [StructLayout(LayoutKind.Sequential)]
-    private struct NotesBlockId
+    internal struct NotesBlockId
     {
         public nint Pool;
         public ushort Block;
@@ -21,19 +21,9 @@ internal sealed partial class NotesNativeApi
         using var itemName = ToLmbcs(name);
         var nameLength = checked((ushort)Math.Min(itemName.Length, ushort.MaxValue));
         var status = Resolve<NSFItemInfoDelegate>("NSFItemInfo")(
-            note,
-            itemName.Pointer,
-            nameLength,
-            out _,
-            out _,
-            out _,
-            out _);
-
-        if (status == 0)
-            return true;
-        if ((status & ErrMask) == ErrItemNotFound)
-            return false;
-
+            note, itemName.Pointer, nameLength, out _, out _, out _, out _);
+        if (status == 0) return true;
+        if ((status & ErrMask) == ErrItemNotFound) return false;
         CheckStatus(status, "NSFItemInfo");
         return false;
     }
@@ -48,17 +38,10 @@ internal sealed partial class NotesNativeApi
         try
         {
             Zero(output, capacity);
-            var length = Resolve<NSFItemGetTextDelegate>("NSFItemGetText")(
-                note,
-                itemName.Pointer,
-                output,
-                ushort.MaxValue);
+            var length = Resolve<NSFItemGetTextDelegate>("NSFItemGetText")(note, itemName.Pointer, output, ushort.MaxValue);
             return length == 0 ? string.Empty : FromLmbcs(output, length).Replace('\0', '\n');
         }
-        finally
-        {
-            Marshal.FreeHGlobal(output);
-        }
+        finally { Marshal.FreeHGlobal(output); }
     }
 
     internal bool TryGetItemNumber(nint note, string name, out double value)
@@ -71,18 +54,15 @@ internal sealed partial class NotesNativeApi
 
     internal double GetItemNumber(nint note, string name)
     {
-        if (!TryGetItemNumber(note, name, out var value))
-            throw new InvalidOperationException($"Notes item '{name}' is missing or is not numeric.");
+        if (!TryGetItemNumber(note, name, out var value)) throw new InvalidOperationException($"Notes item '{name}' is missing or is not numeric.");
         return value;
     }
 
     internal object? GetItemValue(nint note, string name)
     {
-        if (!HasItem(note, name))
-            return null;
-        if (TryGetItemNumber(note, name, out var number))
-            return number;
-        return GetItemText(note, name);
+        if (!HasItem(note, name)) return null;
+        var values = GetItemValues(note, name, td => td);
+        return values.Length switch { 0 => null, 1 => values[0], _ => values };
     }
 
     internal void SetItemText(nint note, string name, string value)
@@ -91,16 +71,8 @@ internal sealed partial class NotesNativeApi
         using var thread = EnterThread();
         using var itemName = ToLmbcs(name);
         using var text = ToLmbcs((value ?? string.Empty).Replace("\r\n", "\0", StringComparison.Ordinal).Replace('\n', '\0'));
-        if (text.Length > ushort.MaxValue)
-            throw new ArgumentOutOfRangeException(nameof(value), "Notes text item exceeds the 65535-byte LMBCS limit.");
-
-        CheckStatus(
-            Resolve<NSFItemSetTextDelegate>("NSFItemSetText")(
-                note,
-                itemName.Pointer,
-                text.Pointer,
-                checked((ushort)text.Length)),
-            "NSFItemSetText");
+        if (text.Length > ushort.MaxValue) throw new ArgumentOutOfRangeException(nameof(value), "Notes text item exceeds the 65535-byte LMBCS limit.");
+        CheckStatus(Resolve<NSFItemSetTextDelegate>("NSFItemSetText")(note, itemName.Pointer, text.Pointer, checked((ushort)text.Length)), "NSFItemSetText");
     }
 
     internal void SetItemNumber(nint note, string name, double value)
@@ -111,41 +83,15 @@ internal sealed partial class NotesNativeApi
         CheckStatus(Resolve<NSFItemSetNumberDelegate>("NSFItemSetNumber")(note, itemName.Pointer, ref value), "NSFItemSetNumber");
     }
 
-    internal void SetItemValue(nint note, string name, object? value)
-    {
-        if (value is null)
-        {
-            DeleteItem(note, name);
-            return;
-        }
-
-        if (value is byte or sbyte or short or ushort or int or uint or long or ulong or float or double or decimal)
-        {
-            SetItemNumber(note, name, Convert.ToDouble(value, System.Globalization.CultureInfo.InvariantCulture));
-            return;
-        }
-
-        if (value is NotesDateTime or DateTime or DateTimeOffset)
-            throw new NotSupportedException("Native TIMEDATE item writes are not implemented yet.");
-
-        SetItemText(note, name, Convert.ToString(value, System.Globalization.CultureInfo.InvariantCulture) ?? string.Empty);
-    }
+    internal void SetItemValue(nint note, string name, object? value) => SetItemValues(note, name, value);
 
     internal void DeleteItem(nint note, string name)
     {
         EnsureInitialized();
         using var thread = EnterThread();
         using var itemName = ToLmbcs(name);
-
-        if (!HasItem(note, name))
-            return;
-
-        CheckStatus(
-            Resolve<NSFItemDeleteDelegate>("NSFItemDelete")(
-                note,
-                itemName.Pointer,
-                checked((ushort)Math.Min(itemName.Length, ushort.MaxValue))),
-            "NSFItemDelete");
+        if (!HasItem(note, name)) return;
+        CheckStatus(Resolve<NSFItemDeleteDelegate>("NSFItemDelete")(note, itemName.Pointer, checked((ushort)Math.Min(itemName.Length, ushort.MaxValue))), "NSFItemDelete");
     }
 
     internal void SaveNote(nint note)
@@ -155,16 +101,7 @@ internal sealed partial class NotesNativeApi
         CheckStatus(Resolve<NSFNoteUpdateDelegate>("NSFNoteUpdate")(note, 0), "NSFNoteUpdate");
     }
 
-    [UnmanagedFunctionPointer(CallingConvention.Winapi)]
-    private delegate ushort NSFItemInfoDelegate(
-        nint note,
-        nint itemName,
-        ushort itemNameLength,
-        out NotesBlockId itemBlock,
-        out ushort dataType,
-        out NotesBlockId valueBlock,
-        out uint valueLength);
-
+    [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate ushort NSFItemInfoDelegate(nint note, nint itemName, ushort itemNameLength, out NotesBlockId itemBlock, out ushort dataType, out NotesBlockId valueBlock, out uint valueLength);
     [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate ushort NSFItemGetTextDelegate(nint note, nint itemName, nint output, ushort outputLength);
     [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate int NSFItemGetNumberDelegate(nint note, nint itemName, out double value);
     [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate ushort NSFItemSetTextDelegate(nint note, nint itemName, nint text, ushort textLength);
