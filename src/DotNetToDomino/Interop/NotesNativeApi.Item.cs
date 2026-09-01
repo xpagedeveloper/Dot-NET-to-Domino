@@ -7,6 +7,13 @@ internal sealed partial class NotesNativeApi
     private const ushort ErrMask = 0x3FFF;
     private const ushort ErrItemNotFound = 0x0222;
 
+    [StructLayout(LayoutKind.Sequential)]
+    private struct NotesBlockId
+    {
+        public nint Pool;
+        public ushort Block;
+    }
+
     internal bool HasItem(nint note, string name)
     {
         EnsureInitialized();
@@ -153,9 +160,9 @@ internal sealed partial class NotesNativeApi
         nint note,
         nint itemName,
         ushort itemNameLength,
-        out ushort itemFlags,
+        out NotesBlockId itemBlock,
         out ushort dataType,
-        out nint valueBlockId,
+        out NotesBlockId valueBlock,
         out uint valueLength);
 
     [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate ushort NSFItemGetTextDelegate(nint note, nint itemName, nint output, ushort outputLength);
