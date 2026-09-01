@@ -108,6 +108,8 @@ public sealed class NotesSession : IDisposable
     public NotesStream CreateStream() { EnsureAlive(); return new NotesStream(this); }
     public NotesDXLImporter CreateDXLImporter() { EnsureAlive(); return new NotesDXLImporter(this); }
     public NotesDXLExporter CreateDXLExporter() { EnsureAlive(); return new NotesDXLExporter(this); }
+    public NotesRichTextStyle CreateRichTextStyle() { EnsureAlive(); return new NotesRichTextStyle(this); }
+    public NotesRichTextParagraphStyle CreateRichTextParagraphStyle() { EnsureAlive(); return new NotesRichTextParagraphStyle(this, _api.GetDefaultRichTextParagraphStyle()); }
 
     public void Recycle()
     {
