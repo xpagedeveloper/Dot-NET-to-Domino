@@ -1,8 +1,8 @@
 using System.Diagnostics;
-using NotesToDotNet.Internal;
-using NotesToDotNet.Interop;
+using DotNetToDomino.Internal;
+using DotNetToDomino.Interop;
 
-namespace NotesToDotNet;
+namespace DotNetToDomino;
 
 /// <summary>Represents one initialized HCL Notes/Domino runtime session.</summary>
 public sealed class NotesSession : IDisposable
