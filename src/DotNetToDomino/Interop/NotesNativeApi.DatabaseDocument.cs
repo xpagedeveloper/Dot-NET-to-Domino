@@ -14,13 +14,6 @@ internal sealed partial class NotesNativeApi
     private const ushort NoteMemberOid = 2;
 
     [StructLayout(LayoutKind.Sequential)]
-    private struct NotesTimeDate
-    {
-        public uint Innards0;
-        public uint Innards1;
-    }
-
-    [StructLayout(LayoutKind.Sequential)]
     private struct NotesUnid
     {
         public NotesTimeDate File;
@@ -34,6 +27,8 @@ internal sealed partial class NotesNativeApi
 
     internal void SetDatabaseTitle(nint db, string value) => SetDatabaseInfoPart(db, InfoParseTitle, value);
     internal void SetDatabaseCategories(nint db, string value) => SetDatabaseInfoPart(db, InfoParseCategories, value);
+    internal void SetDatabaseTemplateName(nint db, string value) => SetDatabaseInfoPart(db, InfoParseClass, value);
+    internal void SetDatabaseDesignTemplateName(nint db, string value) => SetDatabaseInfoPart(db, InfoParseDesignClass, value);
 
     internal string GetDatabaseReplicaId(nint db)
     {
@@ -48,10 +43,7 @@ internal sealed partial class NotesNativeApi
             var innards1 = unchecked((uint)Marshal.ReadInt32(buffer, 4));
             return innards1.ToString("X8", CultureInfo.InvariantCulture) + innards0.ToString("X8", CultureInfo.InvariantCulture);
         }
-        finally
-        {
-            Marshal.FreeHGlobal(buffer);
-        }
+        finally { Marshal.FreeHGlobal(buffer); }
     }
 
     internal string LocateDatabaseByReplicaId(string server, string replicaId)
@@ -68,25 +60,13 @@ internal sealed partial class NotesNativeApi
             try
             {
                 Zero(output, capacity);
-                CheckStatus(
-                    Resolve<NSFDbLocateByReplicaIDDelegate>("NSFDbLocateByReplicaID")(
-                        db,
-                        ref id,
-                        output,
-                        checked((ushort)(capacity - 1))),
-                    "NSFDbLocateByReplicaID");
+                CheckStatus(Resolve<NSFDbLocateByReplicaIDDelegate>("NSFDbLocateByReplicaID")(
+                    db, ref id, output, checked((ushort)(capacity - 1))), "NSFDbLocateByReplicaID");
                 return FromLmbcsZeroTerminated(output, capacity - 1);
             }
-            finally
-            {
-                Marshal.FreeHGlobal(output);
-            }
+            finally { Marshal.FreeHGlobal(output); }
         }
-        finally
-        {
-            if (db != 0)
-                CloseDatabase(db);
-        }
+        finally { if (db != 0) CloseDatabase(db); }
     }
 
     internal (long Size, double PercentUsed) GetDatabaseSpaceUsage(nint db)
@@ -112,10 +92,8 @@ internal sealed partial class NotesNativeApi
         EnsureInitialized();
         using var thread = EnterThread();
         var status = Resolve<NSFNoteOpenDelegate>("NSFNoteOpen")(db, noteId, 0x1000, out var note);
-        if (status == 0)
-            return note;
-        if (IsMissingNoteStatus(status))
-            return 0;
+        if (status == 0) return note;
+        if (IsMissingNoteStatus(status)) return 0;
         CheckStatus(status, "NSFNoteOpen");
         return 0;
     }
@@ -126,18 +104,15 @@ internal sealed partial class NotesNativeApi
         using var thread = EnterThread();
         var unid = ParseUnid(unidText);
         var status = Resolve<NSFNoteOpenByUnidDelegate>("NSFNoteOpenByUNID")(db, ref unid, 0x1000, out var note);
-        if (status == 0)
-            return note;
-        if (IsMissingNoteStatus(status))
-            return 0;
+        if (status == 0) return note;
+        if (IsMissingNoteStatus(status)) return 0;
         CheckStatus(status, "NSFNoteOpenByUNID");
         return 0;
     }
 
     internal void CloseNote(nint note)
     {
-        if (note == 0 || !IsInitialized)
-            return;
+        if (note == 0 || !IsInitialized) return;
         using var thread = EnterThread();
         CheckStatus(Resolve<NSFNoteCloseDelegate>("NSFNoteClose")(note), "NSFNoteClose");
     }
@@ -152,10 +127,7 @@ internal sealed partial class NotesNativeApi
             Resolve<NSFNoteGetInfoDelegate>("NSFNoteGetInfo")(note, NoteMemberId, pointer);
             return unchecked((uint)Marshal.ReadInt32(pointer));
         }
-        finally
-        {
-            Marshal.FreeHGlobal(pointer);
-        }
+        finally { Marshal.FreeHGlobal(pointer); }
     }
 
     internal string GetUnid(nint note)
@@ -172,10 +144,7 @@ internal sealed partial class NotesNativeApi
             var noteTime = Marshal.PtrToStructure<NotesTimeDate>(nint.Add(pointer, 8));
             return TimeDateHex(file) + TimeDateHex(noteTime);
         }
-        finally
-        {
-            Marshal.FreeHGlobal(pointer);
-        }
+        finally { Marshal.FreeHGlobal(pointer); }
     }
 
     private string GetDatabaseInfoPart(nint db, ushort what)
@@ -212,10 +181,7 @@ internal sealed partial class NotesNativeApi
             Resolve<NSFDbInfoModifyDelegate>("NSFDbInfoModify")(info, what, text.Pointer);
             CheckStatus(Resolve<NSFDbInfoSetDelegate>("NSFDbInfoSet")(db, info), "NSFDbInfoSet");
         }
-        finally
-        {
-            Marshal.FreeHGlobal(info);
-        }
+        finally { Marshal.FreeHGlobal(info); }
     }
 
     private bool IsMissingNoteStatus(ushort status)
@@ -230,9 +196,7 @@ internal sealed partial class NotesNativeApi
     private static NotesTimeDate ParseReplicaId(string text)
     {
         text = (text ?? string.Empty).Replace("-", string.Empty, StringComparison.Ordinal).Replace(":", string.Empty, StringComparison.Ordinal).Trim();
-        if (text.Length != 16 || text.Any(c => !Uri.IsHexDigit(c)))
-            throw new ArgumentException("Notes replica ID must contain exactly 16 hexadecimal characters.", nameof(text));
-
+        if (text.Length != 16 || text.Any(c => !Uri.IsHexDigit(c))) throw new ArgumentException("Notes replica ID must contain exactly 16 hexadecimal characters.", nameof(text));
         return new NotesTimeDate
         {
             Innards1 = uint.Parse(text[..8], NumberStyles.HexNumber, CultureInfo.InvariantCulture),
@@ -243,14 +207,8 @@ internal sealed partial class NotesNativeApi
     private static NotesUnid ParseUnid(string text)
     {
         text = (text ?? string.Empty).Replace("-", string.Empty, StringComparison.Ordinal).Replace(":", string.Empty, StringComparison.Ordinal).Trim();
-        if (text.Length != 32 || text.Any(c => !Uri.IsHexDigit(c)))
-            throw new ArgumentException("Notes UNID must contain exactly 32 hexadecimal characters.", nameof(text));
-
-        return new NotesUnid
-        {
-            File = ParseTimeDateHex(text[..16]),
-            Note = ParseTimeDateHex(text[16..])
-        };
+        if (text.Length != 32 || text.Any(c => !Uri.IsHexDigit(c))) throw new ArgumentException("Notes UNID must contain exactly 32 hexadecimal characters.", nameof(text));
+        return new NotesUnid { File = ParseTimeDateHex(text[..16]), Note = ParseTimeDateHex(text[16..]) };
     }
 
     private static NotesTimeDate ParseTimeDateHex(string text) => new()
@@ -259,8 +217,7 @@ internal sealed partial class NotesNativeApi
         Innards0 = uint.Parse(text[8..], NumberStyles.HexNumber, CultureInfo.InvariantCulture)
     };
 
-    private static string TimeDateHex(NotesTimeDate value) =>
-        value.Innards1.ToString("X8", CultureInfo.InvariantCulture) + value.Innards0.ToString("X8", CultureInfo.InvariantCulture);
+    private static string TimeDateHex(NotesTimeDate value) => value.Innards1.ToString("X8", CultureInfo.InvariantCulture) + value.Innards0.ToString("X8", CultureInfo.InvariantCulture);
 
     [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate ushort NSFDbInfoGetDelegate(nint db, nint buffer);
     [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate void NSFDbInfoParseDelegate(nint info, ushort what, nint buffer, ushort length);
