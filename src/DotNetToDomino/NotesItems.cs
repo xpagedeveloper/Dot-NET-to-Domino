@@ -7,17 +7,14 @@ public class NotesItem : NotesObject
 {
     private bool _removed;
     internal NotesItem(NotesSession session, NotesDocument parent, string name) : base(session) { Parent = parent; Name = name; }
-
     public NotesDocument Parent { get; }
     public string Name { get; }
     private NotesItemMetadata Metadata { get { EnsureItemAlive(); return Session.Api.GetItemMetadata(Parent.Handle, Name); } }
-
     public NotesDateTime? DateTimeValue
     {
         get { var info = Metadata; return info.DataType == NotesNativeApi.NotesTypeTime ? NotesDateTime.FromNative(Session, Session.Api.GetItemTime(Parent.Handle, Name)) : null; }
         set { EnsureItemAlive(); ArgumentNullException.ThrowIfNull(value); Session.Api.SetItemTime(Parent.Handle, Name, value.NativeValue); }
     }
-
     public bool IsAuthors
     {
         get { var f = Metadata.Flags; return (f & NotesNativeApi.NotesItemReadWriters) != 0 && (f & NotesNativeApi.NotesItemNames) != 0; }
@@ -42,53 +39,28 @@ public class NotesItem : NotesObject
     public int Type => MapType(Metadata);
     public long ValueLength => Metadata.ValueLength;
     public object?[] Values { get { EnsureItemAlive(); return Parent.GetItemValue(Name); } set { EnsureItemAlive(); Session.Api.SetItemValues(Parent.Handle, Name, value); } }
-
     public NotesRichTextItem? GetRichTextItem()
     {
         EnsureItemAlive();
-        return Metadata.DataType == NotesNativeApi.NotesTypeComposite
-            ? this as NotesRichTextItem ?? Parent.ParentDatabase.Own(new NotesRichTextItem(Session, Parent, Name))
-            : null;
+        return Metadata.DataType == NotesNativeApi.NotesTypeComposite ? this as NotesRichTextItem ?? Parent.ParentDatabase.Own(new NotesRichTextItem(Session, Parent, Name)) : null;
     }
-
-    public void Remove()
-    {
-        EnsureItemAlive();
-        Session.Api.DeleteItem(Parent.Handle, Name);
-        _removed = true;
-    }
-
+    public void Remove() { EnsureItemAlive(); Session.Api.DeleteItem(Parent.Handle, Name); _removed = true; }
     public NotesItem CopyToDocument(NotesDocument destination, string? newName = null)
     {
-        EnsureItemAlive();
-        ArgumentNullException.ThrowIfNull(destination);
+        EnsureItemAlive(); ArgumentNullException.ThrowIfNull(destination);
         var targetName = string.IsNullOrWhiteSpace(newName) ? Name : newName.Trim();
         Session.Api.CopyItemToDocument(Parent.Handle, Name, destination.Handle, targetName);
         return destination.GetFirstItem(targetName) ?? throw new InvalidOperationException("Copied NotesItem could not be reopened.");
     }
-
-    protected void EnsureItemAlive()
-    {
-        EnsureAlive();
-        if (_removed) throw new ObjectDisposedException(nameof(NotesItem), "NotesItem has been removed from its document.");
-        _ = Parent.Handle;
-    }
-
-    protected override void ReleaseNative()
-    {
-        _removed = true;
-        Parent.ParentDatabase.UnregisterChild(this);
-    }
-
+    protected void EnsureItemAlive() { EnsureAlive(); if (_removed) throw new ObjectDisposedException(nameof(NotesItem), "NotesItem has been removed from its document."); _ = Parent.Handle; }
+    protected override void ReleaseNative() { _removed = true; Parent.ParentDatabase.UnregisterChild(this); }
     private bool HasFlag(ushort flag) => (Metadata.Flags & flag) != 0;
     private void SetFlag(ushort flag, bool value) => UpdateFlags(f => value ? (ushort)(f | flag) : (ushort)(f & ~flag));
     private void UpdateFlags(Func<ushort, ushort> update)
     {
-        var info = Metadata;
-        var flags = update(info.Flags);
+        var info = Metadata; var flags = update(info.Flags);
         if (flags != info.Flags) Session.Api.SetItemFlags(Parent.Handle, Name, flags);
     }
-
     private static int MapType(NotesItemMetadata info)
     {
         if ((info.Flags & NotesNativeApi.NotesItemReadWriters) != 0 && (info.Flags & NotesNativeApi.NotesItemNames) != 0) return 1076;
@@ -109,14 +81,6 @@ public class NotesItem : NotesObject
 public sealed class NotesRichTextItem : NotesItem
 {
     internal NotesRichTextItem(NotesSession session, NotesDocument parent, string name) : base(session, parent, name) { }
-    public bool SaveAttachment(string attachmentName, string outputPath)
-    {
-        EnsureItemAlive();
-        return Session.Api.SaveRichTextAttachment(Parent.Handle, Name, attachmentName, outputPath);
-    }
-    public void AppendText(string value)
-    {
-        EnsureItemAlive();
-        Session.Api.AppendRichText(unchecked((uint)Parent.Handle), Name, value ?? string.Empty);
-    }
+    public bool SaveAttachment(string attachmentName, string outputPath) { EnsureItemAlive(); return Session.Api.SaveRichTextAttachment(Parent.Handle, Name, attachmentName, outputPath); }
+    public void AppendText(string value) { EnsureItemAlive(); Session.Api.AppendRichText(Parent.Handle, Name, value ?? string.Empty); }
 }
