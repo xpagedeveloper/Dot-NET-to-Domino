@@ -129,6 +129,23 @@ public sealed class NotesRichTextItem : NotesItem
         }
     }
 
+    public NotesEmbeddedObject EmbedObject(int type, string className, string sourcePath) => EmbedObject(type, className, sourcePath, null);
+
+    public NotesEmbeddedObject EmbedObject(int type, string className, string sourcePath, string? name)
+    {
+        EnsureItemAlive();
+        if (type != NotesEmbeddedObject.EmbedAttachment)
+            throw new ArgumentOutOfRangeException(nameof(type), "Only EMBED_ATTACHMENT (1454) is supported by NotesRichTextItem.EmbedObject.");
+        if (!string.IsNullOrEmpty(className))
+            throw new ArgumentException("The class argument must be empty for EMBED_ATTACHMENT.", nameof(className));
+        ArgumentException.ThrowIfNullOrWhiteSpace(sourcePath);
+
+        _ = name;
+        var metadata = Session.Api.AttachRichTextFile(Parent.Handle, Name, sourcePath);
+        _richTextRevision++;
+        return new NotesEmbeddedObject(Session, this, metadata);
+    }
+
     internal long RichTextRevision { get { EnsureItemAlive(); return _richTextRevision; } }
     internal void EnsureRichTextAlive() => EnsureItemAlive();
     internal IReadOnlyList<NotesRichTextRecordData> ReadRichTextRecords()
