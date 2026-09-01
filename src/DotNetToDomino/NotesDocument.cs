@@ -17,7 +17,7 @@ public sealed class NotesDocument : NotesObject
         {
             NoteId = knownNoteId ?? Session.Api.GetNoteId(handle);
             _knownUniversalId = knownUnid ?? (handle == 0 ? string.Empty : Session.Api.GetUnid(handle));
-            if (handle != 0 && session.ConvertMIME) Session.Api.ConvertMimePartsToComposite(unchecked((uint)handle));
+            if (handle != 0 && session.ConvertMIME) Session.Api.ConvertMimePartsToComposite(handle);
         }
         catch
         {
@@ -44,11 +44,7 @@ public sealed class NotesDocument : NotesObject
         get
         {
             EnsureOpen();
-            return Session.Api.GetAllItemNames(_handle)
-                .Select(GetFirstItem)
-                .Where(item => item is not null)
-                .Cast<NotesItem>()
-                .ToArray();
+            return Session.Api.GetAllItemNames(_handle).Select(GetFirstItem).Where(item => item is not null).Cast<NotesItem>().ToArray();
         }
     }
     public object?[] ColumnValues { get { EnsureAlive(); return _viewRow?.GetColumnValues() ?? []; } }
@@ -71,7 +67,6 @@ public sealed class NotesDocument : NotesObject
     }
     public NotesDocumentCollection Responses { get { EnsureOpen(); return ParentDatabase.Own(new NotesDocumentCollection(Session, ParentDatabase, Session.Api.GetResponseIds(_handle))); } }
     internal nint Handle { get { EnsureOpen(); return _handle; } }
-
     internal void AttachViewRow(NotesViewRow row) { EnsureAlive(); _viewRow = row; }
 
     public NotesItem? GetFirstItem(string itemName)
@@ -79,45 +74,28 @@ public sealed class NotesDocument : NotesObject
         EnsureOpen();
         if (string.IsNullOrWhiteSpace(itemName) || !Session.Api.HasItem(_handle, itemName)) return null;
         var metadata = Session.Api.GetItemMetadata(_handle, itemName);
-        return ParentDatabase.Own(metadata.DataType == NotesNativeApi.NotesTypeComposite
-            ? new NotesRichTextItem(Session, this, metadata.Name)
-            : new NotesItem(Session, this, metadata.Name));
+        return ParentDatabase.Own(metadata.DataType == NotesNativeApi.NotesTypeComposite ? new NotesRichTextItem(Session, this, metadata.Name) : new NotesItem(Session, this, metadata.Name));
     }
-
     public NotesItem CreateNotesItem(string itemName)
     {
-        EnsureOpen();
-        ArgumentException.ThrowIfNullOrWhiteSpace(itemName);
+        EnsureOpen(); ArgumentException.ThrowIfNullOrWhiteSpace(itemName);
         Session.Api.SetItemText(_handle, itemName, string.Empty);
         return ParentDatabase.Own(new NotesItem(Session, this, itemName));
     }
-
     public NotesRichTextItem CreateRichTextItem(string itemName)
     {
-        EnsureOpen();
-        ArgumentException.ThrowIfNullOrWhiteSpace(itemName);
+        EnsureOpen(); ArgumentException.ThrowIfNullOrWhiteSpace(itemName);
         if (Session.Api.HasItem(_handle, itemName)) throw new InvalidOperationException($"Notes item '{itemName}' already exists.");
-        Session.Api.CreateRichTextItem(unchecked((uint)_handle), itemName);
+        Session.Api.CreateRichTextItem(_handle, itemName);
         return ParentDatabase.Own(new NotesRichTextItem(Session, this, itemName));
     }
-
-    public NotesItem ReplaceItemValue(string itemName, object? value)
-    {
-        SetValue(itemName, value);
-        return GetFirstItem(itemName) ?? ParentDatabase.Own(new NotesItem(Session, this, itemName));
-    }
-
+    public NotesItem ReplaceItemValue(string itemName, object? value) { SetValue(itemName, value); return GetFirstItem(itemName) ?? ParentDatabase.Own(new NotesItem(Session, this, itemName)); }
     public bool HasItem(string itemName) { EnsureOpen(); ArgumentException.ThrowIfNullOrWhiteSpace(itemName); return Session.Api.HasItem(_handle, itemName); }
-    public object? GetValue(string itemName)
-    {
-        var values = GetItemValue(itemName);
-        return values.Length switch { 0 => null, 1 => values[0], _ => values };
-    }
+    public object? GetValue(string itemName) { var values = GetItemValue(itemName); return values.Length switch { 0 => null, 1 => values[0], _ => values }; }
     public object?[] GetItemValue(string itemName) { EnsureOpen(); ArgumentException.ThrowIfNullOrWhiteSpace(itemName); return Session.Api.GetItemValues(_handle, itemName, td => NotesDateTime.FromNative(Session, td)); }
     public string GetString(string itemName) { EnsureOpen(); ArgumentException.ThrowIfNullOrWhiteSpace(itemName); return Session.Api.GetItemText(_handle, itemName); }
     public double GetNumber(string itemName) { EnsureOpen(); ArgumentException.ThrowIfNullOrWhiteSpace(itemName); return Session.Api.GetItemNumber(_handle, itemName); }
     public NotesDateTime GetDateTime(string itemName) { EnsureOpen(); ArgumentException.ThrowIfNullOrWhiteSpace(itemName); return NotesDateTime.FromNative(Session, Session.Api.GetItemTime(_handle, itemName)); }
-
     public void SetValue(string itemName, object? value) { EnsureOpen(); ArgumentException.ThrowIfNullOrWhiteSpace(itemName); Session.Api.SetItemValue(_handle, itemName, value); }
     public void SetString(string itemName, string value) { EnsureOpen(); ArgumentException.ThrowIfNullOrWhiteSpace(itemName); Session.Api.SetItemText(_handle, itemName, value ?? string.Empty); }
     public void SetNumber(string itemName, double value) { EnsureOpen(); ArgumentException.ThrowIfNullOrWhiteSpace(itemName); Session.Api.SetItemNumber(_handle, itemName, value); }
@@ -125,91 +103,39 @@ public sealed class NotesDocument : NotesObject
     public void RemoveItem(string itemName) { EnsureOpen(); ArgumentException.ThrowIfNullOrWhiteSpace(itemName); Session.Api.DeleteItem(_handle, itemName); }
     public bool SaveAttachment(string attachmentName, string outputPath) { EnsureOpen(); return Session.Api.SaveAttachment(_handle, attachmentName, outputPath); }
 
-    public void MarkRead(string? userName = null)
-    {
-        EnsureOpen();
-        if (!IsNewNote) Session.Api.SetDocumentUnread(ParentDatabase.Handle, NoteId, string.IsNullOrWhiteSpace(userName) ? Session.Username : userName, false);
-    }
-    public void MarkUnread(string? userName = null)
-    {
-        EnsureOpen();
-        if (!IsNewNote) Session.Api.SetDocumentUnread(ParentDatabase.Handle, NoteId, string.IsNullOrWhiteSpace(userName) ? Session.Username : userName, true);
-    }
-    public void PutInFolder(string folderName, bool createOnFail = false)
-    {
-        EnsureOpen();
-        ArgumentException.ThrowIfNullOrWhiteSpace(folderName);
-        if (!IsNewNote) Session.Api.PutDocumentInFolder(ParentDatabase.Handle, NoteId, folderName, createOnFail);
-    }
-    public void RemoveFromFolder(string folderName)
-    {
-        EnsureOpen();
-        ArgumentException.ThrowIfNullOrWhiteSpace(folderName);
-        if (!IsNewNote) Session.Api.RemoveDocumentFromFolder(ParentDatabase.Handle, NoteId, folderName);
-    }
-
+    public void MarkRead(string? userName = null) { EnsureOpen(); if (!IsNewNote) Session.Api.SetDocumentUnread(ParentDatabase.Handle, NoteId, string.IsNullOrWhiteSpace(userName) ? Session.Username : userName, false); }
+    public void MarkUnread(string? userName = null) { EnsureOpen(); if (!IsNewNote) Session.Api.SetDocumentUnread(ParentDatabase.Handle, NoteId, string.IsNullOrWhiteSpace(userName) ? Session.Username : userName, true); }
+    public void PutInFolder(string folderName, bool createOnFail = false) { EnsureOpen(); ArgumentException.ThrowIfNullOrWhiteSpace(folderName); if (!IsNewNote) Session.Api.PutDocumentInFolder(ParentDatabase.Handle, NoteId, folderName, createOnFail); }
+    public void RemoveFromFolder(string folderName) { EnsureOpen(); ArgumentException.ThrowIfNullOrWhiteSpace(folderName); if (!IsNewNote) Session.Api.RemoveDocumentFromFolder(ParentDatabase.Handle, NoteId, folderName); }
     public void MakeResponse(NotesDocument parentDocument)
     {
-        EnsureOpen();
-        ArgumentNullException.ThrowIfNull(parentDocument);
-        if (!string.Equals(ParentDatabase.ReplicaID, parentDocument.ParentDatabase.ReplicaID, StringComparison.OrdinalIgnoreCase))
-            throw new ArgumentException("MakeResponse requires documents in the same database replica.", nameof(parentDocument));
+        EnsureOpen(); ArgumentNullException.ThrowIfNull(parentDocument);
+        if (!string.Equals(ParentDatabase.ReplicaID, parentDocument.ParentDatabase.ReplicaID, StringComparison.OrdinalIgnoreCase)) throw new ArgumentException("MakeResponse requires documents in the same database replica.", nameof(parentDocument));
         Session.Api.MakeResponse(_handle, parentDocument.Handle);
     }
-
     public NotesDocument CopyToDatabase(NotesDatabase destination)
     {
-        EnsureOpen();
-        ArgumentNullException.ThrowIfNull(destination);
+        EnsureOpen(); ArgumentNullException.ThrowIfNull(destination);
         if (!destination.IsOpen) throw new InvalidOperationException("CopyToDatabase requires an open destination database.");
         var copy = Session.Api.CopyDocumentToDatabase(_handle, destination.Handle);
         return destination.Own(new NotesDocument(Session, destination, copy, Session.Api.GetNoteId(copy), null));
     }
-
-    public void CopyAllItems(NotesDocument destination, bool replace = false)
-    {
-        EnsureOpen();
-        ArgumentNullException.ThrowIfNull(destination);
-        Session.Api.CopyAllItems(_handle, destination.Handle, replace);
-    }
-
+    public void CopyAllItems(NotesDocument destination, bool replace = false) { EnsureOpen(); ArgumentNullException.ThrowIfNull(destination); Session.Api.CopyAllItems(_handle, destination.Handle, replace); }
     public NotesItem CopyItem(NotesItem item, string? newName = null)
     {
-        EnsureOpen();
-        ArgumentNullException.ThrowIfNull(item);
+        EnsureOpen(); ArgumentNullException.ThrowIfNull(item);
         var targetName = string.IsNullOrWhiteSpace(newName) ? item.Name : newName.Trim();
         Session.Api.CopyItemToDocument(item.Parent.Handle, item.Name, _handle, targetName);
         return GetFirstItem(targetName) ?? throw new InvalidOperationException("Copied NotesItem could not be reopened.");
     }
-
-    public void Save()
-    {
-        EnsureOpen();
-        Session.Api.SaveNote(_handle);
-        NoteId = Session.Api.GetNoteId(_handle);
-        _knownUniversalId = Session.Api.GetUnid(_handle);
-    }
-
-    public bool Remove(bool force = false)
-    {
-        EnsureOpen();
-        var removed = Session.Api.DeleteNote(_handle, force);
-        if (removed) NoteId |= 0x80000000u;
-        return removed;
-    }
+    public void Save() { EnsureOpen(); Session.Api.SaveNote(_handle); NoteId = Session.Api.GetNoteId(_handle); _knownUniversalId = Session.Api.GetUnid(_handle); }
+    public bool Remove(bool force = false) { EnsureOpen(); var removed = Session.Api.DeleteNote(_handle, force); if (removed) NoteId |= 0x80000000u; return removed; }
 
     protected override void ReleaseNative()
     {
-        var handle = _handle;
-        _handle = 0;
-        _viewRow = null;
+        var handle = _handle; _handle = 0; _viewRow = null;
         try { if (handle != 0 && Session.Api.IsInitialized) Session.Api.CloseNote(handle); }
         finally { ParentDatabase.UnregisterChild(this); }
     }
-
-    private void EnsureOpen()
-    {
-        EnsureAlive();
-        if (_handle == 0) throw new InvalidOperationException("NotesDocument is not open.");
-    }
+    private void EnsureOpen() { EnsureAlive(); if (_handle == 0) throw new InvalidOperationException("NotesDocument is not open."); }
 }
