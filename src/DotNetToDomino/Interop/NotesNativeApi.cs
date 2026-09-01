@@ -1,8 +1,8 @@
 using System.Runtime.InteropServices;
 using System.Text;
-using NotesToDotNet.Internal;
+using DotNetToDomino.Internal;
 
-namespace NotesToDotNet.Interop;
+namespace DotNetToDomino.Interop;
 
 internal sealed class NotesNativeApi
 {
@@ -30,7 +30,7 @@ internal sealed class NotesNativeApi
         if (_initialized)
             return;
 
-        var args = new List<string> { Path.Combine(_runtime.RuntimeDirectory, "notestodotnet") };
+        var args = new List<string> { Path.Combine(_runtime.RuntimeDirectory, "dotnet-to-domino") };
         if (!string.IsNullOrWhiteSpace(notesIni))
             args.Add("=" + Path.GetFullPath(notesIni));
 
