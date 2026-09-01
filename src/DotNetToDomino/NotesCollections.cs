@@ -1,0 +1,239 @@
+using System.Globalization;
+
+namespace DotNetToDomino;
+
+/// <summary>In-memory collection of Notes document note IDs.</summary>
+public sealed class NotesDocumentCollection : NotesObject, IReadOnlyCollection<uint>
+{
+    private uint[] _noteIds;
+    private readonly string _replicaId;
+    private int _lastFetchedIndex = -1;
+    private uint _lastFetchedNoteId;
+
+    internal NotesDocumentCollection(NotesSession session, NotesDatabase parent, IEnumerable<uint> noteIds) : base(session)
+    {
+        Parent = parent;
+        _noteIds = noteIds.Distinct().ToArray();
+        _replicaId = parent.IsOpen ? session.Api.GetDatabaseReplicaId(parent.Handle) : string.Empty;
+    }
+
+    public NotesDatabase Parent { get; }
+    public int Count { get { EnsureAlive(); return _noteIds.Length; } }
+    public string? FirstNoteId => Count == 0 ? null : _noteIds[0].ToString("X8", CultureInfo.InvariantCulture);
+    internal IReadOnlyList<uint> NoteIds { get { EnsureAlive(); return _noteIds; } }
+
+    public NotesDocument? GetFirstDocument()
+    {
+        EnsureAlive();
+        return _noteIds.Length == 0 ? ResetAndNull() : OpenAt(0);
+    }
+
+    public NotesDocument? GetNextDocument(NotesDocument document)
+    {
+        ArgumentNullException.ThrowIfNull(document);
+        EnsureAlive();
+        EnsureSameReplica(document.ParentDatabase);
+        var index = document.NoteId == _lastFetchedNoteId && _lastFetchedIndex >= 0 && _lastFetchedIndex < _noteIds.Length && _noteIds[_lastFetchedIndex] == document.NoteId
+            ? _lastFetchedIndex
+            : Array.IndexOf(_noteIds, document.NoteId);
+        return index < 0 || index + 1 >= _noteIds.Length ? ResetAndNull() : OpenAt(index + 1);
+    }
+
+    public NotesDocument? GetDocument(uint noteId)
+    {
+        EnsureAlive();
+        var index = Array.IndexOf(_noteIds, noteId);
+        return index < 0 ? null : OpenAt(index);
+    }
+
+    public NotesDocument? GetDocument(NotesDocument document)
+    {
+        ArgumentNullException.ThrowIfNull(document);
+        EnsureSameReplica(document.ParentDatabase);
+        return GetDocument(document.NoteId);
+    }
+
+    public string GetNoteIdString(int index) { EnsureAlive(); return _noteIds[index].ToString("X8", CultureInfo.InvariantCulture); }
+    public string Get(int index) => GetNoteIdString(index);
+
+    public void AddDocument(NotesDocument document)
+    {
+        ArgumentNullException.ThrowIfNull(document);
+        EnsureAlive();
+        EnsureSameReplica(document.ParentDatabase);
+        if (Array.IndexOf(_noteIds, document.NoteId) < 0) _noteIds = [.. _noteIds, document.NoteId];
+    }
+
+    public void AddDocument(NotesDocumentCollection collection)
+    {
+        ArgumentNullException.ThrowIfNull(collection);
+        EnsureAlive();
+        EnsureSameReplica(collection.Parent);
+        var ids = new List<uint>(_noteIds);
+        var seen = new HashSet<uint>(_noteIds);
+        foreach (var id in collection._noteIds) if (seen.Add(id)) ids.Add(id);
+        _noteIds = ids.ToArray();
+    }
+
+    public void RemoveDocument(NotesDocument document)
+    {
+        ArgumentNullException.ThrowIfNull(document);
+        EnsureSameReplica(document.ParentDatabase);
+        RemoveIds([document.NoteId]);
+    }
+
+    public void RemoveDocument(NotesDocumentCollection collection)
+    {
+        ArgumentNullException.ThrowIfNull(collection);
+        EnsureSameReplica(collection.Parent);
+        RemoveIds(collection._noteIds);
+    }
+
+    public IEnumerator<uint> GetEnumerator() { EnsureAlive(); return ((IEnumerable<uint>)_noteIds).GetEnumerator(); }
+    System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => GetEnumerator();
+
+    protected override void ReleaseNative()
+    {
+        _noteIds = [];
+        ResetCursor();
+        Parent.UnregisterChild(this);
+    }
+
+    private NotesDocument? OpenAt(int index)
+    {
+        var document = Parent.GetDocumentByID(_noteIds[index]);
+        if (document is null) return ResetAndNull();
+        _lastFetchedIndex = index;
+        _lastFetchedNoteId = _noteIds[index];
+        return document;
+    }
+
+    private NotesDocument? ResetAndNull() { ResetCursor(); return null; }
+    private void ResetCursor() { _lastFetchedIndex = -1; _lastFetchedNoteId = 0; }
+    private void RemoveIds(IEnumerable<uint> ids)
+    {
+        EnsureAlive();
+        var remove = ids.ToHashSet();
+        _noteIds = _noteIds.Where(id => !remove.Contains(id)).ToArray();
+        ResetCursor();
+    }
+    private void EnsureSameReplica(NotesDatabase database)
+    {
+        var replicaId = database.IsOpen ? Session.Api.GetDatabaseReplicaId(database.Handle) : database.ReplicaID;
+        if (!string.Equals(_replicaId, replicaId, StringComparison.OrdinalIgnoreCase)) throw new ArgumentException("Notes object belongs to a different database replica.", nameof(database));
+    }
+}
+
+/// <summary>Selection-driven collection of Notes data and design notes.</summary>
+public sealed class NotesNoteCollection : NotesObject, IReadOnlyCollection<uint>
+{
+    private uint[] _noteIds = [];
+    private bool _built;
+    private DateTimeOffset _lastBuildUtc;
+
+    internal NotesNoteCollection(NotesSession session, NotesDatabase parent) : base(session) => Parent = parent;
+
+    public NotesDatabase Parent { get; }
+    public int Count { get { EnsureAlive(); RequireBuilt(); return _noteIds.Length; } }
+    public string SelectionFormula { get; set; } = "@All";
+    public NotesDateTime? SinceTime { get; set; }
+    public NotesDateTime LastBuildTime { get { EnsureAlive(); RequireBuilt(); return new NotesDateTime(Session, _lastBuildUtc); } }
+
+    public bool SelectACL { get; set; }
+    public bool SelectActions { get; set; }
+    public bool SelectAgents { get; set; }
+    public bool SelectDatabaseScript { get; set; }
+    public bool SelectDataConnections { get; set; }
+    public bool SelectDocuments { get; set; }
+    public bool SelectFolders { get; set; }
+    public bool SelectForms { get; set; }
+    public bool SelectFrameSets { get; set; }
+    public bool SelectHelpAbout { get; set; }
+    public bool SelectHelpIndex { get; set; }
+    public bool SelectHelpUsing { get; set; }
+    public bool SelectIcon { get; set; }
+    public bool SelectImageResources { get; set; }
+    public bool SelectJavaResources { get; set; }
+    public bool SelectMiscCodeElements { get; set; }
+    public bool SelectMiscFormatElements { get; set; }
+    public bool SelectMiscIndexElements { get; set; }
+    public bool SelectNavigators { get; set; }
+    public bool SelectOutlines { get; set; }
+    public bool SelectPages { get; set; }
+    public bool SelectProfiles { get; set; }
+    public bool SelectReplicationFormulas { get; set; }
+    public bool SelectScriptLibraries { get; set; }
+    public bool SelectSharedFields { get; set; }
+    public bool SelectStyleSheetResources { get; set; }
+    public bool SelectSubforms { get; set; }
+    public bool SelectViews { get; set; }
+    internal IReadOnlyList<uint> NoteIds { get { EnsureAlive(); RequireBuilt(); return _noteIds; } }
+
+    public void BuildCollection()
+    {
+        EnsureAlive();
+        _noteIds = Session.Api.BuildNoteCollection(Parent.Handle, SelectionFormula, BuildSelectionMask()).Distinct().OrderBy(id => id).ToArray();
+        _built = true;
+        _lastBuildUtc = DateTimeOffset.UtcNow;
+    }
+
+    public void ClearCollection() { EnsureAlive(); _noteIds = []; _built = false; }
+    public string GetFirstNoteID() { EnsureAlive(); RequireBuilt(); return _noteIds.Length == 0 ? string.Empty : _noteIds[0].ToString("X", CultureInfo.InvariantCulture); }
+    public string GetNextNoteID(uint noteId) { EnsureAlive(); RequireBuilt(); var index = Array.IndexOf(_noteIds, noteId); return index < 0 || index + 1 >= _noteIds.Length ? string.Empty : _noteIds[index + 1].ToString("X", CultureInfo.InvariantCulture); }
+
+    public void Add(uint noteId) => Mutate([noteId], 0);
+    public void Add(NotesDocument document) { ArgumentNullException.ThrowIfNull(document); EnsureSameReplica(document.ParentDatabase); Mutate([document.NoteId], 0); }
+    public void Add(NotesDocumentCollection collection) { ArgumentNullException.ThrowIfNull(collection); EnsureSameReplica(collection.Parent); Mutate(collection.NoteIds, 0); }
+    public void Add(NotesNoteCollection collection) { ArgumentNullException.ThrowIfNull(collection); EnsureSameReplica(collection.Parent); Mutate(collection.NoteIds, 0); }
+    public void Remove(uint noteId) => Mutate([noteId], 1);
+    public void Remove(NotesDocument document) { ArgumentNullException.ThrowIfNull(document); EnsureSameReplica(document.ParentDatabase); Mutate([document.NoteId], 1); }
+    public void Remove(NotesDocumentCollection collection) { ArgumentNullException.ThrowIfNull(collection); EnsureSameReplica(collection.Parent); Mutate(collection.NoteIds, 1); }
+    public void Remove(NotesNoteCollection collection) { ArgumentNullException.ThrowIfNull(collection); EnsureSameReplica(collection.Parent); Mutate(collection.NoteIds, 1); }
+    public void Intersect(NotesDocumentCollection collection) { ArgumentNullException.ThrowIfNull(collection); EnsureSameReplica(collection.Parent); Mutate(collection.NoteIds, 2); }
+    public void Intersect(NotesNoteCollection collection) { ArgumentNullException.ThrowIfNull(collection); EnsureSameReplica(collection.Parent); Mutate(collection.NoteIds, 2); }
+
+    public void SelectAllAdminNotes(bool value) { SelectACL = value; SelectReplicationFormulas = value; }
+    public void SelectAllCodeElements(bool value) { SelectAgents = value; SelectDatabaseScript = value; SelectDataConnections = value; SelectMiscCodeElements = value; SelectOutlines = value; SelectScriptLibraries = value; }
+    public void SelectAllDataNotes(bool value) { SelectDocuments = value; SelectProfiles = value; }
+    public void SelectAllFormatElements(bool value) { SelectActions = value; SelectForms = value; SelectFrameSets = value; SelectImageResources = value; SelectJavaResources = value; SelectMiscFormatElements = value; SelectPages = value; SelectStyleSheetResources = value; SelectSubforms = value; }
+    public void SelectAllIndexElements(bool value) { SelectFolders = value; SelectMiscIndexElements = value; SelectNavigators = value; SelectViews = value; }
+    public void SelectAllDesignElements(bool value) { SelectAllCodeElements(value); SelectAllFormatElements(value); SelectAllIndexElements(value); SelectHelpAbout = value; SelectHelpIndex = value; SelectHelpUsing = value; SelectIcon = value; SelectSharedFields = value; }
+    public void SelectAllNotes(bool value) { SelectAllAdminNotes(value); SelectAllDesignElements(value); SelectDocuments = value; SelectProfiles = value; }
+
+    public IEnumerator<uint> GetEnumerator() { EnsureAlive(); RequireBuilt(); return ((IEnumerable<uint>)_noteIds).GetEnumerator(); }
+    System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => GetEnumerator();
+
+    protected override void ReleaseNative()
+    {
+        _noteIds = [];
+        _built = false;
+        Parent.UnregisterChild(this);
+    }
+
+    private uint BuildSelectionMask()
+    {
+        uint mask = 0;
+        if (SelectDocuments || SelectProfiles) mask |= 0x0001;
+        if (SelectACL) mask |= 0x0040;
+        if (SelectReplicationFormulas) mask |= 0x0800;
+        if (SelectForms || SelectSubforms || SelectActions || SelectPages || SelectImageResources || SelectJavaResources || SelectMiscFormatElements || SelectFrameSets || SelectSharedFields || SelectIcon || SelectHelpAbout || SelectHelpIndex || SelectHelpUsing) mask |= 0x0004;
+        if (SelectViews || SelectFolders || SelectNavigators || SelectMiscIndexElements) mask |= 0x0008;
+        if (SelectAgents || SelectDatabaseScript || SelectDataConnections || SelectMiscCodeElements || SelectOutlines || SelectScriptLibraries) mask |= 0x0200;
+        return mask;
+    }
+
+    private void Mutate(IEnumerable<uint> values, int operation)
+    {
+        EnsureAlive(); RequireBuilt();
+        var set = new HashSet<uint>(_noteIds);
+        if (operation == 0) set.UnionWith(values);
+        else if (operation == 1) set.ExceptWith(values);
+        else set.IntersectWith(values);
+        _noteIds = set.OrderBy(id => id).ToArray();
+    }
+    private void RequireBuilt() { if (!_built) throw new InvalidOperationException("NotesNoteCollection.BuildCollection must be called before using the collection."); }
+    private void EnsureSameReplica(NotesDatabase database)
+    {
+        if (!string.Equals(Parent.ReplicaID, database.ReplicaID, StringComparison.OrdinalIgnoreCase)) throw new ArgumentException("Notes object belongs to a different database replica.", nameof(database));
+    }
+}
