@@ -4,7 +4,7 @@ using DotNetToDomino.Internal;
 
 namespace DotNetToDomino.Interop;
 
-internal sealed class NotesNativeApi
+internal sealed partial class NotesNativeApi
 {
     private const ushort TranslateLmbcsToUtf8 = 22;
     private const ushort TranslateUtf8ToLmbcs = 24;
@@ -113,15 +113,7 @@ internal sealed class NotesNativeApi
         try
         {
             Zero(output, capacity);
-            CheckStatus(
-                Resolve<DNCanonicalizeDelegate>("DNCanonicalize")(
-                    0,
-                    0,
-                    input.Pointer,
-                    output,
-                    checked((ushort)(capacity - 1)),
-                    out var length),
-                "DNCanonicalize");
+            CheckStatus(Resolve<DNCanonicalizeDelegate>("DNCanonicalize")(0, 0, input.Pointer, output, checked((ushort)(capacity - 1)), out var length), "DNCanonicalize");
             return FromLmbcs(output, length);
         }
         finally
@@ -140,17 +132,13 @@ internal sealed class NotesNativeApi
         nint networkPath = 0;
         try
         {
-            var path = file.Pointer;
+            var path = filePath.Length == 0 && server.Length == 0 ? 0 : file.Pointer;
             if (server.Length > 0)
             {
                 networkPath = Marshal.AllocHGlobal(4096);
                 Zero(networkPath, 4096);
                 CheckStatus(
-                    Resolve<OSPathNetConstructDelegate>("OSPathNetConstruct")(
-                        0,
-                        serverName.Pointer,
-                        file.Pointer,
-                        networkPath),
+                    Resolve<OSPathNetConstructDelegate>("OSPathNetConstruct")(0, serverName.Pointer, file.Pointer, networkPath),
                     "OSPathNetConstruct");
                 path = networkPath;
             }
@@ -325,11 +313,7 @@ internal sealed class NotesNativeApi
             try
             {
                 Zero(buffer, capacity);
-                var length = Resolve<OSLoadStringDelegate>("OSLoadString")(
-                    0,
-                    (ushort)(status & 0x3fff),
-                    buffer,
-                    checked((ushort)(capacity - 1)));
+                var length = Resolve<OSLoadStringDelegate>("OSLoadString")(0, (ushort)(status & 0x3fff), buffer, checked((ushort)(capacity - 1)));
                 return length == 0 ? string.Empty : FromLmbcs(buffer, length);
             }
             finally
