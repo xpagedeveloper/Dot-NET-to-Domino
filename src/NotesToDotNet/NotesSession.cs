@@ -82,6 +82,24 @@ public sealed class NotesSession : IDisposable
         return new NotesDateTime(this, DateTimeOffset.Now);
     }
 
+    public NotesStream CreateStream()
+    {
+        EnsureAlive();
+        return new NotesStream(this);
+    }
+
+    public NotesDXLImporter CreateDXLImporter()
+    {
+        EnsureAlive();
+        return new NotesDXLImporter(this);
+    }
+
+    public NotesDXLExporter CreateDXLExporter()
+    {
+        EnsureAlive();
+        return new NotesDXLExporter(this);
+    }
+
     public void Recycle()
     {
         lock (SessionGate)
