@@ -2,7 +2,7 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.0.31903.59
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "NotesToDotNet", "src\NotesToDotNet\NotesToDotNet.csproj", "{8A0BEA59-46D6-4E3E-84B5-5B4ECF12F46B}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DotNetToDomino", "src\DotNetToDomino\DotNetToDomino.csproj", "{8A0BEA59-46D6-4E3E-84B5-5B4ECF12F46B}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
