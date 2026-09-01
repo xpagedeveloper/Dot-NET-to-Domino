@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using NotesToDotNet.Internal;
+using NotesToDotNet.Interop;
 
 namespace NotesToDotNet;
 
@@ -12,6 +13,7 @@ public sealed class NotesSession : IDisposable
     private readonly object _childrenGate = new();
     private readonly List<NotesObject> _children = [];
     private readonly NotesRuntimeLibrary _runtime;
+    private readonly NotesNativeApi _api;
     private bool _recycled;
     private bool _recycling;
 
@@ -23,42 +25,69 @@ public sealed class NotesSession : IDisposable
                 throw new InvalidOperationException("Only one NotesSession may be active in a process at a time.");
 
             _runtime = NotesRuntimeLibrary.Load(runtimeDirectory);
+            _api = new NotesNativeApi(_runtime);
             RuntimeDirectory = _runtime.RuntimeDirectory;
             NotesIni = string.IsNullOrWhiteSpace(notesIni) ? string.Empty : Path.GetFullPath(notesIni);
-            IdPasswordWasProvided = !string.IsNullOrEmpty(idPassword);
             Platform = ResolvePlatform();
             NotesVersion = ResolveNotesVersion(_runtime.LibraryPath);
             NotesBuildVersion = ResolveBuildVersion(_runtime.LibraryPath);
 
-            // Native NotesInitExtended/NotesTerm binding is implemented in the interop layer next.
-            _activeSession = this;
+            try
+            {
+                _api.Initialize(NotesIni.Length == 0 ? null : NotesIni, idPassword);
+                Username = _api.GetUserName();
+                CommonUsername = ExtractCommonName(_api.CanonicalizeName(Username));
+                _activeSession = this;
+            }
+            catch
+            {
+                try { _api.Terminate(); }
+                catch { }
+                _runtime.Dispose();
+                throw;
+            }
         }
     }
 
     public string RuntimeDirectory { get; }
     public string NotesIni { get; }
-    public string Username { get; internal set; } = string.Empty;
+    public string Username { get; }
     public string UserName => Username;
-    public string CommonUsername { get; internal set; } = string.Empty;
+    public string CommonUsername { get; }
     public string CommonUserName => CommonUsername;
     public string NotesVersion { get; }
     public long NotesBuildVersion { get; }
     public string Platform { get; }
     public bool IsRecycled => _recycled;
-    internal bool IdPasswordWasProvided { get; }
-    internal NotesRuntimeLibrary Runtime => _runtime;
+
+    internal NotesNativeApi Api => _api;
 
     public NotesDatabase OpenDatabase(string server, string filePath)
     {
         EnsureAlive();
-        return new NotesDatabase(this, server?.Trim() ?? string.Empty, filePath?.Trim() ?? string.Empty);
+        server = server?.Trim() ?? string.Empty;
+        filePath = filePath?.Trim() ?? string.Empty;
+
+        if (filePath.Length == 0)
+            return new NotesDatabase(this, 0, server, filePath);
+
+        try
+        {
+            return new NotesDatabase(this, _api.OpenDatabase(server, filePath), server, filePath);
+        }
+        catch (NotesException)
+        {
+            return new NotesDatabase(this, 0, server, filePath);
+        }
     }
 
     public NotesDatabase OpenByReplicaID(string server, string replicaId)
     {
         EnsureAlive();
         ArgumentException.ThrowIfNullOrWhiteSpace(replicaId);
-        return new NotesDatabase(this, server?.Trim() ?? string.Empty, string.Empty)
+
+        // Replica lookup is implemented in the next database interop increment.
+        return new NotesDatabase(this, 0, server?.Trim() ?? string.Empty, string.Empty)
         {
             ReplicaID = replicaId.Trim()
         };
@@ -67,7 +96,13 @@ public sealed class NotesSession : IDisposable
     public NotesName CreateName(string value)
     {
         EnsureAlive();
-        return new NotesName(this, value ?? string.Empty);
+        var original = value ?? string.Empty;
+        var result = new NotesName(this, original)
+        {
+            Canonical = _api.CanonicalizeName(original)
+        };
+        result.Common = ExtractCommonName(result.Canonical);
+        return result;
     }
 
     public NotesDateTime CreateDateTime(string value)
@@ -119,10 +154,11 @@ public sealed class NotesSession : IDisposable
                     if (child is null)
                         break;
 
-                    child.Recycle();
+                    try { child.Recycle(); }
+                    catch { Unregister(child); }
                 }
 
-                // NotesTerm will be invoked here once native runtime initialization is wired.
+                _api.Terminate();
                 _recycled = true;
             }
             finally
@@ -156,6 +192,17 @@ public sealed class NotesSession : IDisposable
     {
         if (_recycled)
             throw new ObjectDisposedException(nameof(NotesSession), "NotesSession has been recycled.");
+    }
+
+    private static string ExtractCommonName(string canonical)
+    {
+        foreach (var part in canonical.Split('/'))
+        {
+            var value = part.Trim();
+            if (value.StartsWith("CN=", StringComparison.OrdinalIgnoreCase))
+                return value[3..];
+        }
+        return canonical;
     }
 
     private static string ResolvePlatform()
