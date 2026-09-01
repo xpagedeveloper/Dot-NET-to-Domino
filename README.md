@@ -1,8 +1,8 @@
-# NotesToDotNet
+# DotNetToDomino
 
 Native .NET wrappers for the HCL Notes/Domino C API.
 
-NotesToDotNet provides a managed object model inspired by the HCL Notes object model while calling the native Notes/Domino C API directly.
+DotNetToDomino provides a managed object model inspired by the HCL Notes object model while calling the native Notes/Domino C API directly.
 
 ## Goals
 
@@ -14,12 +14,12 @@ NotesToDotNet provides a managed object model inspired by the HCL Notes object m
 
 ## Status
 
-Early development. The package skeleton, public object model, lifecycle, and native runtime loader are established first. Native C API bindings will then be implemented per object.
+Early development. Native runtime initialization, thread scopes, LMBCS conversion, user identity lookup, canonical name handling, and native database open/close are being implemented first.
 
 ## Basic usage
 
 ```csharp
-using NotesToDotNet;
+using DotNetToDomino;
 
 using var session = new NotesSession(@"C:\Program Files\HCL\Notes");
 using var db = session.OpenDatabase("", "names.nsf");
