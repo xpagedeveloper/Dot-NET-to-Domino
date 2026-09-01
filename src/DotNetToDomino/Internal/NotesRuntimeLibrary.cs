@@ -1,6 +1,6 @@
 using System.Runtime.InteropServices;
 
-namespace NotesToDotNet.Internal;
+namespace DotNetToDomino.Internal;
 
 internal sealed class NotesRuntimeLibrary : IDisposable
 {
