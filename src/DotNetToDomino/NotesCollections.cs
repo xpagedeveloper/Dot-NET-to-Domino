@@ -1,4 +1,5 @@
 using System.Globalization;
+using DotNetToDomino.Interop;
 
 namespace DotNetToDomino;
 
@@ -9,6 +10,10 @@ public sealed class NotesDocumentCollection : NotesObject, IReadOnlyCollection<u
     private readonly string _replicaId;
     private int _lastFetchedIndex = -1;
     private uint _lastFetchedNoteId;
+    private bool _hasModifiedMetadata;
+    private NotesTimeDate _untilTime;
+    private uint[]? _documentNoteIds;
+    private uint[]? _designNoteIds;
 
     internal NotesDocumentCollection(NotesSession session, NotesDatabase parent, IEnumerable<uint> noteIds) : base(session)
     {
@@ -20,7 +25,18 @@ public sealed class NotesDocumentCollection : NotesObject, IReadOnlyCollection<u
     public NotesDatabase Parent { get; }
     public int Count { get { EnsureAlive(); return _noteIds.Length; } }
     public string? FirstNoteId => Count == 0 ? null : _noteIds[0].ToString("X8", CultureInfo.InvariantCulture);
+    public NotesDateTime? UntilTime { get { EnsureAlive(); return _hasModifiedMetadata ? NotesDateTime.FromNative(Session, _untilTime) : null; } }
+    public NotesDocumentCollection Documents { get { EnsureAlive(); EnsureModifiedMetadata(); return CreateModifiedSubset(_documentNoteIds!, true); } }
+    public NotesDocumentCollection DesignElements { get { EnsureAlive(); EnsureModifiedMetadata(); return CreateModifiedSubset(_designNoteIds!, false); } }
     internal IReadOnlyList<uint> NoteIds { get { EnsureAlive(); return _noteIds; } }
+
+    internal void InitializeModifiedMetadata(NotesTimeDate untilTime, IEnumerable<uint> documentNoteIds, IEnumerable<uint> designNoteIds)
+    {
+        _untilTime = untilTime;
+        _documentNoteIds = documentNoteIds.Distinct().ToArray();
+        _designNoteIds = designNoteIds.Distinct().ToArray();
+        _hasModifiedMetadata = true;
+    }
 
     public NotesDocument? GetFirstDocument()
     {
@@ -45,6 +61,8 @@ public sealed class NotesDocumentCollection : NotesObject, IReadOnlyCollection<u
         var index = Array.IndexOf(_noteIds, noteId);
         return index < 0 ? null : OpenAt(index);
     }
+
+    public NotesDocument? GetDocument(string noteId) => GetDocument(NotesDatabase.ParseNoteId(noteId));
 
     public NotesDocument? GetDocument(NotesDocument document)
     {
@@ -95,8 +113,24 @@ public sealed class NotesDocumentCollection : NotesObject, IReadOnlyCollection<u
     protected override void ReleaseNative()
     {
         _noteIds = [];
+        _documentNoteIds = null;
+        _designNoteIds = null;
+        _hasModifiedMetadata = false;
         ResetCursor();
         Parent.UnregisterChild(this);
+    }
+
+    private NotesDocumentCollection CreateModifiedSubset(uint[] noteIds, bool documents)
+    {
+        var subset = Parent.Own(new NotesDocumentCollection(Session, Parent, noteIds));
+        subset.InitializeModifiedMetadata(_untilTime, documents ? noteIds : [], documents ? [] : noteIds);
+        return subset;
+    }
+
+    private void EnsureModifiedMetadata()
+    {
+        if (_hasModifiedMetadata && _documentNoteIds is not null && _designNoteIds is not null) return;
+        throw new InvalidOperationException("Documents and DesignElements are available only on collections returned by NotesDatabase.GetModifiedDocuments.");
     }
 
     private NotesDocument? OpenAt(int index)
@@ -180,12 +214,15 @@ public sealed class NotesNoteCollection : NotesObject, IReadOnlyCollection<uint>
     public void ClearCollection() { EnsureAlive(); _noteIds = []; _built = false; }
     public string GetFirstNoteID() { EnsureAlive(); RequireBuilt(); return _noteIds.Length == 0 ? string.Empty : _noteIds[0].ToString("X", CultureInfo.InvariantCulture); }
     public string GetNextNoteID(uint noteId) { EnsureAlive(); RequireBuilt(); var index = Array.IndexOf(_noteIds, noteId); return index < 0 || index + 1 >= _noteIds.Length ? string.Empty : _noteIds[index + 1].ToString("X", CultureInfo.InvariantCulture); }
+    public string GetNextNoteID(string noteId) => GetNextNoteID(NotesDatabase.ParseNoteId(noteId));
 
     public void Add(uint noteId) => Mutate([noteId], 0);
+    public void Add(string noteId) => Add(NotesDatabase.ParseNoteId(noteId));
     public void Add(NotesDocument document) { ArgumentNullException.ThrowIfNull(document); EnsureSameReplica(document.ParentDatabase); Mutate([document.NoteId], 0); }
     public void Add(NotesDocumentCollection collection) { ArgumentNullException.ThrowIfNull(collection); EnsureSameReplica(collection.Parent); Mutate(collection.NoteIds, 0); }
     public void Add(NotesNoteCollection collection) { ArgumentNullException.ThrowIfNull(collection); EnsureSameReplica(collection.Parent); Mutate(collection.NoteIds, 0); }
     public void Remove(uint noteId) => Mutate([noteId], 1);
+    public void Remove(string noteId) => Remove(NotesDatabase.ParseNoteId(noteId));
     public void Remove(NotesDocument document) { ArgumentNullException.ThrowIfNull(document); EnsureSameReplica(document.ParentDatabase); Mutate([document.NoteId], 1); }
     public void Remove(NotesDocumentCollection collection) { ArgumentNullException.ThrowIfNull(collection); EnsureSameReplica(collection.Parent); Mutate(collection.NoteIds, 1); }
     public void Remove(NotesNoteCollection collection) { ArgumentNullException.ThrowIfNull(collection); EnsureSameReplica(collection.Parent); Mutate(collection.NoteIds, 1); }

@@ -54,6 +54,37 @@ public sealed class NotesDocument : NotesObject
     public bool IsNewNote => NoteId == 0;
     public bool IsResponse { get { EnsureOpen(); return Session.Api.GetParentNoteId(_handle) != 0; } }
     public bool IsDeleted => (NoteId & 0x80000000u) != 0;
+    public bool IsValid { get { EnsureAlive(); return NoteId == 0 || !IsDeleted; } }
+    public bool IsProfile
+    {
+        get
+        {
+            EnsureOpen();
+            return HasItem("$Name") && GetString("$Name").StartsWith("$profile_", StringComparison.OrdinalIgnoreCase);
+        }
+    }
+    public bool IsDesign { get { EnsureOpen(); return ResolveDesignType().Length != 0; } }
+    public string DesignType { get { EnsureOpen(); return ResolveDesignType(); } }
+    public string DesignTitle
+    {
+        get
+        {
+            EnsureOpen();
+            if (!IsDesign) return string.Empty;
+            var names = GetDesignNames();
+            return names.Length == 0 ? string.Empty : names[0];
+        }
+    }
+    public string DesignAlias
+    {
+        get
+        {
+            EnsureOpen();
+            if (!IsDesign) return string.Empty;
+            var names = GetDesignNames();
+            return names.Length <= 1 ? string.Empty : string.Join("|", names.Skip(1));
+        }
+    }
     public string ParentDocumentUNID
     {
         get
@@ -103,6 +134,25 @@ public sealed class NotesDocument : NotesObject
     public void RemoveItem(string itemName) { EnsureOpen(); ArgumentException.ThrowIfNullOrWhiteSpace(itemName); Session.Api.DeleteItem(_handle, itemName); }
     public bool SaveAttachment(string attachmentName, string outputPath) { EnsureOpen(); return Session.Api.SaveAttachment(_handle, attachmentName, outputPath); }
 
+    public bool ComputeWithForm(bool doDataTypes, bool raiseError)
+    {
+        EnsureOpen();
+        _ = doDataTypes;
+        var success = Session.Api.ComputeDocumentWithForm(_handle);
+        if (!success && raiseError) throw new NotesException(5, "ComputeWithForm validation failed.");
+        return success;
+    }
+
+    public bool ComputeWithForm(bool doDataTypes, bool raiseError, out string[] failedFields)
+    {
+        EnsureOpen();
+        _ = doDataTypes;
+        var result = Session.Api.ComputeDocumentWithFormAndCollectErrors(_handle);
+        failedFields = result.FailedFields;
+        if (!result.Success && raiseError) throw new NotesException(5, "ComputeWithForm validation failed.");
+        return result.Success;
+    }
+
     public void MarkRead(string? userName = null) { EnsureOpen(); if (!IsNewNote) Session.Api.SetDocumentUnread(ParentDatabase.Handle, NoteId, string.IsNullOrWhiteSpace(userName) ? Session.Username : userName, false); }
     public void MarkUnread(string? userName = null) { EnsureOpen(); if (!IsNewNote) Session.Api.SetDocumentUnread(ParentDatabase.Handle, NoteId, string.IsNullOrWhiteSpace(userName) ? Session.Username : userName, true); }
     public void PutInFolder(string folderName, bool createOnFail = false) { EnsureOpen(); ArgumentException.ThrowIfNullOrWhiteSpace(folderName); if (!IsNewNote) Session.Api.PutDocumentInFolder(ParentDatabase.Handle, NoteId, folderName, createOnFail); }
@@ -137,5 +187,67 @@ public sealed class NotesDocument : NotesObject
         try { if (handle != 0 && Session.Api.IsInitialized) Session.Api.CloseNote(handle); }
         finally { ParentDatabase.UnregisterChild(this); }
     }
+
+    private string ResolveDesignType()
+    {
+        var noteClass = Session.Api.GetNoteClass(_handle);
+        var flags = HasItem("$Flags") ? GetString("$Flags") : string.Empty;
+        if ((noteClass & 0x0002) != 0) return "HelpAbout";
+        if ((noteClass & 0x0004) != 0)
+        {
+            if (flags.Contains('U')) return "Subform";
+            if (flags.Contains('#')) return "Frameset";
+            if (flags.Contains('W')) return "Page";
+            if (flags.Contains('i')) return "ImageResource";
+            if (flags.Contains('@')) return "JavaResource";
+            if (flags.Contains('=')) return "StyleSheetResource";
+            if (flags.Contains('K')) return "XPage";
+            if (flags.Contains(';')) return "CustomControl";
+            if (flags.Contains('y')) return "SharedActions";
+            if (flags.Contains('g')) return "FileResource";
+            return "Form";
+        }
+        if ((noteClass & 0x0008) != 0)
+        {
+            if (flags.Contains('F')) return "Folder";
+            if (flags.Contains('G')) return "Navigator";
+            if (flags.Contains('^')) return "SharedColumn";
+            return "View";
+        }
+        if ((noteClass & 0x0010) != 0) return "Icon";
+        if ((noteClass & 0x0020) != 0) return "DesignCollection";
+        if ((noteClass & 0x0080) != 0) return "HelpIndex";
+        if ((noteClass & 0x0100) != 0) return "HelpUsing";
+        if ((noteClass & 0x0200) != 0)
+        {
+            if (flags.Contains('s')) return "ScriptLibrary";
+            if (flags.Contains('h')) return "JavaScriptLibrary";
+            if (flags.Contains('t')) return "DatabaseScript";
+            if (flags.Contains('k')) return "DataConnection";
+            if (flags.Contains('{')) return "WebService";
+            if (flags.Contains('z')) return "Servlet";
+            return "Agent";
+        }
+        if ((noteClass & 0x0400) != 0) return "SharedField";
+        if ((noteClass & 0x0800) != 0) return "ReplicationFormula";
+        return string.Empty;
+    }
+
+    private string[] GetDesignNames()
+    {
+        if (!HasItem("$TITLE")) return [];
+        var names = new List<string>();
+        foreach (var value in GetItemValue("$TITLE"))
+        {
+            var text = Convert.ToString(value, CultureInfo.InvariantCulture) ?? string.Empty;
+            foreach (var part in text.Split('|'))
+            {
+                var name = part.Trim();
+                if (name.Length > 0) names.Add(name);
+            }
+        }
+        return names.ToArray();
+    }
+
     private void EnsureOpen() { EnsureAlive(); if (_handle == 0) throw new InvalidOperationException("NotesDocument is not open."); }
 }

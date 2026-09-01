@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using Microsoft.Win32;
 using DotNetToDomino.Internal;
 using DotNetToDomino.Interop;
 
@@ -17,6 +18,9 @@ public sealed class NotesSession : IDisposable
     private bool _recycled;
     private bool _recycling;
 
+    /// <summary>Creates a session using an installed HCL Notes or Domino runtime. This overload is supported on Windows only.</summary>
+    public NotesSession() : this(ResolveDefaultRuntimeDirectoryWindows(), null, null) { }
+
     public NotesSession(string runtimeDirectory, string? notesIni = null, string? idPassword = null)
     {
         lock (SessionGate)
@@ -28,6 +32,9 @@ public sealed class NotesSession : IDisposable
             _api = new NotesNativeApi(_runtime);
             RuntimeDirectory = _runtime.RuntimeDirectory;
             NotesIni = string.IsNullOrWhiteSpace(notesIni) ? string.Empty : Path.GetFullPath(notesIni);
+            var resolvedIniPath = ResolveNotesIniPath(RuntimeDirectory, NotesIni);
+            IniDir = resolvedIniPath.Length == 0 ? string.Empty : Path.GetDirectoryName(resolvedIniPath) ?? string.Empty;
+            DataDir = resolvedIniPath.Length == 0 ? string.Empty : ReadNotesIniDataDirectory(resolvedIniPath, IniDir);
             Platform = ResolvePlatform();
             NotesVersion = ResolveNotesVersion(_runtime.LibraryPath);
             NotesBuildVersion = ResolveBuildVersion(_runtime.LibraryPath);
@@ -49,7 +56,10 @@ public sealed class NotesSession : IDisposable
     }
 
     public string RuntimeDirectory { get; }
+    public string ProgramDir => RuntimeDirectory;
     public string NotesIni { get; }
+    public string IniDir { get; }
+    public string DataDir { get; }
     public string Username { get; }
     public string UserName => Username;
     public string CommonUsername { get; }
@@ -87,24 +97,9 @@ public sealed class NotesSession : IDisposable
         catch (NotesException) { return new NotesDatabase(this, 0, server, string.Empty, replicaId); }
     }
 
-    public NotesName CreateName(string value)
-    {
-        EnsureAlive();
-        return new NotesName(this, value ?? string.Empty);
-    }
-
-    public NotesDateTime CreateDateTime(string value)
-    {
-        EnsureAlive();
-        return new NotesDateTime(this, value ?? string.Empty);
-    }
-
-    public NotesDateTime CreateDateTimeNow()
-    {
-        EnsureAlive();
-        return NotesDateTime.FromNative(this, _api.CurrentTimeDate());
-    }
-
+    public NotesName CreateName(string value) { EnsureAlive(); return new NotesName(this, value ?? string.Empty); }
+    public NotesDateTime CreateDateTime(string value) { EnsureAlive(); return new NotesDateTime(this, value ?? string.Empty); }
+    public NotesDateTime CreateDateTimeNow() { EnsureAlive(); return NotesDateTime.FromNative(this, _api.CurrentTimeDate()); }
     public NotesStream CreateStream() { EnsureAlive(); return new NotesStream(this); }
     public NotesDXLImporter CreateDXLImporter() { EnsureAlive(); return new NotesDXLImporter(this); }
     public NotesDXLExporter CreateDXLExporter() { EnsureAlive(); return new NotesDXLExporter(this); }
@@ -143,6 +138,88 @@ public sealed class NotesSession : IDisposable
     internal void Register(NotesObject value) { EnsureAlive(); lock (_childrenGate) _children.Add(value); }
     internal void Unregister(NotesObject value) { lock (_childrenGate) _children.Remove(value); }
     internal void EnsureAlive() { if (_recycled) throw new ObjectDisposedException(nameof(NotesSession), "NotesSession has been recycled."); }
+
+    private static string ResolveDefaultRuntimeDirectoryWindows()
+    {
+        if (!OperatingSystem.IsWindows())
+            throw new PlatformNotSupportedException("The parameterless NotesSession constructor is supported on Windows only. Supply runtimeDirectory explicitly on other platforms.");
+
+        foreach (var registryPath in new[] { @"Software\HCL\Notes\Installer", @"Software\HCL\Domino\Installer" })
+        {
+            foreach (var hive in new[] { Registry.CurrentUser, Registry.LocalMachine })
+            {
+                try
+                {
+                    using var key = hive.OpenSubKey(registryPath);
+                    var raw = key?.GetValue("PROGDIR") as string;
+                    if (string.IsNullOrWhiteSpace(raw)) continue;
+                    var path = Path.GetFullPath(Environment.ExpandEnvironmentVariables(raw.Trim().Trim('"')));
+                    if (Directory.Exists(path) && File.Exists(Path.Combine(path, "nnotes.dll"))) return path;
+                }
+                catch { }
+            }
+        }
+        throw new InvalidOperationException("Unable to locate an installed HCL Notes or Domino runtime. Supply runtimeDirectory explicitly.");
+    }
+
+    private static string ResolveNotesIniPath(string runtimeDirectory, string explicitNotesIni)
+    {
+        if (explicitNotesIni.Length > 0 && File.Exists(explicitNotesIni)) return explicitNotesIni;
+        var environmentIni = Environment.GetEnvironmentVariable("NOTESINI");
+        if (!string.IsNullOrWhiteSpace(environmentIni))
+        {
+            try
+            {
+                var path = Path.GetFullPath(Environment.ExpandEnvironmentVariables(environmentIni.Trim().Trim('"')));
+                if (File.Exists(path)) return path;
+            }
+            catch { }
+        }
+        foreach (var candidate in EnumerateNotesIniCandidates(runtimeDirectory))
+        {
+            try { if (File.Exists(candidate)) return Path.GetFullPath(candidate); } catch { }
+        }
+        return string.Empty;
+    }
+
+    private static IEnumerable<string> EnumerateNotesIniCandidates(string runtimeDirectory)
+    {
+        yield return Path.Combine(runtimeDirectory, "notes.ini");
+        yield return Path.Combine(Environment.CurrentDirectory, "notes.ini");
+        if (!OperatingSystem.IsWindows()) yield break;
+        foreach (var registryPath in new[] { @"Software\HCL\Notes\Installer", @"Software\HCL\Domino\Installer" })
+        {
+            foreach (var hive in new[] { Registry.CurrentUser, Registry.LocalMachine })
+            {
+                string? dataDirectory = null;
+                try { using var key = hive.OpenSubKey(registryPath); dataDirectory = key?.GetValue("DATADIR") as string; } catch { }
+                if (string.IsNullOrWhiteSpace(dataDirectory)) continue;
+                string? expanded = null;
+                try { expanded = Environment.ExpandEnvironmentVariables(dataDirectory.Trim().Trim('"')); } catch { }
+                if (!string.IsNullOrWhiteSpace(expanded)) yield return Path.Combine(expanded, "notes.ini");
+            }
+        }
+    }
+
+    private static string ReadNotesIniDataDirectory(string iniPath, string iniDirectory)
+    {
+        try
+        {
+            foreach (var raw in File.ReadLines(iniPath))
+            {
+                var line = raw.Trim();
+                if (line.Length == 0 || line.StartsWith(';')) continue;
+                const string key = "Directory=";
+                if (!line.StartsWith(key, StringComparison.OrdinalIgnoreCase)) continue;
+                var value = Environment.ExpandEnvironmentVariables(line[key.Length..].Trim().Trim('"'));
+                if (value.Length == 0) return string.Empty;
+                if (!Path.IsPathRooted(value) && iniDirectory.Length > 0) value = Path.Combine(iniDirectory, value);
+                return Path.GetFullPath(value);
+            }
+        }
+        catch { }
+        return string.Empty;
+    }
 
     private static string ExtractCommonName(string canonical)
     {

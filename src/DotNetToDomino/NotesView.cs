@@ -14,6 +14,7 @@ public sealed class NotesView : NotesObject
 
     public NotesDatabase Parent { get; }
     public string Name { get; }
+    public string[] ColumnNames { get { EnsureOpen(); return Session.Api.GetViewColumnNames(Parent.Handle, Name); } }
     public bool AutoUpdate { get; set; } = true;
     public NotesViewEntryCollection AllEntries => CreateViewEntryCollection();
     internal nint Handle { get { EnsureOpen(); return _handle; } }
@@ -64,6 +65,7 @@ public sealed class NotesView : NotesObject
 
     public NotesViewEntryCollection CreateViewEntryCollection() => NotesViewNavigationExtensions.CreateViewEntryCollection(this);
     public NotesViewNavigator CreateViewNav() => NotesViewNavigationExtensions.CreateViewNav(this);
+    public NotesViewNavigator CreateViewNav(int cacheSize) => NotesViewNavigationExtensions.CreateViewNav(this, cacheSize);
     public NotesViewNavigator CreateViewNavMaxLevel(int maxLevel) => NotesViewNavigationExtensions.CreateViewNavMaxLevel(this, maxLevel);
     public NotesViewNavigator CreateViewNavFromCategory(string category) => NotesViewNavigationExtensions.CreateViewNavFromCategory(this, category);
     public NotesViewNavigator CreateViewNavFrom(NotesViewEntry entry) => NotesViewNavigationExtensions.CreateViewNavFrom(this, entry);

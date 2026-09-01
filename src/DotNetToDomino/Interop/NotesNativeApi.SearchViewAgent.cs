@@ -54,6 +54,7 @@ internal sealed partial class NotesNativeApi
     private const uint FtSearchSetCollection = 0x00000001;
     private const uint FtSearchReturnIdTable = 0x00000010;
     private const ushort AgentRedirectMemory = 2;
+    private const ushort AgentUnsignedStatus = 0x0259;
 
     internal nint OpenView(nint db, string name)
     {
@@ -228,7 +229,14 @@ internal sealed partial class NotesNativeApi
         using var thread = EnterThread();
         var noteId = FindAgentNoteId(db, name);
         if (noteId == 0) throw new NotesException($"Notes agent '{name}' was not found.");
-        CheckStatus(Resolve<Search_AgentOpen>("AgentOpen")(db, noteId, out var agent), "AgentOpen");
+        var openAgent = Resolve<Search_AgentOpen>("AgentOpen");
+        var openStatus = openAgent(db, noteId, out var agent);
+        if (openStatus == AgentUnsignedStatus)
+        {
+            SaveAgent(db, noteId);
+            openStatus = openAgent(db, noteId, out agent);
+        }
+        CheckStatus(openStatus, "AgentOpen");
         nint context = 0;
         try
         {
