@@ -5,6 +5,16 @@ namespace DotNetToDomino.Interop;
 internal sealed partial class NotesNativeApi
 {
     private const ushort DxlReplaceElseCreate = 6;
+    private const ushort DxlNoteClassForm = 0x0004;
+    private const ushort DxlNoteClassView = 0x0008;
+    private const ushort DxlNoteClassIcon = 0x0010;
+    private const ushort DxlNoteClassDesign = 0x0020;
+    private const ushort DxlNoteClassHelpIndex = 0x0080;
+    private const ushort DxlNoteClassHelp = 0x0100;
+    private const ushort DxlNoteClassFilter = 0x0200;
+    private const ushort DxlNoteClassField = 0x0400;
+    private const ushort DxlNoteClassReplFormula = 0x0800;
+    private const ushort DxlAllDesignNoteClasses = DxlNoteClassForm | DxlNoteClassView | DxlNoteClassIcon | DxlNoteClassDesign | DxlNoteClassHelpIndex | DxlNoteClassHelp | DxlNoteClassFilter | DxlNoteClassField | DxlNoteClassReplFormula;
 
     internal uint CreateDxlImporter()
     {
@@ -36,17 +46,17 @@ internal sealed partial class NotesNativeApi
     {
         EnsureInitialized();
         using var thread = EnterThread();
-        var pointer = Marshal.AllocHGlobal(sizeof(ushort));
+        var pointer = Marshal.AllocHGlobal(sizeof(int));
         try
         {
-            Marshal.WriteInt16(pointer, 0);
+            Marshal.WriteInt32(pointer, 0);
             CheckStatus(Resolve<Dxl_GetImporterProperty>("DXLGetImporterProperty")(importer, property, pointer), "DXLGetImporterProperty");
-            return unchecked((ushort)Marshal.ReadInt16(pointer));
+            return checked((ushort)Marshal.ReadInt32(pointer));
         }
         finally { Marshal.FreeHGlobal(pointer); }
     }
 
-    internal bool GetDxlImporterBool(uint importer, ushort property)
+    internal int GetDxlImporterInt(uint importer, ushort property)
     {
         EnsureInitialized();
         using var thread = EnterThread();
@@ -55,36 +65,29 @@ internal sealed partial class NotesNativeApi
         {
             Marshal.WriteInt32(pointer, 0);
             CheckStatus(Resolve<Dxl_GetImporterProperty>("DXLGetImporterProperty")(importer, property, pointer), "DXLGetImporterProperty");
-            return Marshal.ReadInt32(pointer) != 0;
+            return Marshal.ReadInt32(pointer);
         }
         finally { Marshal.FreeHGlobal(pointer); }
     }
 
-    internal void SetDxlImporterWord(uint importer, ushort property, int value)
-    {
-        EnsureInitialized();
-        using var thread = EnterThread();
-        var pointer = Marshal.AllocHGlobal(sizeof(ushort));
-        try
-        {
-            Marshal.WriteInt16(pointer, unchecked((short)checked((ushort)value)));
-            CheckStatus(Resolve<Dxl_SetImporterProperty>("DXLSetImporterProperty")(importer, property, pointer), "DXLSetImporterProperty");
-        }
-        finally { Marshal.FreeHGlobal(pointer); }
-    }
+    internal bool GetDxlImporterBool(uint importer, ushort property) => GetDxlImporterInt(importer, property) != 0;
 
-    internal void SetDxlImporterBool(uint importer, ushort property, bool value)
+    internal void SetDxlImporterWord(uint importer, ushort property, int value) => SetDxlImporterInt(importer, property, checked((ushort)value));
+
+    internal void SetDxlImporterInt(uint importer, ushort property, int value)
     {
         EnsureInitialized();
         using var thread = EnterThread();
         var pointer = Marshal.AllocHGlobal(sizeof(int));
         try
         {
-            Marshal.WriteInt32(pointer, value ? 1 : 0);
+            Marshal.WriteInt32(pointer, value);
             CheckStatus(Resolve<Dxl_SetImporterProperty>("DXLSetImporterProperty")(importer, property, pointer), "DXLSetImporterProperty");
         }
         finally { Marshal.FreeHGlobal(pointer); }
     }
+
+    internal void SetDxlImporterBool(uint importer, ushort property, bool value) => SetDxlImporterInt(importer, property, value ? 1 : 0);
 
     internal void ImportDxl(uint importer, Stream stream, nint database)
     {
@@ -101,8 +104,15 @@ internal sealed partial class NotesNativeApi
             if (read > 0) Marshal.Copy(managed, 0, buffer, read);
             return checked((uint)read);
         };
-        CheckStatus(Resolve<Dxl_Import>("DXLImport")(reader, 0, importer, unchecked((uint)database)), "DXLImport");
+        CheckStatus(Resolve<Dxl_Import>("DXLImport")(importer, reader, unchecked((uint)database), 0), "DXLImport");
         GC.KeepAlive(reader);
+    }
+
+    internal void ImportDxlFile(uint importer, string filePath, nint database)
+    {
+        filePath = Path.GetFullPath(filePath);
+        using var stream = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read);
+        ImportDxl(importer, stream, database);
     }
 
     internal string GetDxlImporterLog(uint importer)
@@ -115,13 +125,7 @@ internal sealed partial class NotesNativeApi
             Marshal.WriteInt32(value, 0);
             CheckStatus(Resolve<Dxl_GetImporterProperty>("DXLGetImporterProperty")(importer, 11, value), "DXLGetImporterProperty(iResultLog)");
             var handle = unchecked((uint)Marshal.ReadInt32(value));
-            if (handle == 0) return string.Empty;
-            var size = Resolve<Dxl_OSMemoryGetSize>("OSMemoryGetSize")(handle);
-            if (size == 0) return string.Empty;
-            var pointer = Resolve<Dxl_OSMemoryLock>("OSMemoryLock")(handle);
-            if (pointer == 0) return string.Empty;
-            try { return FromLmbcsZeroTerminated(pointer, checked((int)Math.Min(size, int.MaxValue))); }
-            finally { Resolve<Dxl_OSMemoryUnlock>("OSMemoryUnlock")(handle); }
+            return ReadDxlMemoryString(handle);
         }
         finally { Marshal.FreeHGlobal(value); }
     }
@@ -192,11 +196,7 @@ internal sealed partial class NotesNativeApi
         EnsureInitialized();
         using var thread = EnterThread();
         if (note == 0) throw new InvalidOperationException("DXL export requires an open NotesDocument.");
-        using var output = new MemoryStream();
-        Dxl_XMLWrite writer = (buffer, length, _) => CopyNativeToStream(buffer, length, output);
-        CheckStatus(Resolve<Dxl_ExportNote>("DXLExportNote")(exporter, writer, unchecked((uint)note), 0), "DXLExportNote");
-        GC.KeepAlive(writer);
-        return output.ToArray();
+        return CaptureDxl(writer => CheckStatus(Resolve<Dxl_ExportNote>("DXLExportNote")(exporter, writer, unchecked((uint)note), 0), "DXLExportNote"));
     }
 
     internal byte[] ExportDxlCollection(uint exporter, nint database, IReadOnlyList<uint> noteIds)
@@ -204,15 +204,85 @@ internal sealed partial class NotesNativeApi
         EnsureInitialized();
         using var thread = EnterThread();
         if (database == 0) throw new InvalidOperationException("DXL export requires an open NotesDatabase.");
+        return WithDxlIdTable(noteIds, table => CaptureDxl(writer =>
+            CheckStatus(Resolve<Dxl_ExportIDTable>("DXLExportIDTable")(exporter, writer, unchecked((uint)database), table, 0), "DXLExportIDTable")));
+    }
+
+    internal byte[] ExportDxlDesign(uint exporter, nint database)
+    {
+        EnsureInitialized();
+        using var thread = EnterThread();
+        if (database == 0) throw new InvalidOperationException("DXL export requires an open NotesDatabase.");
+        var noteIds = SearchByNoteClass(database, DxlAllDesignNoteClasses);
+        return ExportDxlCollection(exporter, database, noteIds);
+    }
+
+    internal byte[] ExportDxlDesignElement(uint exporter, nint database, string name, string designType)
+    {
+        EnsureInitialized();
+        using var thread = EnterThread();
+        if (database == 0) throw new InvalidOperationException("DXL export requires an open NotesDatabase.");
+        ArgumentException.ThrowIfNullOrWhiteSpace(name);
+        var noteClass = DxlDesignTypeToNoteClass(designType);
+        using var designName = ToLmbcs(name.Trim());
+        CheckStatus(Resolve<Dxl_NIFFindDesignNote>("NIFFindDesignNote")(database, designName.Pointer, noteClass, out var noteId), $"NIFFindDesignNote({designType})");
+        var note = TryOpenNote(database, noteId);
+        if (note == 0) throw new NotesException($"Design element '{name}' could not be opened.");
+        try { return ExportDxlDocument(exporter, note); }
+        finally { CloseNote(note); }
+    }
+
+    internal void WriteDxlBytes(string filePath, byte[] bytes)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(filePath);
+        var fullPath = Path.GetFullPath(filePath);
+        var directory = Path.GetDirectoryName(fullPath);
+        if (!string.IsNullOrEmpty(directory)) Directory.CreateDirectory(directory);
+        File.WriteAllBytes(fullPath, bytes);
+    }
+
+    private ushort DxlDesignTypeToNoteClass(string designType)
+    {
+        designType = designType?.Trim() ?? string.Empty;
+        if (designType.Equals("Form", StringComparison.OrdinalIgnoreCase) || designType.Equals("Subform", StringComparison.OrdinalIgnoreCase) || designType.Equals("Page", StringComparison.OrdinalIgnoreCase)) return DxlNoteClassForm;
+        if (designType.Equals("View", StringComparison.OrdinalIgnoreCase) || designType.Equals("Folder", StringComparison.OrdinalIgnoreCase)) return DxlNoteClassView;
+        if (designType.Equals("Agent", StringComparison.OrdinalIgnoreCase) || designType.Equals("Filter", StringComparison.OrdinalIgnoreCase)) return DxlNoteClassFilter;
+        if (designType.Equals("Field", StringComparison.OrdinalIgnoreCase)) return DxlNoteClassField;
+        if (designType.Equals("Icon", StringComparison.OrdinalIgnoreCase)) return DxlNoteClassIcon;
+        if (designType.Equals("Help", StringComparison.OrdinalIgnoreCase)) return DxlNoteClassHelp;
+        if (designType.Equals("HelpIndex", StringComparison.OrdinalIgnoreCase)) return DxlNoteClassHelpIndex;
+        if (designType.Equals("ReplicationFormula", StringComparison.OrdinalIgnoreCase)) return DxlNoteClassReplFormula;
+        if (designType.Equals("DesignCollection", StringComparison.OrdinalIgnoreCase)) return DxlNoteClassDesign;
+        throw new ArgumentException("Unsupported design element type: " + designType + ".", nameof(designType));
+    }
+
+    private string ReadDxlMemoryString(uint handle)
+    {
+        if (handle == 0) return string.Empty;
+        var size = Resolve<Dxl_OSMemoryGetSize>("OSMemoryGetSize")(handle);
+        if (size == 0) return string.Empty;
+        var pointer = Resolve<Dxl_OSMemoryLock>("OSMemoryLock")(handle);
+        if (pointer == 0) return string.Empty;
+        try { return FromLmbcsZeroTerminated(pointer, checked((int)Math.Min(size, int.MaxValue))); }
+        finally { Resolve<Dxl_OSMemoryUnlock>("OSMemoryUnlock")(handle); }
+    }
+
+    private byte[] CaptureDxl(Action<Dxl_XMLWrite> export)
+    {
+        using var output = new MemoryStream();
+        Dxl_XMLWrite writer = (buffer, length, _) => CopyNativeToStream(buffer, length, output);
+        export(writer);
+        GC.KeepAlive(writer);
+        return output.ToArray();
+    }
+
+    private T WithDxlIdTable<T>(IReadOnlyList<uint> noteIds, Func<uint, T> action)
+    {
         CheckStatus(Resolve<Dxl_IDCreateTable>("IDCreateTable")(4, out var table), "IDCreateTable(DXL)");
         try
         {
             foreach (var noteId in noteIds) CheckStatus(Resolve<Dxl_IDInsert>("IDInsert")(table, noteId, 0), "IDInsert(DXL)");
-            using var output = new MemoryStream();
-            Dxl_XMLWrite writer = (buffer, length, _) => CopyNativeToStream(buffer, length, output);
-            CheckStatus(Resolve<Dxl_ExportIDTable>("DXLExportIDTable")(exporter, writer, unchecked((uint)database), table, 0), "DXLExportIDTable");
-            GC.KeepAlive(writer);
-            return output.ToArray();
+            return action(table);
         }
         finally { _ = Resolve<Dxl_IDDestroyTable>("IDDestroyTable")(table); }
     }
@@ -238,7 +308,7 @@ internal sealed partial class NotesNativeApi
     [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate ushort Dxl_GetImporterProperty(uint importer, ushort property, nint value);
     [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate ushort Dxl_SetImporterProperty(uint importer, ushort property, nint value);
     [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate uint Dxl_XMLRead(nint buffer, uint length, nint action);
-    [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate ushort Dxl_Import(Dxl_XMLRead reader, nint action, uint importer, uint database);
+    [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate ushort Dxl_Import(uint importer, Dxl_XMLRead reader, uint database, nint action);
     [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate uint Dxl_OSMemoryGetSize(uint handle);
     [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate nint Dxl_OSMemoryLock(uint handle);
     [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate void Dxl_OSMemoryUnlock(uint handle);
@@ -253,4 +323,5 @@ internal sealed partial class NotesNativeApi
     [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate ushort Dxl_IDCreateTable(ushort alignment, out uint table);
     [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate ushort Dxl_IDInsert(uint table, uint id, nint inserted);
     [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate ushort Dxl_IDDestroyTable(uint table);
+    [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate ushort Dxl_NIFFindDesignNote(nint db, nint name, ushort noteClass, out uint noteId);
 }
