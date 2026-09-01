@@ -12,6 +12,7 @@ public sealed class NotesSession : IDisposable
 
     private readonly object _childrenGate = new();
     private readonly List<NotesObject> _children = [];
+    private readonly Dictionary<NotesDatabase, nint> _databaseHandles = [];
     private readonly NotesRuntimeLibrary _runtime;
     private readonly NotesNativeApi _api;
     private bool _recycled;
@@ -68,17 +69,23 @@ public sealed class NotesSession : IDisposable
         server = server?.Trim() ?? string.Empty;
         filePath = filePath?.Trim() ?? string.Empty;
 
+        var database = new NotesDatabase(this, server, filePath);
         if (filePath.Length == 0)
-            return new NotesDatabase(this, 0, server, filePath);
+            return database;
 
         try
         {
-            return new NotesDatabase(this, _api.OpenDatabase(server, filePath), server, filePath);
+            var handle = _api.OpenDatabase(server, filePath);
+            lock (_childrenGate)
+                _databaseHandles[database] = handle;
+            database.IsOpen = handle != 0;
         }
         catch (NotesException)
         {
-            return new NotesDatabase(this, 0, server, filePath);
+            database.IsOpen = false;
         }
+
+        return database;
     }
 
     public NotesDatabase OpenByReplicaID(string server, string replicaId)
@@ -86,8 +93,7 @@ public sealed class NotesSession : IDisposable
         EnsureAlive();
         ArgumentException.ThrowIfNullOrWhiteSpace(replicaId);
 
-        // Replica lookup is implemented in the next database interop increment.
-        return new NotesDatabase(this, 0, server?.Trim() ?? string.Empty, string.Empty)
+        return new NotesDatabase(this, server?.Trim() ?? string.Empty, string.Empty)
         {
             ReplicaID = replicaId.Trim()
         };
@@ -184,8 +190,16 @@ public sealed class NotesSession : IDisposable
 
     internal void Unregister(NotesObject value)
     {
+        nint databaseHandle = 0;
         lock (_childrenGate)
+        {
             _children.Remove(value);
+            if (value is NotesDatabase database && _databaseHandles.Remove(database, out var handle))
+                databaseHandle = handle;
+        }
+
+        if (databaseHandle != 0 && _api.IsInitialized)
+            _api.CloseDatabase(databaseHandle);
     }
 
     internal void EnsureAlive()
