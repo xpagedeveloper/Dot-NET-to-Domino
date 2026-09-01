@@ -13,10 +13,12 @@ public static class NotesViewNavigationExtensions
 
     public static NotesViewEntryCollection GetAllEntries(this NotesView view) => view.CreateViewEntryCollection();
 
-    public static NotesViewNavigator CreateViewNav(this NotesView view)
+    public static NotesViewNavigator CreateViewNav(this NotesView view) => CreateViewNav(view, 64);
+
+    public static NotesViewNavigator CreateViewNav(this NotesView view, int cacheSize)
     {
         ArgumentNullException.ThrowIfNull(view);
-        return new NotesViewNavigator(view.Parent.Parent, view, view.Parent, ReadRows(view));
+        return new NotesViewNavigator(view.Parent.Parent, view, view.Parent, ReadRows(view), cacheSize);
     }
 
     public static NotesViewNavigator CreateViewNavMaxLevel(this NotesView view, int maxLevel)
@@ -398,20 +400,28 @@ public sealed class NotesViewNavigator : NotesObject
     private readonly NotesDatabase _database;
     private readonly string _replicaId;
     private int _currentIndex = -1;
-    private int _cacheSize;
+    private int _cacheSize = 64;
+    private int _bufferMaxEntries = 64;
     private int _maxLevel = int.MaxValue;
 
-    internal NotesViewNavigator(NotesSession session, NotesView view, NotesDatabase database, IEnumerable<NotesViewRow> rows) : base(session)
+    internal NotesViewNavigator(NotesSession session, NotesView view, NotesDatabase database, IEnumerable<NotesViewRow> rows, int cacheSize = 64) : base(session)
     {
         _view = view;
         _database = database;
         _rows = rows.ToArray();
         _replicaId = session.Api.GetDatabaseReplicaId(database.Handle);
+        _bufferMaxEntries = cacheSize;
+        _cacheSize = Math.Clamp(cacheSize, 0, 512);
     }
 
     public NotesView ParentView => _view;
     public int Count { get { EnsureAlive(); return _rows.Count(IsVisible); } }
-    public int CacheSize { get { EnsureAlive(); return _cacheSize; } set { EnsureAlive(); _cacheSize = Math.Max(0, value); } }
+    public int BufferMaxEntries
+    {
+        get { EnsureAlive(); _bufferMaxEntries = Math.Clamp(_bufferMaxEntries, 0, 512); return _bufferMaxEntries; }
+        set { EnsureAlive(); _bufferMaxEntries = value; _cacheSize = Math.Clamp(value, 0, 512); }
+    }
+    public int CacheSize { get => BufferMaxEntries; set => BufferMaxEntries = value; }
     public int MaxLevel { get { EnsureAlive(); return _maxLevel == int.MaxValue ? 30 : _maxLevel; } set { EnsureAlive(); _maxLevel = Math.Max(0, value); NormalizeCurrent(); } }
 
     public NotesViewEntry? GetCurrent() => OpenAt(_currentIndex, false);
