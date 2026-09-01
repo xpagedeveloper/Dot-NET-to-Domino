@@ -1,3 +1,4 @@
+using System.Globalization;
 using DotNetToDomino.Interop;
 
 namespace DotNetToDomino;
@@ -9,20 +10,22 @@ public sealed class NotesDatabase : NotesObject
     private readonly List<NotesObject> _children = [];
     private nint _handle;
     private readonly string _knownReplicaId;
+    private string _server;
+    private string _filePath;
 
     internal NotesDatabase(NotesSession session, nint handle, string server, string filePath, string? knownReplicaId = null) : base(session)
     {
         _handle = handle;
         _knownReplicaId = knownReplicaId ?? string.Empty;
         Parent = session;
-        Server = server?.Trim() ?? string.Empty;
-        FilePath = filePath?.Trim() ?? string.Empty;
+        _server = server?.Trim() ?? string.Empty;
+        _filePath = filePath?.Trim() ?? string.Empty;
     }
 
     public NotesSession Parent { get; }
     public NotesSession SessionObject => Parent;
-    public string Server { get; }
-    public string FilePath { get; private set; }
+    public string Server => _server;
+    public string FilePath => _filePath;
     public string FileName => Path.GetFileName(FilePath);
     public bool IsOpen => !IsRecycled && _handle != 0;
     internal nint Handle { get { EnsureOpen(); return _handle; } }
@@ -59,8 +62,11 @@ public sealed class NotesDatabase : NotesObject
         return note == 0 ? null : Own(new NotesDocument(Session, this, note, noteId, null));
     }
 
+    public NotesDocument? GetDocumentByID(string noteId) => GetDocumentByID(ParseNoteId(noteId));
     public NotesDocument? GetDocumentByNoteId(uint noteId) => GetDocumentByID(noteId);
+    public NotesDocument? GetDocumentByNoteId(string noteId) => GetDocumentByID(noteId);
     public NotesDocument? OpenDocumentByNoteId(uint noteId) => GetDocumentByID(noteId);
+    public NotesDocument? OpenDocumentByNoteId(string noteId) => GetDocumentByID(noteId);
 
     public NotesDocument? GetDocumentByUNID(string unid)
     {
@@ -83,6 +89,22 @@ public sealed class NotesDatabase : NotesObject
     {
         EnsureOpen();
         return Own(new NotesDocumentCollection(Session, this, []));
+    }
+
+    public NotesDocumentCollection? GetModifiedDocuments() => GetModifiedDocuments(null, 0x0001);
+    public NotesDocumentCollection? GetModifiedDocuments(NotesDateTime? since) => GetModifiedDocuments(since, 0x0001);
+
+    public NotesDocumentCollection? GetModifiedDocuments(NotesDateTime? since, int noteClass)
+    {
+        EnsureAlive();
+        if (!IsOpen) return null;
+        const int supportedClasses = 0x0F5D;
+        if (noteClass != 0x7FFF && (noteClass <= 0 || (noteClass & ~supportedClasses) != 0))
+            throw new ArgumentOutOfRangeException(nameof(noteClass), "noteClass must be a supported DBMOD_DOC_* note class or DBMOD_DOC_ALL (0x7FFF).");
+        var modified = Session.Api.GetModifiedNoteIds(_handle, checked((ushort)noteClass), since?.NativeValue);
+        var collection = Own(new NotesDocumentCollection(Session, this, modified.NoteIds));
+        collection.InitializeModifiedMetadata(modified.UntilTime, modified.DocumentNoteIds, modified.DesignNoteIds);
+        return collection;
     }
 
     public NotesDocument GetProfileDocument(string profileName, string? profileKey = null)
@@ -155,22 +177,27 @@ public sealed class NotesDatabase : NotesObject
     {
         EnsureAlive();
         ValidateLegacyMaxSize(maxSize);
-        var targetServer = string.IsNullOrWhiteSpace(server) ? Server : server.Trim();
-        var targetFile = string.IsNullOrWhiteSpace(filePath) ? FilePath : filePath.Trim();
+        var targetServer = string.IsNullOrWhiteSpace(server) ? _server : server.Trim();
+        var targetFile = string.IsNullOrWhiteSpace(filePath) ? _filePath : filePath.Trim();
         if (targetFile.Length == 0) throw new ArgumentException("NotesDatabase.Create requires a database file path.", nameof(filePath));
-        if (!string.Equals(targetServer, Server, StringComparison.OrdinalIgnoreCase) || !string.Equals(targetFile, FilePath, StringComparison.OrdinalIgnoreCase))
-            throw new InvalidOperationException("NotesDatabase.Create requires this NotesDatabase object to represent the target server and file path.");
+        var createFile = targetFile;
+        if (targetServer.Length == 0 && !Path.IsPathRooted(createFile) && Session.DataDir.Length > 0)
+            createFile = Path.Combine(Session.DataDir, createFile);
         CloseForDatabaseOperation();
-        Session.Api.CreateDatabase(targetServer, targetFile);
+        Session.Api.CreateDatabase(targetServer, createFile);
+        _server = targetServer;
+        _filePath = targetFile;
         if (open) _handle = Session.Api.OpenDatabase(targetServer, targetFile);
     }
 
     public void Remove()
     {
         EnsureAlive();
-        if (FilePath.Length == 0) throw new InvalidOperationException("NotesDatabase.Remove requires a database file path.");
+        if (_filePath.Length == 0) throw new InvalidOperationException("NotesDatabase.Remove requires a database file path.");
+        var server = _server;
+        var file = _filePath;
         CloseForDatabaseOperation();
-        Session.Api.DeleteDatabase(Server, FilePath);
+        Session.Api.DeleteDatabase(server, file);
     }
 
     public void RemoveFTIndex()
@@ -190,10 +217,7 @@ public sealed class NotesDatabase : NotesObject
         lock (_childrenGate) _children.Remove(child);
     }
 
-    protected override void ReleaseNative()
-    {
-        CloseForDatabaseOperation();
-    }
+    protected override void ReleaseNative() => CloseForDatabaseOperation();
 
     private void CloseForDatabaseOperation()
     {
@@ -218,6 +242,16 @@ public sealed class NotesDatabase : NotesObject
     private static void ValidateLegacyMaxSize(int maxSize)
     {
         if (maxSize < 0 || maxSize > 4) throw new ArgumentOutOfRangeException(nameof(maxSize), "NotesDatabase maxSize must be between 0 and 4 gigabytes.");
+    }
+
+    internal static uint ParseNoteId(string value)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(value);
+        var text = value.Trim();
+        if (text.StartsWith("0x", StringComparison.OrdinalIgnoreCase)) text = text[2..];
+        if (text.Length == 0 || text.Length > 8 || text.Any(c => !Uri.IsHexDigit(c)))
+            throw new ArgumentException("Notes Note ID must contain one to eight hexadecimal characters.", nameof(value));
+        return uint.Parse(text, NumberStyles.HexNumber, CultureInfo.InvariantCulture);
     }
 
     private static string NormalizeUnid(string value)
