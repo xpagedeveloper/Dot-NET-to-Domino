@@ -1,4 +1,4 @@
-namespace NotesToDotNet;
+namespace DotNetToDomino;
 
 /// <summary>Represents an error raised by the managed Notes/Domino wrapper.</summary>
 public sealed class NotesException : Exception
