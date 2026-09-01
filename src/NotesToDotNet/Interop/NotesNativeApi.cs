@@ -113,7 +113,15 @@ internal sealed class NotesNativeApi
         try
         {
             Zero(output, capacity);
-            CheckStatus(Resolve<DNCanonicalizeDelegate>("DNCanonicalize")(0, 0, input.Pointer, output, capacity - 1, out var length), "DNCanonicalize");
+            CheckStatus(
+                Resolve<DNCanonicalizeDelegate>("DNCanonicalize")(
+                    0,
+                    0,
+                    input.Pointer,
+                    output,
+                    checked((ushort)(capacity - 1)),
+                    out var length),
+                "DNCanonicalize");
             return FromLmbcs(output, length);
         }
         finally
@@ -138,7 +146,11 @@ internal sealed class NotesNativeApi
                 networkPath = Marshal.AllocHGlobal(4096);
                 Zero(networkPath, 4096);
                 CheckStatus(
-                    Resolve<OSPathNetConstructDelegate>("OSPathNetConstruct")(0, serverName.Pointer, file.Pointer, networkPath),
+                    Resolve<OSPathNetConstructDelegate>("OSPathNetConstruct")(
+                        0,
+                        serverName.Pointer,
+                        file.Pointer,
+                        networkPath),
                     "OSPathNetConstruct");
                 path = networkPath;
             }
@@ -203,7 +215,7 @@ internal sealed class NotesNativeApi
                     idFileText.Pointer,
                     passwordText.Pointer,
                     userName,
-                    capacity - 1,
+                    checked((ushort)(capacity - 1)),
                     KfmSwitchIdDontSetEnvVar,
                     0),
                 "SECKFMSwitchToIDFile");
@@ -223,7 +235,10 @@ internal sealed class NotesNativeApi
         try
         {
             Zero(buffer, capacity);
-            var found = Resolve<OSGetEnvironmentStringDelegate>("OSGetEnvironmentString")(variableName.Pointer, buffer, capacity - 1);
+            var found = Resolve<OSGetEnvironmentStringDelegate>("OSGetEnvironmentString")(
+                variableName.Pointer,
+                buffer,
+                checked((ushort)(capacity - 1)));
             return found == 0 ? string.Empty : FromLmbcsZeroTerminated(buffer, capacity - 1);
         }
         finally
@@ -310,7 +325,11 @@ internal sealed class NotesNativeApi
             try
             {
                 Zero(buffer, capacity);
-                var length = Resolve<OSLoadStringDelegate>("OSLoadString")(0, (ushort)(status & 0x3fff), buffer, capacity - 1);
+                var length = Resolve<OSLoadStringDelegate>("OSLoadString")(
+                    0,
+                    (ushort)(status & 0x3fff),
+                    buffer,
+                    checked((ushort)(capacity - 1)));
                 return length == 0 ? string.Empty : FromLmbcs(buffer, length);
             }
             finally
@@ -425,12 +444,12 @@ internal sealed class NotesNativeApi
     [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate ushort NotesInitThreadDelegate();
     [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate void NotesTermThreadDelegate();
     [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate uint OSTranslate32Delegate(ushort mode, nint input, uint inputLength, uint outputSize, nint output);
-    [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate ushort OSLoadStringDelegate(nint module, ushort code, nint output, int outputLength);
+    [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate ushort OSLoadStringDelegate(nint module, ushort code, nint output, ushort outputLength);
     [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate ushort SECKFMGetUserNameDelegate(nint output);
     [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate ushort OSPathNetConstructDelegate(nint portName, nint serverName, nint fileName, nint pathName);
     [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate ushort NSFDbOpenDelegate(nint pathName, out nint db);
     [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate ushort NSFDbCloseDelegate(nint db);
-    [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate ushort DNCanonicalizeDelegate(uint flags, nint templateName, nint input, nint output, int outputSize, out ushort outputLength);
-    [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate int OSGetEnvironmentStringDelegate(nint variableName, nint returnValueBuffer, int bufferLength);
-    [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate ushort SECKFMSwitchToIDFileDelegate(nint idFileName, nint password, nint userName, int maxUserNameLength, uint flags, nint reserved);
+    [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate ushort DNCanonicalizeDelegate(uint flags, nint templateName, nint input, nint output, ushort outputSize, out ushort outputLength);
+    [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate int OSGetEnvironmentStringDelegate(nint variableName, nint returnValueBuffer, ushort bufferLength);
+    [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate ushort SECKFMSwitchToIDFileDelegate(nint idFileName, nint password, nint userName, ushort maxUserNameLength, uint flags, nint reserved);
 }
