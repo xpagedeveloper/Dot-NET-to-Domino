@@ -80,7 +80,60 @@ public class NotesItem : NotesObject
 /// <summary>Represents a Notes composite rich-text item.</summary>
 public sealed class NotesRichTextItem : NotesItem
 {
+    private long _richTextRevision;
+
     internal NotesRichTextItem(NotesSession session, NotesDocument parent, string name) : base(session, parent, name) { }
-    public bool SaveAttachment(string attachmentName, string outputPath) { EnsureItemAlive(); return Session.Api.SaveRichTextAttachment(Parent.Handle, Name, attachmentName, outputPath); }
-    public void AppendText(string value) { EnsureItemAlive(); Session.Api.AppendRichText(Parent.Handle, Name, value ?? string.Empty); }
+
+    public bool SaveAttachment(string attachmentName, string outputPath)
+    {
+        EnsureItemAlive();
+        return Session.Api.SaveRichTextAttachment(Parent.Handle, Name, attachmentName, outputPath);
+    }
+
+    public void AppendText(string value)
+    {
+        EnsureItemAlive();
+        Session.Api.AppendRichText(Parent.Handle, Name, value ?? string.Empty);
+        _richTextRevision++;
+    }
+
+    public NotesRichTextNavigator CreateNavigator()
+    {
+        EnsureItemAlive();
+        return new NotesRichTextNavigator(Session, this);
+    }
+
+    public NotesRichTextRange CreateRange()
+    {
+        EnsureItemAlive();
+        return new NotesRichTextRange(Session, this);
+    }
+
+    public NotesEmbeddedObject? GetEmbeddedObject(string name)
+    {
+        EnsureItemAlive();
+        if (string.IsNullOrWhiteSpace(name)) return null;
+        return Session.Api.TryGetRichTextAttachmentMetadata(Parent.Handle, Name, name.Trim(), out var metadata)
+            ? new NotesEmbeddedObject(Session, this, metadata)
+            : null;
+    }
+
+    public IReadOnlyList<NotesEmbeddedObject> EmbeddedObjects
+    {
+        get
+        {
+            EnsureItemAlive();
+            return Session.Api.GetRichTextAttachmentMetadata(Parent.Handle, Name)
+                .Select(metadata => new NotesEmbeddedObject(Session, this, metadata))
+                .ToArray();
+        }
+    }
+
+    internal long RichTextRevision { get { EnsureItemAlive(); return _richTextRevision; } }
+    internal void EnsureRichTextAlive() => EnsureItemAlive();
+    internal IReadOnlyList<NotesRichTextRecordData> ReadRichTextRecords()
+    {
+        EnsureItemAlive();
+        return Session.Api.GetRichTextRecords(Parent.Handle, Name);
+    }
 }
