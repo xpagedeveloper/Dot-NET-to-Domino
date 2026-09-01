@@ -12,7 +12,6 @@ public sealed class NotesSession : IDisposable
 
     private readonly object _childrenGate = new();
     private readonly List<NotesObject> _children = [];
-    private readonly Dictionary<NotesDatabase, nint> _databaseHandles = [];
     private readonly NotesRuntimeLibrary _runtime;
     private readonly NotesNativeApi _api;
     private bool _recycled;
@@ -69,34 +68,38 @@ public sealed class NotesSession : IDisposable
         server = server?.Trim() ?? string.Empty;
         filePath = filePath?.Trim() ?? string.Empty;
 
-        var database = new NotesDatabase(this, server, filePath);
         if (filePath.Length == 0)
-            return database;
+            return new NotesDatabase(this, 0, server, filePath);
 
         try
         {
-            var handle = _api.OpenDatabase(server, filePath);
-            lock (_childrenGate)
-                _databaseHandles[database] = handle;
-            database.IsOpen = handle != 0;
+            return new NotesDatabase(this, _api.OpenDatabase(server, filePath), server, filePath);
         }
         catch (NotesException)
         {
-            database.IsOpen = false;
+            return new NotesDatabase(this, 0, server, filePath);
         }
-
-        return database;
     }
 
     public NotesDatabase OpenByReplicaID(string server, string replicaId)
     {
         EnsureAlive();
         ArgumentException.ThrowIfNullOrWhiteSpace(replicaId);
+        server = server?.Trim() ?? string.Empty;
+        replicaId = replicaId.Trim();
 
-        return new NotesDatabase(this, server?.Trim() ?? string.Empty, string.Empty)
+        try
         {
-            ReplicaID = replicaId.Trim()
-        };
+            var filePath = _api.LocateDatabaseByReplicaId(server, replicaId);
+            if (filePath.Length == 0)
+                return new NotesDatabase(this, 0, server, filePath, replicaId);
+
+            return new NotesDatabase(this, _api.OpenDatabase(server, filePath), server, filePath, replicaId);
+        }
+        catch (NotesException)
+        {
+            return new NotesDatabase(this, 0, server, string.Empty, replicaId);
+        }
     }
 
     public NotesName CreateName(string value)
@@ -190,16 +193,8 @@ public sealed class NotesSession : IDisposable
 
     internal void Unregister(NotesObject value)
     {
-        nint databaseHandle = 0;
         lock (_childrenGate)
-        {
             _children.Remove(value);
-            if (value is NotesDatabase database && _databaseHandles.Remove(database, out var handle))
-                databaseHandle = handle;
-        }
-
-        if (databaseHandle != 0 && _api.IsInitialized)
-            _api.CloseDatabase(databaseHandle);
     }
 
     internal void EnsureAlive()
