@@ -41,8 +41,7 @@ public sealed class NotesSession : IDisposable
             }
             catch
             {
-                try { _api.Terminate(); }
-                catch { }
+                try { _api.Terminate(); } catch { }
                 _runtime.Dispose();
                 throw;
             }
@@ -59,7 +58,6 @@ public sealed class NotesSession : IDisposable
     public long NotesBuildVersion { get; }
     public string Platform { get; }
     public bool IsRecycled => _recycled;
-
     internal NotesNativeApi Api => _api;
 
     public NotesDatabase OpenDatabase(string server, string filePath)
@@ -67,18 +65,9 @@ public sealed class NotesSession : IDisposable
         EnsureAlive();
         server = server?.Trim() ?? string.Empty;
         filePath = filePath?.Trim() ?? string.Empty;
-
-        if (filePath.Length == 0)
-            return new NotesDatabase(this, 0, server, filePath);
-
-        try
-        {
-            return new NotesDatabase(this, _api.OpenDatabase(server, filePath), server, filePath);
-        }
-        catch (NotesException)
-        {
-            return new NotesDatabase(this, 0, server, filePath);
-        }
+        if (filePath.Length == 0) return new NotesDatabase(this, 0, server, filePath);
+        try { return new NotesDatabase(this, _api.OpenDatabase(server, filePath), server, filePath); }
+        catch (NotesException) { return new NotesDatabase(this, 0, server, filePath); }
     }
 
     public NotesDatabase OpenByReplicaID(string server, string replicaId)
@@ -87,31 +76,19 @@ public sealed class NotesSession : IDisposable
         ArgumentException.ThrowIfNullOrWhiteSpace(replicaId);
         server = server?.Trim() ?? string.Empty;
         replicaId = replicaId.Trim();
-
         try
         {
             var filePath = _api.LocateDatabaseByReplicaId(server, replicaId);
-            if (filePath.Length == 0)
-                return new NotesDatabase(this, 0, server, filePath, replicaId);
-
+            if (filePath.Length == 0) return new NotesDatabase(this, 0, server, filePath, replicaId);
             return new NotesDatabase(this, _api.OpenDatabase(server, filePath), server, filePath, replicaId);
         }
-        catch (NotesException)
-        {
-            return new NotesDatabase(this, 0, server, string.Empty, replicaId);
-        }
+        catch (NotesException) { return new NotesDatabase(this, 0, server, string.Empty, replicaId); }
     }
 
     public NotesName CreateName(string value)
     {
         EnsureAlive();
-        var original = value ?? string.Empty;
-        var result = new NotesName(this, original)
-        {
-            Canonical = _api.CanonicalizeName(original)
-        };
-        result.Common = ExtractCommonName(result.Canonical);
-        return result;
+        return new NotesName(this, value ?? string.Empty);
     }
 
     public NotesDateTime CreateDateTime(string value)
@@ -123,50 +100,28 @@ public sealed class NotesSession : IDisposable
     public NotesDateTime CreateDateTimeNow()
     {
         EnsureAlive();
-        return new NotesDateTime(this, DateTimeOffset.Now);
+        return NotesDateTime.FromNative(this, _api.CurrentTimeDate());
     }
 
-    public NotesStream CreateStream()
-    {
-        EnsureAlive();
-        return new NotesStream(this);
-    }
-
-    public NotesDXLImporter CreateDXLImporter()
-    {
-        EnsureAlive();
-        return new NotesDXLImporter(this);
-    }
-
-    public NotesDXLExporter CreateDXLExporter()
-    {
-        EnsureAlive();
-        return new NotesDXLExporter(this);
-    }
+    public NotesStream CreateStream() { EnsureAlive(); return new NotesStream(this); }
+    public NotesDXLImporter CreateDXLImporter() { EnsureAlive(); return new NotesDXLImporter(this); }
+    public NotesDXLExporter CreateDXLExporter() { EnsureAlive(); return new NotesDXLExporter(this); }
 
     public void Recycle()
     {
         lock (SessionGate)
         {
-            if (_recycled || _recycling)
-                return;
-
+            if (_recycled || _recycling) return;
             _recycling = true;
             try
             {
                 while (true)
                 {
                     NotesObject? child;
-                    lock (_childrenGate)
-                        child = _children.Count == 0 ? null : _children[^1];
-
-                    if (child is null)
-                        break;
-
-                    try { child.Recycle(); }
-                    catch { Unregister(child); }
+                    lock (_childrenGate) child = _children.Count == 0 ? null : _children[^1];
+                    if (child is null) break;
+                    try { child.Recycle(); } catch { Unregister(child); }
                 }
-
                 _api.Terminate();
                 _recycled = true;
             }
@@ -174,79 +129,44 @@ public sealed class NotesSession : IDisposable
             {
                 _runtime.Dispose();
                 _recycling = false;
-                if (ReferenceEquals(_activeSession, this))
-                    _activeSession = null;
+                if (ReferenceEquals(_activeSession, this)) _activeSession = null;
             }
-
             GC.SuppressFinalize(this);
         }
     }
 
     public void Dispose() => Recycle();
-
-    internal void Register(NotesObject value)
-    {
-        EnsureAlive();
-        lock (_childrenGate)
-            _children.Add(value);
-    }
-
-    internal void Unregister(NotesObject value)
-    {
-        lock (_childrenGate)
-            _children.Remove(value);
-    }
-
-    internal void EnsureAlive()
-    {
-        if (_recycled)
-            throw new ObjectDisposedException(nameof(NotesSession), "NotesSession has been recycled.");
-    }
+    internal void Register(NotesObject value) { EnsureAlive(); lock (_childrenGate) _children.Add(value); }
+    internal void Unregister(NotesObject value) { lock (_childrenGate) _children.Remove(value); }
+    internal void EnsureAlive() { if (_recycled) throw new ObjectDisposedException(nameof(NotesSession), "NotesSession has been recycled."); }
 
     private static string ExtractCommonName(string canonical)
     {
         foreach (var part in canonical.Split('/'))
         {
             var value = part.Trim();
-            if (value.StartsWith("CN=", StringComparison.OrdinalIgnoreCase))
-                return value[3..];
+            if (value.StartsWith("CN=", StringComparison.OrdinalIgnoreCase)) return value[3..];
         }
         return canonical;
     }
 
     private static string ResolvePlatform()
     {
-        if (OperatingSystem.IsWindows())
-            return Environment.Is64BitProcess ? "Windows/64" : "Windows/32";
-        if (OperatingSystem.IsLinux())
-            return Environment.Is64BitProcess ? "Linux/64" : "UNIX";
-        if (OperatingSystem.IsMacOS())
-            return Environment.Is64BitProcess ? "Macintosh/64" : "Macintosh";
+        if (OperatingSystem.IsWindows()) return Environment.Is64BitProcess ? "Windows/64" : "Windows/32";
+        if (OperatingSystem.IsLinux()) return Environment.Is64BitProcess ? "Linux/64" : "UNIX";
+        if (OperatingSystem.IsMacOS()) return Environment.Is64BitProcess ? "Macintosh/64" : "Macintosh";
         return "UNIX";
     }
 
     private static string ResolveNotesVersion(string libraryPath)
     {
-        try
-        {
-            var info = FileVersionInfo.GetVersionInfo(libraryPath);
-            return (info.ProductVersion ?? info.FileVersion ?? string.Empty).Trim();
-        }
-        catch
-        {
-            return string.Empty;
-        }
+        try { var info = FileVersionInfo.GetVersionInfo(libraryPath); return (info.ProductVersion ?? info.FileVersion ?? string.Empty).Trim(); }
+        catch { return string.Empty; }
     }
 
     private static long ResolveBuildVersion(string libraryPath)
     {
-        try
-        {
-            return FileVersionInfo.GetVersionInfo(libraryPath).FileBuildPart;
-        }
-        catch
-        {
-            return 0;
-        }
+        try { return FileVersionInfo.GetVersionInfo(libraryPath).FileBuildPart; }
+        catch { return 0; }
     }
 }
