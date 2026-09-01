@@ -80,7 +80,77 @@ public class NotesItem : NotesObject
 /// <summary>Represents a Notes composite rich-text item.</summary>
 public sealed class NotesRichTextItem : NotesItem
 {
+    private long _richTextRevision;
+
     internal NotesRichTextItem(NotesSession session, NotesDocument parent, string name) : base(session, parent, name) { }
-    public bool SaveAttachment(string attachmentName, string outputPath) { EnsureItemAlive(); return Session.Api.SaveRichTextAttachment(Parent.Handle, Name, attachmentName, outputPath); }
-    public void AppendText(string value) { EnsureItemAlive(); Session.Api.AppendRichText(Parent.Handle, Name, value ?? string.Empty); }
+
+    public bool SaveAttachment(string attachmentName, string outputPath)
+    {
+        EnsureItemAlive();
+        return Session.Api.SaveRichTextAttachment(Parent.Handle, Name, attachmentName, outputPath);
+    }
+
+    public void AppendText(string value)
+    {
+        EnsureItemAlive();
+        Session.Api.AppendRichText(Parent.Handle, Name, value ?? string.Empty);
+        _richTextRevision++;
+    }
+
+    public NotesRichTextNavigator CreateNavigator()
+    {
+        EnsureItemAlive();
+        return new NotesRichTextNavigator(Session, this);
+    }
+
+    public NotesRichTextRange CreateRange()
+    {
+        EnsureItemAlive();
+        return new NotesRichTextRange(Session, this);
+    }
+
+    public NotesEmbeddedObject? GetEmbeddedObject(string name)
+    {
+        EnsureItemAlive();
+        if (string.IsNullOrWhiteSpace(name)) return null;
+        return Session.Api.TryGetRichTextAttachmentMetadata(Parent.Handle, Name, name.Trim(), out var metadata)
+            ? new NotesEmbeddedObject(Session, this, metadata)
+            : null;
+    }
+
+    public IReadOnlyList<NotesEmbeddedObject> EmbeddedObjects
+    {
+        get
+        {
+            EnsureItemAlive();
+            return Session.Api.GetRichTextAttachmentMetadata(Parent.Handle, Name)
+                .Select(metadata => new NotesEmbeddedObject(Session, this, metadata))
+                .ToArray();
+        }
+    }
+
+    public NotesEmbeddedObject EmbedObject(int type, string className, string sourcePath) => EmbedObject(type, className, sourcePath, null);
+
+    public NotesEmbeddedObject EmbedObject(int type, string className, string sourcePath, string? name)
+    {
+        EnsureItemAlive();
+        if (type != NotesEmbeddedObject.EmbedAttachment)
+            throw new ArgumentOutOfRangeException(nameof(type), "Only EMBED_ATTACHMENT (1454) is supported by NotesRichTextItem.EmbedObject.");
+        if (!string.IsNullOrEmpty(className))
+            throw new ArgumentException("The class argument must be empty for EMBED_ATTACHMENT.", nameof(className));
+        ArgumentException.ThrowIfNullOrWhiteSpace(sourcePath);
+
+        _ = name;
+        var metadata = Session.Api.AttachRichTextFile(Parent.Handle, Name, sourcePath);
+        _richTextRevision++;
+        return new NotesEmbeddedObject(Session, this, metadata);
+    }
+
+    internal long RichTextRevision { get { EnsureItemAlive(); return _richTextRevision; } }
+    internal void EnsureRichTextAlive() => EnsureItemAlive();
+    internal IReadOnlyList<NotesRichTextRecordData> ReadRichTextRecords()
+    {
+        EnsureItemAlive();
+        return Session.Api.GetRichTextRecords(Parent.Handle, Name);
+    }
 }
