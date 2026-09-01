@@ -1,4 +1,4 @@
-namespace NotesToDotNet;
+namespace DotNetToDomino;
 
 public sealed class NotesDatabase : NotesObject
 {
