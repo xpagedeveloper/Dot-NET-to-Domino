@@ -2,8 +2,13 @@ namespace DotNetToDomino;
 
 public sealed class NotesDatabase : NotesObject
 {
-    internal NotesDatabase(NotesSession session, string server, string filePath) : base(session)
+    private nint _handle;
+    private readonly string _knownReplicaId;
+
+    internal NotesDatabase(NotesSession session, nint handle, string server, string filePath, string? knownReplicaId = null) : base(session)
     {
+        _handle = handle;
+        _knownReplicaId = knownReplicaId ?? string.Empty;
         Parent = session;
         Server = server;
         FilePath = filePath;
@@ -13,56 +18,169 @@ public sealed class NotesDatabase : NotesObject
     public string Server { get; }
     public string FilePath { get; internal set; }
     public string FileName => Path.GetFileName(FilePath);
-    public bool IsOpen { get; internal set; }
-    public string Title { get; set; } = string.Empty;
-    public string Categories { get; set; } = string.Empty;
-    public string TemplateName { get; internal set; } = string.Empty;
-    public string DesignTemplateName { get; internal set; } = string.Empty;
-    public string ReplicaID { get; internal set; } = string.Empty;
-    public long Size { get; internal set; }
-    public double PercentUsed { get; internal set; }
-    public int CurrentAccessLevel { get; internal set; }
+    public bool IsOpen => _handle != 0;
+
+    public string Title
+    {
+        get
+        {
+            EnsureOpen();
+            return Session.Api.GetDatabaseTitle(_handle);
+        }
+        set
+        {
+            EnsureOpen();
+            Session.Api.SetDatabaseTitle(_handle, value ?? string.Empty);
+        }
+    }
+
+    public string Categories
+    {
+        get
+        {
+            EnsureOpen();
+            return Session.Api.GetDatabaseCategories(_handle);
+        }
+        set
+        {
+            EnsureOpen();
+            Session.Api.SetDatabaseCategories(_handle, value ?? string.Empty);
+        }
+    }
+
+    public string TemplateName
+    {
+        get
+        {
+            EnsureOpen();
+            return Session.Api.GetDatabaseTemplateName(_handle);
+        }
+    }
+
+    public string DesignTemplateName
+    {
+        get
+        {
+            EnsureOpen();
+            return Session.Api.GetDatabaseDesignTemplateName(_handle);
+        }
+    }
+
+    public string ReplicaID
+    {
+        get
+        {
+            if (!IsOpen)
+                return _knownReplicaId;
+            EnsureAlive();
+            return Session.Api.GetDatabaseReplicaId(_handle);
+        }
+    }
+
+    public long Size
+    {
+        get
+        {
+            EnsureOpen();
+            return Session.Api.GetDatabaseSpaceUsage(_handle).Size;
+        }
+    }
+
+    public double PercentUsed
+    {
+        get
+        {
+            EnsureOpen();
+            return Session.Api.GetDatabaseSpaceUsage(_handle).PercentUsed;
+        }
+    }
+
+    public int CurrentAccessLevel
+    {
+        get
+        {
+            EnsureOpen();
+            return Session.Api.GetDatabaseCurrentAccessLevel(_handle);
+        }
+    }
+
+    internal nint Handle
+    {
+        get
+        {
+            EnsureOpen();
+            return _handle;
+        }
+    }
 
     public NotesView OpenView(string name)
     {
-        EnsureAlive();
+        EnsureOpen();
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
         return new NotesView(Session, this, name.Trim());
     }
 
     public NotesDocument? GetDocumentByNoteId(uint noteId)
     {
-        EnsureAlive();
-        return noteId == 0 ? null : new NotesDocument(Session, this, noteId);
+        EnsureOpen();
+        if (noteId == 0)
+            return null;
+
+        var note = Session.Api.TryOpenNote(_handle, noteId);
+        return note == 0 ? null : new NotesDocument(Session, this, note, noteId, null);
     }
 
     public NotesDocument? GetDocumentByUNID(string unid)
     {
-        EnsureAlive();
+        EnsureOpen();
         if (string.IsNullOrWhiteSpace(unid))
             return null;
-        return new NotesDocument(Session, this, 0) { UniversalId = unid.Trim() };
+
+        unid = NormalizeUnid(unid);
+        var note = Session.Api.TryOpenNoteByUnid(_handle, unid);
+        return note == 0 ? null : new NotesDocument(Session, this, note, null, unid);
     }
 
     public NotesDocumentCollection Search(string formula, int maxResults = 0)
     {
-        EnsureAlive();
+        EnsureOpen();
         return new NotesDocumentCollection(Session, this, []);
     }
 
     public NotesDocumentCollection FTSearch(string query, int maxResults = 0)
     {
-        EnsureAlive();
+        EnsureOpen();
         return new NotesDocumentCollection(Session, this, []);
     }
 
     public NotesAgent? GetAgent(string name)
     {
-        EnsureAlive();
+        EnsureOpen();
         return string.IsNullOrWhiteSpace(name) ? null : new NotesAgent(Session, this, name.Trim());
     }
 
-    protected override void ReleaseNative() => IsOpen = false;
+    protected override void ReleaseNative()
+    {
+        var handle = _handle;
+        _handle = 0;
+        if (handle != 0 && Session.Api.IsInitialized)
+            Session.Api.CloseDatabase(handle);
+    }
+
+    private void EnsureOpen()
+    {
+        EnsureAlive();
+        if (_handle == 0)
+            throw new InvalidOperationException("NotesDatabase is not open.");
+    }
+
+    private static string NormalizeUnid(string value)
+    {
+        value = value.Replace("-", string.Empty, StringComparison.Ordinal).Replace(":", string.Empty, StringComparison.Ordinal).Trim();
+        if (value.Length != 32 || value.Any(c => !Uri.IsHexDigit(c)))
+            throw new ArgumentException("Notes UNID must contain exactly 32 hexadecimal characters.", nameof(value));
+        return value.ToUpperInvariant();
+    }
 }
 
 public sealed class NotesView : NotesObject
@@ -127,17 +245,48 @@ public sealed class NotesNoteCollection : NotesObject, IReadOnlyList<uint>
 
 public sealed class NotesDocument : NotesObject
 {
-    internal NotesDocument(NotesSession session, NotesDatabase parent, uint noteId) : base(session)
+    private nint _handle;
+
+    internal NotesDocument(
+        NotesSession session,
+        NotesDatabase parent,
+        nint handle,
+        uint? knownNoteId,
+        string? knownUnid) : base(session)
     {
         ParentDatabase = parent;
-        NoteId = noteId;
+        _handle = handle;
+
+        try
+        {
+            NoteId = knownNoteId ?? Session.Api.GetNoteId(handle);
+            UniversalId = knownUnid ?? Session.Api.GetUnid(handle);
+        }
+        catch
+        {
+            _handle = 0;
+            try { Session.Api.CloseNote(handle); }
+            finally { Session.Unregister(this); }
+            throw;
+        }
     }
 
     public NotesDatabase ParentDatabase { get; }
-    public uint NoteId { get; internal set; }
+    public uint NoteId { get; }
     public string NoteIdHex => NoteId.ToString("X8");
-    public string UniversalId { get; internal set; } = string.Empty;
+    public string UniversalId { get; }
     public IReadOnlyList<string> Items { get; internal set; } = Array.Empty<string>();
+
+    internal nint Handle
+    {
+        get
+        {
+            EnsureAlive();
+            if (_handle == 0)
+                throw new InvalidOperationException("NotesDocument is not open.");
+            return _handle;
+        }
+    }
 
     public NotesItem? GetFirstItem(string itemName) { EnsureAlive(); return string.IsNullOrWhiteSpace(itemName) ? null : new NotesItem(Session, this, itemName); }
     public NotesItem CreateNotesItem(string itemName) { EnsureAlive(); ArgumentException.ThrowIfNullOrWhiteSpace(itemName); return new NotesItem(Session, this, itemName); }
@@ -148,7 +297,13 @@ public sealed class NotesDocument : NotesObject
     public void RemoveItem(string itemName) => EnsureAlive();
     public void Save() => EnsureAlive();
 
-    protected override void ReleaseNative() { }
+    protected override void ReleaseNative()
+    {
+        var handle = _handle;
+        _handle = 0;
+        if (handle != 0 && Session.Api.IsInitialized)
+            Session.Api.CloseNote(handle);
+    }
 }
 
 public class NotesItem : NotesObject
