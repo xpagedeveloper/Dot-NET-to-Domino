@@ -288,14 +288,97 @@ public sealed class NotesDocument : NotesObject
         }
     }
 
-    public NotesItem? GetFirstItem(string itemName) { EnsureAlive(); return string.IsNullOrWhiteSpace(itemName) ? null : new NotesItem(Session, this, itemName); }
-    public NotesItem CreateNotesItem(string itemName) { EnsureAlive(); ArgumentException.ThrowIfNullOrWhiteSpace(itemName); return new NotesItem(Session, this, itemName); }
-    public NotesItem ReplaceItemValue(string itemName, object? value) { EnsureAlive(); ArgumentException.ThrowIfNullOrWhiteSpace(itemName); return new NotesItem(Session, this, itemName); }
-    public bool HasItem(string itemName) { EnsureAlive(); return false; }
-    public object? GetValue(string itemName) { EnsureAlive(); return null; }
-    public object?[] GetItemValue(string itemName) { EnsureAlive(); return []; }
-    public void RemoveItem(string itemName) => EnsureAlive();
-    public void Save() => EnsureAlive();
+    public NotesItem? GetFirstItem(string itemName)
+    {
+        EnsureAlive();
+        if (string.IsNullOrWhiteSpace(itemName) || !Session.Api.HasItem(Handle, itemName))
+            return null;
+        return new NotesItem(Session, this, itemName);
+    }
+
+    public NotesItem CreateNotesItem(string itemName)
+    {
+        EnsureAlive();
+        ArgumentException.ThrowIfNullOrWhiteSpace(itemName);
+        Session.Api.SetItemText(Handle, itemName, string.Empty);
+        return new NotesItem(Session, this, itemName);
+    }
+
+    public NotesItem ReplaceItemValue(string itemName, object? value)
+    {
+        EnsureAlive();
+        ArgumentException.ThrowIfNullOrWhiteSpace(itemName);
+        Session.Api.SetItemValue(Handle, itemName, value);
+        return new NotesItem(Session, this, itemName);
+    }
+
+    public bool HasItem(string itemName)
+    {
+        EnsureAlive();
+        ArgumentException.ThrowIfNullOrWhiteSpace(itemName);
+        return Session.Api.HasItem(Handle, itemName);
+    }
+
+    public object? GetValue(string itemName)
+    {
+        EnsureAlive();
+        ArgumentException.ThrowIfNullOrWhiteSpace(itemName);
+        return Session.Api.GetItemValue(Handle, itemName);
+    }
+
+    public object?[] GetItemValue(string itemName)
+    {
+        var value = GetValue(itemName);
+        return value is null ? [] : [value];
+    }
+
+    public string GetString(string itemName)
+    {
+        EnsureAlive();
+        ArgumentException.ThrowIfNullOrWhiteSpace(itemName);
+        return Session.Api.GetItemText(Handle, itemName);
+    }
+
+    public double GetNumber(string itemName)
+    {
+        EnsureAlive();
+        ArgumentException.ThrowIfNullOrWhiteSpace(itemName);
+        return Session.Api.GetItemNumber(Handle, itemName);
+    }
+
+    public void SetValue(string itemName, object? value)
+    {
+        EnsureAlive();
+        ArgumentException.ThrowIfNullOrWhiteSpace(itemName);
+        Session.Api.SetItemValue(Handle, itemName, value);
+    }
+
+    public void SetString(string itemName, string value)
+    {
+        EnsureAlive();
+        ArgumentException.ThrowIfNullOrWhiteSpace(itemName);
+        Session.Api.SetItemText(Handle, itemName, value ?? string.Empty);
+    }
+
+    public void SetNumber(string itemName, double value)
+    {
+        EnsureAlive();
+        ArgumentException.ThrowIfNullOrWhiteSpace(itemName);
+        Session.Api.SetItemNumber(Handle, itemName, value);
+    }
+
+    public void RemoveItem(string itemName)
+    {
+        EnsureAlive();
+        ArgumentException.ThrowIfNullOrWhiteSpace(itemName);
+        Session.Api.DeleteItem(Handle, itemName);
+    }
+
+    public void Save()
+    {
+        EnsureAlive();
+        Session.Api.SaveNote(Handle);
+    }
 
     protected override void ReleaseNative()
     {
@@ -323,10 +406,10 @@ public class NotesItem : NotesObject
     public bool IsReaders { get; set; }
     public bool IsSigned { get; set; }
     public bool IsSummary { get; set; }
-    public string Text { get; internal set; } = string.Empty;
+    public string Text { get { EnsureAlive(); return Session.Api.GetItemText(Parent.Handle, Name); } }
     public int Type { get; internal set; }
     public long ValueLength { get; internal set; }
-    public object?[] Values { get; set; } = [];
+    public object?[] Values { get { EnsureAlive(); return Parent.GetItemValue(Name); } }
 
     protected override void ReleaseNative() { }
 }
