@@ -10,7 +10,7 @@ internal readonly record struct NotesAttachmentMetadata(
     long FileSize,
     NotesTimeDate FileCreated,
     NotesTimeDate FileModified,
-    NotesBlockId ItemBlock);
+    NotesNativeApi.NotesBlockId ItemBlock);
 
 internal sealed partial class NotesNativeApi
 {
