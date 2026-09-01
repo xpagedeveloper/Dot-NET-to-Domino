@@ -1,4 +1,4 @@
-namespace NotesToDotNet;
+namespace DotNetToDomino;
 
 /// <summary>Base class for managed Notes objects owned by a <see cref="NotesSession"/>.</summary>
 public abstract class NotesObject : IDisposable
