@@ -509,6 +509,9 @@ public sealed class NotesRichTextNavigator : NotesObject
 
     private object MaterializeElement(NotesRichTextRecordData record)
     {
+        if (record.ElementType == ElementTable) return new NotesRichTextTable(Session, _item, record);
+        if (record.ElementType == ElementDocLink) return new NotesRichTextDocLink(Session, _item, record);
+        if (record.ElementType == ElementSection) return new NotesRichTextSection(Session, _item, record);
         if (record.ElementType == ElementEmbeddedObject)
         {
             if (record.LinkedObjectName.Length == 0) throw new InvalidDataException("Rich text attachment hotspot has no attachment name.");
@@ -518,7 +521,7 @@ public sealed class NotesRichTextNavigator : NotesObject
         }
         if (record.ElementType is ElementTextRun or ElementTextParagraph or ElementTableCell)
             throw new InvalidOperationException("Text runs, text paragraphs, and table cells must be accessed through NotesRichTextRange.");
-        throw new NotSupportedException($"Rich text element type {record.ElementType} is not yet materializable by NotesRichTextNavigator.");
+        throw new NotSupportedException($"Unsupported rich text element type {record.ElementType}.");
     }
 
     private void SetCurrent(int index, int type, int charOffset) { _currentIndex = index; _lastElementType = type; _charOffset = charOffset; }
