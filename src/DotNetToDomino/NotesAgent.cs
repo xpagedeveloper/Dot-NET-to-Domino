@@ -65,9 +65,8 @@ public sealed class NotesAgent : NotesObject
 
     private string ReadText(string itemName)
     {
-        using var doc = Parent.GetDocumentByID(_noteId);
-        if (doc is null) return string.Empty;
-        try { return doc.GetString(itemName); } catch { return string.Empty; }
+        EnsureAlive();
+        return Session.Api.GetDesignNoteText(Parent.Handle, _noteId, itemName) ?? string.Empty;
     }
 
     protected override void ReleaseNative() => Parent.UnregisterChild(this);
