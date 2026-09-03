@@ -19,7 +19,7 @@ public abstract class NotesRichTextLinkedObject : NotesObject
 
     public NotesRichTextItem Parent { get { EnsureLinkedAlive(); return RichTextItem; } }
 
-    protected NotesRichTextRecordData CurrentRecord()
+    private protected NotesRichTextRecordData CurrentRecord()
     {
         EnsureLinkedAlive();
         return RichTextItem.ReadRichTextRecords().FirstOrDefault(value =>
@@ -27,9 +27,9 @@ public abstract class NotesRichTextLinkedObject : NotesObject
             ?? throw new InvalidOperationException("The rich text element no longer exists in its parent item.");
     }
 
-    protected IReadOnlyList<NotesRichTextRecordData> Records() { EnsureLinkedAlive(); return RichTextItem.ReadRichTextRecords(); }
+    private protected IReadOnlyList<NotesRichTextRecordData> Records() { EnsureLinkedAlive(); return RichTextItem.ReadRichTextRecords(); }
 
-    protected int CurrentFlatIndex(IReadOnlyList<NotesRichTextRecordData> records)
+    private protected int CurrentFlatIndex(IReadOnlyList<NotesRichTextRecordData> records)
     {
         for (var i = 0; i < records.Count; i++)
         {
