@@ -2,14 +2,14 @@ using DotNetToDomino.Interop;
 
 namespace DotNetToDomino;
 
-internal abstract class NotesRichTextLinkedObject : NotesObject
+public abstract class NotesRichTextLinkedObject : NotesObject
 {
     protected readonly NotesRichTextItem RichTextItem;
     private readonly int _segmentIndex;
     private readonly int _recordIndex;
     private readonly ushort _signature;
 
-    protected NotesRichTextLinkedObject(NotesSession session, NotesRichTextItem item, NotesRichTextRecordData record) : base(session)
+    internal NotesRichTextLinkedObject(NotesSession session, NotesRichTextItem item, NotesRichTextRecordData record) : base(session)
     {
         RichTextItem = item;
         _segmentIndex = record.SegmentIndex;
