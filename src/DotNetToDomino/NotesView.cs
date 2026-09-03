@@ -14,7 +14,17 @@ public sealed class NotesView : NotesObject
 
     public NotesDatabase Parent { get; }
     public string Name { get; }
-    public string[] ColumnNames { get { EnsureOpen(); return Session.Api.GetViewColumnNames(Parent.Handle, Name); } }
+    public string[] ColumnNames { get { EnsureOpen(); return Session.Api.GetViewColumns(Parent.Handle, Name).Select(column => column.ItemName).ToArray(); } }
+    public IReadOnlyList<NotesViewColumn> Columns
+    {
+        get
+        {
+            EnsureOpen();
+            return Session.Api.GetViewColumns(Parent.Handle, Name)
+                .Select(column => new NotesViewColumn(Session, this, column))
+                .ToArray();
+        }
+    }
     public bool AutoUpdate { get; set; } = true;
     public NotesViewEntryCollection AllEntries => CreateViewEntryCollection();
     internal nint Handle { get { EnsureOpen(); return _handle; } }

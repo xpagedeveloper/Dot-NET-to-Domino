@@ -81,6 +81,7 @@ public class NotesItem : NotesObject
 public sealed class NotesRichTextItem : NotesItem
 {
     private long _richTextRevision;
+    private NotesRichTextStyleState? _appendStyleState;
 
     internal NotesRichTextItem(NotesSession session, NotesDocument parent, string name) : base(session, parent, name) { }
 
@@ -93,9 +94,38 @@ public sealed class NotesRichTextItem : NotesItem
     public void AppendText(string value)
     {
         EnsureItemAlive();
-        Session.Api.AppendRichText(Parent.Handle, Name, value ?? string.Empty);
+        var text = value ?? string.Empty;
+        if (_appendStyleState is NotesRichTextStyleState style) Session.Api.AppendRichTextStyled(Parent.Handle, Name, text, style);
+        else Session.Api.AppendRichText(Parent.Handle, Name, text);
         _richTextRevision++;
     }
+
+    public void AppendStyle(NotesRichTextStyle style)
+    {
+        EnsureItemAlive();
+        ArgumentNullException.ThrowIfNull(style);
+        _appendStyleState = style.ExportState();
+    }
+
+    public void AppendParagraphStyle(NotesRichTextParagraphStyle style)
+    {
+        EnsureItemAlive();
+        ArgumentNullException.ThrowIfNull(style);
+        throw StructuralWriteNotSupported(nameof(AppendParagraphStyle));
+    }
+
+    public void AppendTable(int rows, int columns) => throw StructuralWriteNotSupported(nameof(AppendTable));
+    public void AppendTable(int rows, int columns, IReadOnlyList<string> labels) => throw StructuralWriteNotSupported(nameof(AppendTable));
+    public void AppendTable(int rows, int columns, IReadOnlyList<string> labels, int leftMargin) => throw StructuralWriteNotSupported(nameof(AppendTable));
+    public void AppendTable(int rows, int columns, IReadOnlyList<string> labels, int leftMargin, NotesRichTextParagraphStyle paragraphStyle) => throw StructuralWriteNotSupported(nameof(AppendTable));
+    public void AppendDocLink(object link) => throw StructuralWriteNotSupported(nameof(AppendDocLink));
+    public void AppendDocLink(object link, string comment) => throw StructuralWriteNotSupported(nameof(AppendDocLink));
+    public void AppendDocLink(object link, string comment, string hotspotText) => throw StructuralWriteNotSupported(nameof(AppendDocLink));
+    public void BeginSection(string title) => throw StructuralWriteNotSupported(nameof(BeginSection));
+    public void BeginSection(string title, NotesRichTextStyle titleStyle) => throw StructuralWriteNotSupported(nameof(BeginSection));
+    public void BeginSection(string title, NotesRichTextStyle titleStyle, NotesColorObject barColor) => throw StructuralWriteNotSupported(nameof(BeginSection));
+    public void BeginSection(string title, NotesRichTextStyle titleStyle, NotesColorObject barColor, bool expanded) => throw StructuralWriteNotSupported(nameof(BeginSection));
+    public void EndSection() => throw StructuralWriteNotSupported(nameof(EndSection));
 
     public NotesRichTextNavigator CreateNavigator()
     {
@@ -153,4 +183,7 @@ public sealed class NotesRichTextItem : NotesItem
         EnsureItemAlive();
         return Session.Api.GetRichTextRecords(Parent.Handle, Name);
     }
+
+    private static NotesException StructuralWriteNotSupported(string member) =>
+        new(445, member + " requires atomic composite-data rewrite support and is not supported by this runtime yet.");
 }

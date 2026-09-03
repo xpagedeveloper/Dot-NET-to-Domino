@@ -42,6 +42,9 @@ public sealed class NotesDatabase : NotesObject
     public NotesDateTime LastModified { get { EnsureOpen(); return NotesDateTime.FromNative(Session, Session.Api.GetDatabaseLastModified(_handle)); } }
     public int FileFormat { get { EnsureOpen(); return Session.Api.GetDatabaseFileFormat(_handle); } }
     public NotesDocumentCollection AllDocuments { get { EnsureOpen(); return Own(new NotesDocumentCollection(Session, this, Session.Api.Search(_handle, "@All", 0))); } }
+    public IReadOnlyList<NotesAgent> Agents { get { EnsureOpen(); return GetAgents(); } }
+    public IReadOnlyList<NotesForm> Forms { get { EnsureOpen(); return GetForms(); } }
+    public IReadOnlyList<NotesView> Views { get { EnsureOpen(); return GetViews(); } }
 
     public NotesView? GetView(string name)
     {
@@ -218,6 +221,51 @@ public sealed class NotesDatabase : NotesObject
     }
 
     protected override void ReleaseNative() => CloseForDatabaseOperation();
+
+    private IReadOnlyList<NotesAgent> GetAgents()
+    {
+        var result = new List<NotesAgent>();
+        foreach (var id in Session.Api.BuildNoteCollection(_handle, "@All", 0x0200))
+        {
+            var title = Session.Api.GetDesignNoteText(_handle, id, "$Title");
+            var name = FirstDesignName(title);
+            if (name.Length > 0) result.Add(Own(new NotesAgent(Session, this, id, name)));
+        }
+        return result;
+    }
+
+    private IReadOnlyList<NotesForm> GetForms()
+    {
+        var result = new List<NotesForm>();
+        foreach (var id in Session.Api.BuildNoteCollection(_handle, "@All", 0x0004))
+        {
+            var title = Session.Api.GetDesignNoteText(_handle, id, "$Title");
+            var name = FirstDesignName(title);
+            if (name.Length > 0) result.Add(Own(new NotesForm(Session, this, id, name)));
+        }
+        return result;
+    }
+
+    private IReadOnlyList<NotesView> GetViews()
+    {
+        var result = new List<NotesView>();
+        foreach (var id in Session.Api.BuildNoteCollection(_handle, "@All", 0x0008))
+        {
+            var title = Session.Api.GetDesignNoteText(_handle, id, "$Title");
+            var name = FirstDesignName(title);
+            if (name.Length == 0) continue;
+            var view = GetView(name);
+            if (view is not null) result.Add(view);
+        }
+        return result;
+    }
+
+    private static string FirstDesignName(string? title)
+    {
+        if (string.IsNullOrWhiteSpace(title)) return string.Empty;
+        var separator = title.IndexOf('|');
+        return (separator >= 0 ? title[..separator] : title).Trim();
+    }
 
     private void CloseForDatabaseOperation()
     {
