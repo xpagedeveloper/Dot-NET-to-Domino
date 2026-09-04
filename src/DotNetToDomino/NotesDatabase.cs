@@ -142,7 +142,7 @@ public sealed class NotesDatabase : NotesObject
         EnsureOpen();
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
         var trimmed = name.Trim();
-        var noteId = Session.Api.FindAgentNoteId(_handle, trimmed);
+        var noteId = Session.Api.FindAgentNoteIdWithPrivateLookup(_handle, trimmed);
         return noteId == 0 ? null : Own(new NotesAgent(Session, this, noteId, trimmed));
     }
 
@@ -150,7 +150,10 @@ public sealed class NotesDatabase : NotesObject
     {
         EnsureOpen();
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
-        return Own(new NotesAgentResult(Session, this, Session.Api.RunAgent(_handle, name.Trim(), document?.Handle ?? 0)));
+        var trimmed = name.Trim();
+        var noteId = Session.Api.FindAgentNoteIdWithPrivateLookup(_handle, trimmed);
+        if (noteId == 0) throw new NotesException($"Notes agent '{trimmed}' was not found.");
+        return Own(new NotesAgentResult(Session, this, Session.Api.RunAgentByNoteId(_handle, noteId, document?.Handle ?? 0)));
     }
 
     public NotesNoteCollection CreateNoteCollection(bool selectAll = false)
