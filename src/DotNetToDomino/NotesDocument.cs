@@ -179,7 +179,16 @@ public sealed class NotesDocument : NotesObject
         return GetFirstItem(targetName) ?? throw new InvalidOperationException("Copied NotesItem could not be reopened.");
     }
     public void Save() { EnsureOpen(); Session.Api.SaveNote(_handle); NoteId = Session.Api.GetNoteId(_handle); _knownUniversalId = Session.Api.GetUnid(_handle); }
-    public bool Remove(bool force = false) { EnsureOpen(); var removed = Session.Api.DeleteNote(_handle, force); if (removed) NoteId |= 0x80000000u; return removed; }
+    public bool Remove(bool force = false)
+    {
+        EnsureOpen();
+        if (NoteId == 0) throw new InvalidOperationException("Cannot remove an unsaved NotesDocument.");
+        var databaseHandle = ParentDatabase.Handle;
+        var noteId = NoteId;
+        var api = Session.Api;
+        Recycle();
+        return api.DeleteNote(databaseHandle, noteId, force);
+    }
 
     protected override void ReleaseNative()
     {

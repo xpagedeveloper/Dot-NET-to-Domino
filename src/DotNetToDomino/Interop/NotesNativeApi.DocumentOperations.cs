@@ -22,12 +22,12 @@ internal sealed partial class NotesNativeApi
         public NotesTimeDate SequenceTime;
     }
 
-    internal bool DeleteNote(nint note, bool force)
+    internal bool DeleteNote(nint database, uint noteId, bool force)
     {
         EnsureInitialized();
         using var thread = EnterThread();
         const ushort updateForce = 0x0001;
-        var status = Resolve<Ops_NSFNoteDelete>("NSFNoteDelete")(note, force ? updateForce : (ushort)0);
+        var status = Resolve<Ops_NSFNoteDelete>("NSFNoteDelete")(database, noteId, force ? updateForce : (ushort)0);
         if (status == 0) return true;
         if (!force)
         {
@@ -166,7 +166,7 @@ internal sealed partial class NotesNativeApi
         finally { _ = Resolve<Ops_IDDestroyTable>("IDDestroyTable")(table); }
     }
 
-    [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate ushort Ops_NSFNoteDelete(nint note, ushort flags);
+    [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate ushort Ops_NSFNoteDelete(nint database, uint noteId, ushort flags);
     [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate void Ops_NSFNoteGetInfo(nint note, ushort member, nint value);
     [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate void Ops_NSFNoteSetInfo(nint note, ushort member, nint value);
     [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate ushort Ops_NSFItemAppend(nint note, ushort flags, nint name, ushort nameLength, ushort dataType, nint value, uint valueLength);
