@@ -46,6 +46,9 @@ public sealed class NotesDatabase : NotesObject
     public IReadOnlyList<NotesForm> Forms { get { EnsureOpen(); return GetForms(); } }
     public IReadOnlyList<NotesView> Views { get { EnsureOpen(); return GetViews(); } }
 
+    public NotesDatabase OpenByReplicaID(string replicaId) => Session.OpenByReplicaID(Server, replicaId);
+    public NotesDatabase OpenByReplicaID(string server, string replicaId) => Session.OpenByReplicaID(server, replicaId);
+
     public NotesView? GetView(string name)
     {
         EnsureAlive();
