@@ -8,8 +8,19 @@ internal sealed partial class NotesNativeApi
         using var thread = EnterThread();
         using var agentName = ToLmbcs(name);
         var status = Resolve<Search_NIFFindDesignNote>("NIFFindDesignNote")(db, agentName.Pointer, SearchNoteClassFilter, out var noteId);
-        if (status != 0 && TryResolve<Search_NIFFindPrivateDesignNote>("NIFFindPrivateDesignNote", out var findPrivate) && findPrivate is not null)
-            status = findPrivate(db, agentName.Pointer, SearchNoteClassFilter, out noteId);
+        if (status != 0)
+        {
+            try
+            {
+                status = Resolve<Search_NIFFindPrivateDesignNote>("NIFFindPrivateDesignNote")(
+                    db, agentName.Pointer, SearchNoteClassFilter, out noteId);
+            }
+            catch (EntryPointNotFoundException)
+            {
+                // Older Notes/Domino runtimes may not export the private-design lookup.
+                // Preserve the original NIFFindDesignNote status in that case.
+            }
+        }
         if (status == 0) return noteId;
 
         var text = TryLoadStatusText(status);
