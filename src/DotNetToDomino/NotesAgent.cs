@@ -34,7 +34,7 @@ public sealed class NotesAgent : NotesObject
     public NotesAgentResult Run(NotesDocument? document = null)
     {
         EnsureAlive();
-        return Parent.Own(new NotesAgentResult(Session, Parent, Session.Api.RunAgent(Parent.Handle, Name, document?.Handle ?? 0)));
+        return Parent.Own(new NotesAgentResult(Session, Parent, Session.Api.RunAgentByNoteId(Parent.Handle, _noteId, document?.Handle ?? 0)));
     }
 
     public NotesAgentResult Run(uint noteId)
