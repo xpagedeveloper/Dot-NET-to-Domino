@@ -45,6 +45,17 @@ public sealed class NotesAgent : NotesObject
     }
 
     public NotesAgentResult Run(string noteId) => Run(NotesDatabase.ParseNoteId(noteId));
+
+    public NotesAgentResult RunWithDocumentContext(NotesDocument document)
+    {
+        EnsureAlive();
+        ArgumentNullException.ThrowIfNull(document);
+        return Run(document);
+    }
+
+    public NotesAgentResult RunWithDocumentContext(NotesDocument document, uint noteId) => RunWithDocumentContext(document);
+    public NotesAgentResult RunWithDocumentContext(NotesDocument document, string noteId) => RunWithDocumentContext(document);
+
     public NotesAgentResult RunOnServer(NotesDocument? document = null) => Run(document);
     public NotesAgentResult RunOnServer(uint noteId) => Run(noteId);
     public NotesAgentResult RunOnServer(string noteId) => Run(noteId);
@@ -58,7 +69,8 @@ public sealed class NotesAgent : NotesObject
     public void Remove()
     {
         EnsureAlive();
-        throw new NotesException(445, "NotesAgent.Remove is not supported by this runtime surface yet.");
+        if (!Session.Api.DeleteNote(Parent.Handle, _noteId, false))
+            throw new NotesException(445, "Unable to remove NotesAgent.");
     }
 
     public void UnLock() => EnsureAlive();
