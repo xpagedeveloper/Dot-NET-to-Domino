@@ -79,7 +79,7 @@ public sealed class NotesSession : IDisposable
         filePath = filePath?.Trim() ?? string.Empty;
         if (filePath.Length == 0) return new NotesDatabase(this, 0, server, filePath);
         try { return new NotesDatabase(this, _api.OpenDatabase(server, filePath), server, filePath); }
-        catch (NotesException) { return new NotesDatabase(this, 0, server, filePath); }
+        catch (NotesException ex) { return new NotesDatabase(this, 0, server, filePath, openError: ex.Message); }
     }
 
     public NotesDatabase OpenByReplicaID(string server, string replicaId)
@@ -94,7 +94,7 @@ public sealed class NotesSession : IDisposable
             if (filePath.Length == 0) return new NotesDatabase(this, 0, server, filePath, replicaId);
             return new NotesDatabase(this, _api.OpenDatabase(server, filePath), server, filePath, replicaId);
         }
-        catch (NotesException) { return new NotesDatabase(this, 0, server, string.Empty, replicaId); }
+        catch (NotesException ex) { return new NotesDatabase(this, 0, server, string.Empty, replicaId, ex.Message); }
     }
 
     public NotesName CreateName(string value) { EnsureAlive(); return new NotesName(this, value ?? string.Empty); }
