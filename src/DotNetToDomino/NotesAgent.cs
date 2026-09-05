@@ -17,19 +17,7 @@ public sealed class NotesAgent : NotesObject
     public string Comment => ReadText("$Comment");
     public string Query => ReadText("$AssistQuery");
     public string ServerName => Parent.Server;
-    public string ParameterDocID => string.Empty;
-    public bool IsNotesAgent => true;
-    public bool IsPublic => true;
-    public bool IsWebAgent => false;
-    public bool IsActivatable => true;
-    public bool HasRunSinceModified => false;
-    public bool ProhibitDesignUpdate { get { EnsureAlive(); return false; } set { EnsureAlive(); } }
-    public bool IsEnabled { get { EnsureAlive(); return true; } set { EnsureAlive(); } }
-    public int Trigger { get { EnsureAlive(); return 0; } }
-    public int Target { get { EnsureAlive(); return 0; } }
     public string NotesURL => $"notes://{Parent.Server}/{Parent.FilePath}/0/{_noteId:X8}";
-    public string HttpURL { get { EnsureAlive(); return string.Empty; } }
-    public string OnBehalfOf { get { EnsureAlive(); return string.Empty; } }
 
     public NotesAgentResult Run(NotesDocument? document = null)
     {
@@ -53,9 +41,6 @@ public sealed class NotesAgent : NotesObject
         return Run(document);
     }
 
-    public NotesAgentResult RunWithDocumentContext(NotesDocument document, uint noteId) => RunWithDocumentContext(document);
-    public NotesAgentResult RunWithDocumentContext(NotesDocument document, string noteId) => RunWithDocumentContext(document);
-
     public NotesAgentResult RunOnServer(NotesDocument? document = null) => Run(document);
     public NotesAgentResult RunOnServer(uint noteId) => Run(noteId);
     public NotesAgentResult RunOnServer(string noteId) => Run(noteId);
@@ -72,8 +57,6 @@ public sealed class NotesAgent : NotesObject
         if (!Session.Api.DeleteNote(Parent.Handle, _noteId, false))
             throw new NotesException(445, "Unable to remove NotesAgent.");
     }
-
-    public void UnLock() => EnsureAlive();
 
     private string ReadText(string itemName)
     {
@@ -92,8 +75,6 @@ public sealed class NotesAgentResult : NotesObject
         Output = output;
     }
     public NotesDatabase Database { get; }
-    public bool Success => true;
-    public int Status => 0;
     public string Output { get; }
     protected override void ReleaseNative() => Database.UnregisterChild(this);
 }
