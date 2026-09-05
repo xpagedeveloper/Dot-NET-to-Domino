@@ -35,7 +35,7 @@ public class NotesItem : NotesObject
     public bool IsSigned { get => HasFlag(NotesNativeApi.NotesItemSign); set => SetFlag(NotesNativeApi.NotesItemSign, value); }
     public bool IsSummary { get => HasFlag(NotesNativeApi.NotesItemSummary); set => SetFlag(NotesNativeApi.NotesItemSummary, value); }
     public NotesDateTime LastModified => NotesDateTime.FromNative(Session, Session.Api.GetItemModifiedTime(Parent.Handle, Name));
-    public string Text { get { EnsureItemAlive(); return Session.Api.GetItemText(Parent.Handle, Name); } }
+    public string Text { get { EnsureItemAlive(); return Session.Api.ConvertItemToText(Parent.Handle, Name); } }
     public int Type => MapType(Metadata);
     public long ValueLength => Metadata.ValueLength;
     public object?[] Values { get { EnsureItemAlive(); return Parent.GetItemValue(Name); } set { EnsureItemAlive(); Session.Api.SetItemValues(Parent.Handle, Name, value); } }
@@ -44,7 +44,7 @@ public class NotesItem : NotesObject
         EnsureItemAlive();
         return Metadata.DataType == NotesNativeApi.NotesTypeComposite ? this as NotesRichTextItem ?? Parent.ParentDatabase.Own(new NotesRichTextItem(Session, Parent, Name)) : null;
     }
-    public void Remove() { EnsureItemAlive(); Session.Api.DeleteItem(Parent.Handle, Name); _removed = true; }
+    public void Remove() { EnsureItemAlive(); Session.Api.RemoveItemByBlock(Parent.Handle, Name); _removed = true; }
     public NotesItem CopyToDocument(NotesDocument destination, string? newName = null)
     {
         EnsureItemAlive(); ArgumentNullException.ThrowIfNull(destination);
@@ -107,26 +107,6 @@ public sealed class NotesRichTextItem : NotesItem
         _appendStyleState = style.ExportState();
     }
 
-    public void AppendParagraphStyle(NotesRichTextParagraphStyle style)
-    {
-        EnsureItemAlive();
-        ArgumentNullException.ThrowIfNull(style);
-        throw StructuralWriteNotSupported(nameof(AppendParagraphStyle));
-    }
-
-    public void AppendTable(int rows, int columns) => throw StructuralWriteNotSupported(nameof(AppendTable));
-    public void AppendTable(int rows, int columns, IReadOnlyList<string> labels) => throw StructuralWriteNotSupported(nameof(AppendTable));
-    public void AppendTable(int rows, int columns, IReadOnlyList<string> labels, int leftMargin) => throw StructuralWriteNotSupported(nameof(AppendTable));
-    public void AppendTable(int rows, int columns, IReadOnlyList<string> labels, int leftMargin, NotesRichTextParagraphStyle paragraphStyle) => throw StructuralWriteNotSupported(nameof(AppendTable));
-    public void AppendDocLink(object link) => throw StructuralWriteNotSupported(nameof(AppendDocLink));
-    public void AppendDocLink(object link, string comment) => throw StructuralWriteNotSupported(nameof(AppendDocLink));
-    public void AppendDocLink(object link, string comment, string hotspotText) => throw StructuralWriteNotSupported(nameof(AppendDocLink));
-    public void BeginSection(string title) => throw StructuralWriteNotSupported(nameof(BeginSection));
-    public void BeginSection(string title, NotesRichTextStyle titleStyle) => throw StructuralWriteNotSupported(nameof(BeginSection));
-    public void BeginSection(string title, NotesRichTextStyle titleStyle, NotesColorObject barColor) => throw StructuralWriteNotSupported(nameof(BeginSection));
-    public void BeginSection(string title, NotesRichTextStyle titleStyle, NotesColorObject barColor, bool expanded) => throw StructuralWriteNotSupported(nameof(BeginSection));
-    public void EndSection() => throw StructuralWriteNotSupported(nameof(EndSection));
-
     public NotesRichTextNavigator CreateNavigator()
     {
         EnsureItemAlive();
@@ -159,23 +139,6 @@ public sealed class NotesRichTextItem : NotesItem
         }
     }
 
-    public NotesEmbeddedObject EmbedObject(int type, string className, string sourcePath) => EmbedObject(type, className, sourcePath, null);
-
-    public NotesEmbeddedObject EmbedObject(int type, string className, string sourcePath, string? name)
-    {
-        EnsureItemAlive();
-        if (type != NotesEmbeddedObject.EmbedAttachment)
-            throw new ArgumentOutOfRangeException(nameof(type), "Only EMBED_ATTACHMENT (1454) is supported by NotesRichTextItem.EmbedObject.");
-        if (!string.IsNullOrEmpty(className))
-            throw new ArgumentException("The class argument must be empty for EMBED_ATTACHMENT.", nameof(className));
-        ArgumentException.ThrowIfNullOrWhiteSpace(sourcePath);
-
-        _ = name;
-        var metadata = Session.Api.AttachRichTextFile(Parent.Handle, Name, sourcePath);
-        _richTextRevision++;
-        return new NotesEmbeddedObject(Session, this, metadata);
-    }
-
     internal long RichTextRevision { get { EnsureItemAlive(); return _richTextRevision; } }
     internal void EnsureRichTextAlive() => EnsureItemAlive();
     internal IReadOnlyList<NotesRichTextRecordData> ReadRichTextRecords()
@@ -183,7 +146,4 @@ public sealed class NotesRichTextItem : NotesItem
         EnsureItemAlive();
         return Session.Api.GetRichTextRecords(Parent.Handle, Name);
     }
-
-    private static NotesException StructuralWriteNotSupported(string member) =>
-        new(445, member + " requires atomic composite-data rewrite support and is not supported by this runtime yet.");
 }
