@@ -12,14 +12,16 @@ public sealed class NotesDatabase : NotesObject
     private readonly string _knownReplicaId;
     private string _server;
     private string _filePath;
+    private string _openError;
 
-    internal NotesDatabase(NotesSession session, nint handle, string server, string filePath, string? knownReplicaId = null) : base(session)
+    internal NotesDatabase(NotesSession session, nint handle, string server, string filePath, string? knownReplicaId = null, string? openError = null) : base(session)
     {
         _handle = handle;
         _knownReplicaId = knownReplicaId ?? string.Empty;
         Parent = session;
         _server = server?.Trim() ?? string.Empty;
         _filePath = filePath?.Trim() ?? string.Empty;
+        _openError = openError ?? string.Empty;
     }
 
     public NotesSession Parent { get; }
@@ -28,6 +30,7 @@ public sealed class NotesDatabase : NotesObject
     public string FilePath => _filePath;
     public string FileName => Path.GetFileName(FilePath);
     public bool IsOpen => !IsRecycled && _handle != 0;
+    public string OpenError { get { EnsureAlive(); return _openError; } }
     internal nint Handle { get { EnsureOpen(); return _handle; } }
 
     public string Title { get { EnsureOpen(); return Session.Api.GetDatabaseTitle(_handle); } set { EnsureOpen(); Session.Api.SetDatabaseTitle(_handle, value ?? string.Empty); } }
@@ -196,6 +199,7 @@ public sealed class NotesDatabase : NotesObject
         Session.Api.CreateDatabase(targetServer, createFile);
         _server = targetServer;
         _filePath = targetFile;
+        _openError = string.Empty;
         if (open) _handle = Session.Api.OpenDatabase(targetServer, targetFile);
     }
 
