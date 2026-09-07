@@ -52,6 +52,44 @@ public sealed class NotesDatabase : NotesObject
     public NotesDatabase OpenByReplicaID(string replicaId) => Session.OpenByReplicaID(Server, replicaId);
     public NotesDatabase OpenByReplicaID(string server, string replicaId) => Session.OpenByReplicaID(server, replicaId);
 
+    /// <summary>Opens this database wrapper, assigning its location only if it was created unassigned.</summary>
+    public bool Open(string? server = null, string? filePath = null)
+    {
+        EnsureAlive();
+        var requestedServer = server?.Trim() ?? string.Empty;
+        var requestedFile = filePath?.Trim() ?? string.Empty;
+        var assigned = _server.Length != 0 || _filePath.Length != 0;
+
+        if (assigned)
+        {
+            if (requestedServer.Length != 0 && !string.Equals(requestedServer, _server, StringComparison.OrdinalIgnoreCase))
+                throw new ArgumentException("NotesDatabase.Open cannot reassign the database server.", nameof(server));
+            if (requestedFile.Length != 0 && !string.Equals(requestedFile, _filePath, StringComparison.OrdinalIgnoreCase))
+                throw new ArgumentException("NotesDatabase.Open cannot reassign the database file path.", nameof(filePath));
+        }
+        else
+        {
+            if (requestedFile.Length == 0) throw new ArgumentException("NotesDatabase.Open requires a database file path for an unassigned database.", nameof(filePath));
+            _server = requestedServer;
+            _filePath = requestedFile;
+        }
+
+        if (IsOpen) return true;
+        var targetServer = requestedServer.Length == 0 ? _server : requestedServer;
+        var targetFile = requestedFile.Length == 0 ? _filePath : requestedFile;
+        try
+        {
+            _handle = Session.Api.OpenDatabase(targetServer, targetFile);
+            _openError = string.Empty;
+            return _handle != 0;
+        }
+        catch (NotesException ex)
+        {
+            _openError = ex.Message;
+            return false;
+        }
+    }
+
     public NotesView? GetView(string name)
     {
         EnsureAlive();
@@ -100,15 +138,15 @@ public sealed class NotesDatabase : NotesObject
         return Own(new NotesDocumentCollection(Session, this, []));
     }
 
-    public NotesDocumentCollection? GetModifiedDocuments() => GetModifiedDocuments(null, 0x0001);
-    public NotesDocumentCollection? GetModifiedDocuments(NotesDateTime? since) => GetModifiedDocuments(since, 0x0001);
+    public NotesDocumentCollection? GetModifiedDocuments() => GetModifiedDocuments(null, NotesConst.DBMOD_DOC_DATA);
+    public NotesDocumentCollection? GetModifiedDocuments(NotesDateTime? since) => GetModifiedDocuments(since, NotesConst.DBMOD_DOC_DATA);
 
     public NotesDocumentCollection? GetModifiedDocuments(NotesDateTime? since, int noteClass)
     {
         EnsureAlive();
         if (!IsOpen) return null;
         const int supportedClasses = 0x0F5D;
-        if (noteClass != 0x7FFF && (noteClass <= 0 || (noteClass & ~supportedClasses) != 0))
+        if (noteClass != NotesConst.DBMOD_DOC_ALL && (noteClass <= 0 || (noteClass & ~supportedClasses) != 0))
             throw new ArgumentOutOfRangeException(nameof(noteClass), "noteClass must be a supported DBMOD_DOC_* note class or DBMOD_DOC_ALL (0x7FFF).");
         var modified = Session.Api.GetModifiedNoteIds(_handle, checked((ushort)noteClass), since?.NativeValue);
         var collection = Own(new NotesDocumentCollection(Session, this, modified.NoteIds));
