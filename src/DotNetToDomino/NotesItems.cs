@@ -85,6 +85,12 @@ public sealed class NotesRichTextItem : NotesItem
 
     internal NotesRichTextItem(NotesSession session, NotesDocument parent, string name) : base(session, parent, name) { }
 
+    public string ConvertToHTML(bool inlineImages = false)
+    {
+        EnsureItemAlive();
+        return Session.Api.ConvertRichTextToHtml(Parent.ParentDatabase.Handle, Parent.Handle, Name, inlineImages);
+    }
+
     public bool SaveAttachment(string attachmentName, string outputPath)
     {
         EnsureItemAlive();
