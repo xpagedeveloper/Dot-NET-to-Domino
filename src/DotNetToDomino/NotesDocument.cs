@@ -8,6 +8,8 @@ public sealed class NotesDocument : NotesObject
 {
     private nint _handle;
     private NotesViewRow? _viewRow;
+    private string _knownUniversalId;
+    private readonly bool _isValidAtCreation;
 
     internal NotesDocument(NotesSession session, NotesDatabase parent, nint handle, uint? knownNoteId, string? knownUnid) : base(session)
     {
@@ -16,6 +18,7 @@ public sealed class NotesDocument : NotesObject
         try
         {
             NoteId = knownNoteId ?? Session.Api.GetNoteId(handle);
+            _isValidAtCreation = NoteId == 0 || Session.Api.IsDocumentValid(parent.Handle, NoteId);
             _knownUniversalId = knownUnid ?? (handle == 0 ? string.Empty : Session.Api.GetUnid(handle));
             if (handle != 0 && session.ConvertMIME) Session.Api.ConvertMimePartsToComposite(handle);
         }
@@ -27,7 +30,6 @@ public sealed class NotesDocument : NotesObject
         }
     }
 
-    private string _knownUniversalId;
     public NotesDatabase ParentDatabase { get; }
     public NotesDatabase Parent => ParentDatabase;
     public uint NoteId { get; private set; }
@@ -39,6 +41,7 @@ public sealed class NotesDocument : NotesObject
         set { EnsureOpen(); Session.Api.SetUnid(_handle, value); _knownUniversalId = value; }
     }
     public string UniversalID { get => UniversalId; set => UniversalId = value; }
+
     public IReadOnlyList<NotesItem> Items
     {
         get
@@ -47,22 +50,39 @@ public sealed class NotesDocument : NotesObject
             return Session.Api.GetAllItemNames(_handle).Select(GetFirstItem).Where(item => item is not null).Cast<NotesItem>().ToArray();
         }
     }
+
+    public IReadOnlyList<string> Authors
+    {
+        get
+        {
+            EnsureAlive();
+            if (_handle == 0 || !HasItem("$UpdatedBy")) return [];
+            return GetItemValue("$UpdatedBy").Select(value => Convert.ToString(value, CultureInfo.InvariantCulture) ?? string.Empty).ToArray();
+        }
+    }
+
+    public bool SentByAgent
+    {
+        get
+        {
+            EnsureAlive();
+            if (_handle == 0 || !HasItem("$AssistMail")) return false;
+            return GetItemValue("$AssistMail").Any(value => string.Equals(Convert.ToString(value, CultureInfo.InvariantCulture)?.Trim(), "1", StringComparison.Ordinal));
+        }
+    }
+
     public object?[] ColumnValues { get { EnsureAlive(); return _viewRow?.GetColumnValues() ?? []; } }
     public long Size { get { EnsureOpen(); return Session.Api.GetDocumentSize(_handle); } }
     public NotesDateTime Created { get { EnsureOpen(); return NotesDateTime.FromNative(Session, Session.Api.GetDocumentCreated(_handle)); } }
     public NotesDateTime LastModified { get { EnsureOpen(); return NotesDateTime.FromNative(Session, Session.Api.GetDocumentLastModified(_handle)); } }
+    public NotesDateTime LastAccessed { get { EnsureOpen(); return NotesDateTime.FromNative(Session, Session.Api.GetDocumentLastAccessed(_handle)); } }
     public bool IsNewNote => NoteId == 0;
     public bool IsResponse { get { EnsureOpen(); return Session.Api.GetParentNoteId(_handle) != 0; } }
-    public bool IsDeleted => (NoteId & 0x80000000u) != 0;
-    public bool IsValid { get { EnsureAlive(); return NoteId == 0 || !IsDeleted; } }
-    public bool IsProfile
-    {
-        get
-        {
-            EnsureOpen();
-            return HasItem("$Name") && GetString("$Name").StartsWith("$profile_", StringComparison.OrdinalIgnoreCase);
-        }
-    }
+    public bool IsDeleted { get { EnsureAlive(); return NoteId != 0 && Session.Api.IsDocumentDeleted(ParentDatabase.Handle, NoteId); } }
+    public bool IsValid { get { EnsureAlive(); return _isValidAtCreation; } }
+    public bool IsProfile { get { EnsureAlive(); return TryGetProfileIdentity(out _, out _); } }
+    public string NameOfProfile { get { EnsureAlive(); return TryGetProfileIdentity(out var name, out _) ? name : string.Empty; } }
+    public string Key { get { EnsureAlive(); return TryGetProfileIdentity(out _, out var key) ? key : string.Empty; } }
     public bool IsDesign { get { EnsureOpen(); return ResolveDesignType().Length != 0; } }
     public string DesignType { get { EnsureOpen(); return ResolveDesignType(); } }
     public string DesignTitle
@@ -107,12 +127,14 @@ public sealed class NotesDocument : NotesObject
         var metadata = Session.Api.GetItemMetadata(_handle, itemName);
         return ParentDatabase.Own(metadata.DataType == NotesNativeApi.NotesTypeComposite ? new NotesRichTextItem(Session, this, metadata.Name) : new NotesItem(Session, this, metadata.Name));
     }
+
     public NotesItem CreateNotesItem(string itemName)
     {
         EnsureOpen(); ArgumentException.ThrowIfNullOrWhiteSpace(itemName);
         Session.Api.SetItemText(_handle, itemName, string.Empty);
         return ParentDatabase.Own(new NotesItem(Session, this, itemName));
     }
+
     public NotesRichTextItem CreateRichTextItem(string itemName)
     {
         EnsureOpen(); ArgumentException.ThrowIfNullOrWhiteSpace(itemName);
@@ -120,6 +142,7 @@ public sealed class NotesDocument : NotesObject
         Session.Api.CreateRichTextItem(_handle, itemName);
         return ParentDatabase.Own(new NotesRichTextItem(Session, this, itemName));
     }
+
     public NotesItem ReplaceItemValue(string itemName, object? value) { SetValue(itemName, value); return GetFirstItem(itemName) ?? ParentDatabase.Own(new NotesItem(Session, this, itemName)); }
     public bool HasItem(string itemName) { EnsureOpen(); ArgumentException.ThrowIfNullOrWhiteSpace(itemName); return Session.Api.HasItem(_handle, itemName); }
     public object? GetValue(string itemName) { var values = GetItemValue(itemName); return values.Length switch { 0 => null, 1 => values[0], _ => values }; }
@@ -157,12 +180,14 @@ public sealed class NotesDocument : NotesObject
     public void MarkUnread(string? userName = null) { EnsureOpen(); if (!IsNewNote) Session.Api.SetDocumentUnread(ParentDatabase.Handle, NoteId, string.IsNullOrWhiteSpace(userName) ? Session.Username : userName, true); }
     public void PutInFolder(string folderName, bool createOnFail = false) { EnsureOpen(); ArgumentException.ThrowIfNullOrWhiteSpace(folderName); if (!IsNewNote) Session.Api.PutDocumentInFolder(ParentDatabase.Handle, NoteId, folderName, createOnFail); }
     public void RemoveFromFolder(string folderName) { EnsureOpen(); ArgumentException.ThrowIfNullOrWhiteSpace(folderName); if (!IsNewNote) Session.Api.RemoveDocumentFromFolder(ParentDatabase.Handle, NoteId, folderName); }
+
     public void MakeResponse(NotesDocument parentDocument)
     {
         EnsureOpen(); ArgumentNullException.ThrowIfNull(parentDocument);
         if (!string.Equals(ParentDatabase.ReplicaID, parentDocument.ParentDatabase.ReplicaID, StringComparison.OrdinalIgnoreCase)) throw new ArgumentException("MakeResponse requires documents in the same database replica.", nameof(parentDocument));
         Session.Api.MakeResponse(_handle, parentDocument.Handle);
     }
+
     public NotesDocument CopyToDatabase(NotesDatabase destination)
     {
         EnsureOpen(); ArgumentNullException.ThrowIfNull(destination);
@@ -170,7 +195,9 @@ public sealed class NotesDocument : NotesObject
         var copy = Session.Api.CopyDocumentToDatabase(_handle, destination.Handle);
         return destination.Own(new NotesDocument(Session, destination, copy, Session.Api.GetNoteId(copy), null));
     }
+
     public void CopyAllItems(NotesDocument destination, bool replace = false) { EnsureOpen(); ArgumentNullException.ThrowIfNull(destination); Session.Api.CopyAllItems(_handle, destination.Handle, replace); }
+
     public NotesItem CopyItem(NotesItem item, string? newName = null)
     {
         EnsureOpen(); ArgumentNullException.ThrowIfNull(item);
@@ -178,7 +205,9 @@ public sealed class NotesDocument : NotesObject
         Session.Api.CopyItemToDocument(item.Parent.Handle, item.Name, _handle, targetName);
         return GetFirstItem(targetName) ?? throw new InvalidOperationException("Copied NotesItem could not be reopened.");
     }
+
     public void Save() { EnsureOpen(); Session.Api.SaveNote(_handle); NoteId = Session.Api.GetNoteId(_handle); _knownUniversalId = Session.Api.GetUnid(_handle); }
+
     public bool Remove(bool force = false)
     {
         EnsureOpen();
@@ -195,6 +224,26 @@ public sealed class NotesDocument : NotesObject
         var handle = _handle; _handle = 0; _viewRow = null;
         try { if (handle != 0 && Session.Api.IsInitialized) Session.Api.CloseNote(handle); }
         finally { ParentDatabase.UnregisterChild(this); }
+    }
+
+    private bool TryGetProfileIdentity(out string profileName, out string key)
+    {
+        profileName = string.Empty;
+        key = string.Empty;
+        if (_handle == 0 || !HasItem("$Name")) return false;
+        var value = GetString("$Name");
+        const string prefix = "$profile_";
+        if (!value.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)) return false;
+        var lengthOffset = prefix.Length;
+        if (value.Length < lengthOffset + 3) return false;
+        if (!int.TryParse(value.AsSpan(lengthOffset, 3), NumberStyles.None, CultureInfo.InvariantCulture, out var profileLength)) return false;
+        var profileOffset = lengthOffset + 3;
+        if (profileLength < 0 || value.Length < profileOffset + profileLength) return false;
+        profileName = value.Substring(profileOffset, profileLength);
+        var keyOffset = profileOffset + profileLength;
+        if (keyOffset < value.Length && value[keyOffset] == '_') keyOffset++;
+        if (keyOffset < value.Length) key = value[keyOffset..];
+        return true;
     }
 
     private string ResolveDesignType()
