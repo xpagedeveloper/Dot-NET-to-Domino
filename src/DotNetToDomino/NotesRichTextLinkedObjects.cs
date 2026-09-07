@@ -18,6 +18,8 @@ public abstract class NotesRichTextLinkedObject : NotesObject
     }
 
     public NotesRichTextItem Parent { get { EnsureLinkedAlive(); return RichTextItem; } }
+    internal NotesRichTextItem PositionOwner { get { EnsureLinkedAlive(); return RichTextItem; } }
+    internal NotesRichTextRecordData PositionRecord() => CurrentRecord();
 
     private protected NotesRichTextRecordData CurrentRecord()
     {
@@ -40,7 +42,6 @@ public abstract class NotesRichTextLinkedObject : NotesObject
     }
 
     protected void EnsureLinkedAlive() { EnsureAlive(); RichTextItem.EnsureRichTextAlive(); }
-    protected static NotesException UnsupportedWrite(string member) => new(445, member + " requires atomic composite-data rewrite support and is not supported by this runtime yet.");
     protected override void ReleaseNative() { }
 }
 
@@ -64,6 +65,8 @@ public sealed class NotesRichTextSection : NotesRichTextLinkedObject
     private const uint BarExpanded = 0x00000002u;
     private const uint BarIsFormula = 0x00002000u;
     private const uint BarHasColor = 0x04000000u;
+    private const ushort BarSignature = unchecked((ushort)-84);
+    private const ushort BarEndSignature = unchecked((ushort)-82);
 
     internal NotesRichTextSection(NotesSession session, NotesRichTextItem item, NotesRichTextRecordData record) : base(session, item, record) { }
 
@@ -118,12 +121,106 @@ public sealed class NotesRichTextSection : NotesRichTextLinkedObject
         }
     }
 
-    public void Remove() => throw UnsupportedWrite("NotesRichTextSection.Remove");
-    public void SetBarColor(NotesColorObject color) => throw UnsupportedWrite("NotesRichTextSection.SetBarColor");
-    public void SetTitleStyle(NotesRichTextStyle style) => throw UnsupportedWrite("NotesRichTextSection.SetTitleStyle");
+    public void Remove()
+    {
+        EnsureLinkedAlive();
+        var records = Records();
+        var start = CurrentFlatIndex(records);
+        var end = ResolveSectionEnd(records, start);
+        var rewritten = NotesRichTextCdTransform.Transform(records, record =>
+            record.RecordIndex >= records[start].RecordIndex && record.RecordIndex <= records[end].RecordIndex
+                ? null
+                : NotesRichTextRecordRewrite.Preserve(record));
+        RichTextItem.RewriteRichTextRecords(rewritten);
+    }
 
+    public void SetBarColor(NotesColorObject color)
+    {
+        EnsureLinkedAlive();
+        ArgumentNullException.ThrowIfNull(color);
+        RewriteHeader(data =>
+        {
+            if (data.Length < 12) throw new NotesException(91, "Invalid rich-text section header.");
+            var flags = ReadUInt32(data, 4) | BarHasColor;
+            if (data.Length < 14) Array.Resize(ref data, 14);
+            WriteUInt32(data, 4, flags);
+            WriteUInt16(data, 12, checked((ushort)color.NotesColor));
+            return data;
+        });
+    }
+
+    public void SetTitleStyle(NotesRichTextStyle style)
+    {
+        EnsureLinkedAlive();
+        ArgumentNullException.ThrowIfNull(style);
+        var state = style.ExportState();
+        RewriteHeader(data =>
+        {
+            if (data.Length < 12) throw new NotesException(91, "Invalid rich-text section header.");
+            if (state.NotesFont != NotesRichTextStyle.StyleNoChange) data[8] = checked((byte)state.NotesFont);
+            var attrib = data[9];
+            attrib = ApplyFlag(attrib, 0x01, state.Bold);
+            attrib = ApplyFlag(attrib, 0x02, state.Italic);
+            attrib = ApplyFlag(attrib, 0x04, state.Underline);
+            attrib = ApplyFlag(attrib, 0x08, state.Strikethrough);
+            if (state.Effects != NotesRichTextStyle.StyleNoChange)
+            {
+                attrib = (byte)(attrib & 0x0f);
+                attrib |= state.Effects switch { 1 => (byte)0x10, 2 => (byte)0x20, 3 => (byte)0x80, 4 => (byte)0x90, 5 => (byte)0xa0, _ => (byte)0 };
+            }
+            data[9] = attrib;
+            if (state.NotesColor != NotesRichTextStyle.StyleNoChange) data[10] = checked((byte)state.NotesColor);
+            if (state.FontSize != NotesRichTextStyle.StyleNoChange) data[11] = checked((byte)state.FontSize);
+            return data;
+        });
+    }
+
+    private void RewriteHeader(Func<byte[], byte[]> transform)
+    {
+        var current = CurrentRecord();
+        var records = Records();
+        var rewritten = NotesRichTextCdTransform.Transform(records, record =>
+        {
+            if (record.SegmentIndex != current.SegmentIndex || record.RecordIndex != current.RecordIndex)
+                return NotesRichTextRecordRewrite.Preserve(record);
+            var data = transform((byte[])record.Data.Clone());
+            FixRecordLength(data);
+            return new NotesRichTextRecordRewrite(record.SegmentIndex, record.RecordIndex, record.Signature, data);
+        });
+        RichTextItem.RewriteRichTextRecords(rewritten);
+    }
+
+    private static int ResolveSectionEnd(IReadOnlyList<NotesRichTextRecordData> records, int start)
+    {
+        var depth = 1;
+        for (var i = start + 1; i < records.Count; i++)
+        {
+            if (records[i].Signature == BarSignature) depth++;
+            else if (records[i].Signature == BarEndSignature && --depth == 0) return i;
+        }
+        throw new NotesException(91, "Rich text section has no matching end record.");
+    }
+
+    private static byte ApplyFlag(byte value, byte mask, int setting)
+    {
+        if (setting == NotesRichTextStyle.StyleNoChange) return value;
+        return setting != 0 ? (byte)(value | mask) : (byte)(value & ~mask);
+    }
     private static ushort ReadUInt16(byte[] data, int offset) => (ushort)(data[offset] | (data[offset + 1] << 8));
     private static uint ReadUInt32(byte[] data, int offset) => (uint)(data[offset] | (data[offset + 1] << 8) | (data[offset + 2] << 16) | (data[offset + 3] << 24));
+    private static void WriteUInt16(byte[] data, int offset, ushort value) { data[offset] = (byte)value; data[offset + 1] = (byte)(value >> 8); }
+    private static void WriteUInt32(byte[] data, int offset, uint value) { data[offset] = (byte)value; data[offset + 1] = (byte)(value >> 8); data[offset + 2] = (byte)(value >> 16); data[offset + 3] = (byte)(value >> 24); }
+    private static void FixRecordLength(byte[] data)
+    {
+        if (data.Length < 2) return;
+        if (data[1] == 0xff && data.Length >= 4) WriteUInt16(data, 2, checked((ushort)data.Length));
+        else if (data[1] == 0 && data.Length >= 6)
+        {
+            var length = checked((uint)data.Length);
+            data[2] = (byte)length; data[3] = (byte)(length >> 8); data[4] = (byte)(length >> 16); data[5] = (byte)(length >> 24);
+        }
+        else data[1] = checked((byte)data.Length);
+    }
 }
 
 /// <summary>Represents a table in Notes rich text.</summary>
@@ -137,19 +234,6 @@ public sealed class NotesRichTextTable : NotesRichTextLinkedObject
     public int ColumnCount { get { var d = GetDimensions(); return d.Columns; } }
     public bool RightToLeft { get { var data = CurrentRecord().Data; return data.Length >= 14 && (ReadUInt16(data, 12) & TableRightToLeft) != 0; } }
     public int Style { get { var data = CurrentRecord().Data; return data.Length >= 14 ? ReadUInt16(data, 12) : 0; } }
-    public IReadOnlyList<string> RowLabels { get { EnsureLinkedAlive(); return Array.Empty<string>(); } }
-    public NotesColorObject Color { get { EnsureLinkedAlive(); return new NotesColorObject(Session, 0); } }
-    public NotesColorObject AlternateColor { get { EnsureLinkedAlive(); return new NotesColorObject(Session, 0); } }
-
-    public void AddRow() => throw UnsupportedWrite("NotesRichTextTable.AddRow");
-    public void AddRow(int count) => throw UnsupportedWrite("NotesRichTextTable.AddRow");
-    public void AddRow(int count, int targetRow) => throw UnsupportedWrite("NotesRichTextTable.AddRow");
-    public void Remove() => throw UnsupportedWrite("NotesRichTextTable.Remove");
-    public void RemoveRow() => throw UnsupportedWrite("NotesRichTextTable.RemoveRow");
-    public void RemoveRow(int count) => throw UnsupportedWrite("NotesRichTextTable.RemoveRow");
-    public void RemoveRow(int count, int targetRow) => throw UnsupportedWrite("NotesRichTextTable.RemoveRow");
-    public void SetAlternateColor(NotesColorObject color) => throw UnsupportedWrite("NotesRichTextTable.SetAlternateColor");
-    public void SetColor(NotesColorObject color) => throw UnsupportedWrite("NotesRichTextTable.SetColor");
 
     private (int Rows, int Columns) GetDimensions()
     {
@@ -181,11 +265,6 @@ public sealed class NotesRichTextDocLink : NotesRichTextLinkedObject
     public string DisplayComment => ParseTarget().DisplayComment;
     public string ServerHint => ParseTarget().ServerHint;
     public string HotSpotText => ParseTarget().HotspotText;
-    public NotesRichTextStyle HotSpotTextStyle { get { EnsureLinkedAlive(); return new NotesRichTextStyle(Session); } }
-
-    public void Remove() => throw UnsupportedWrite("NotesRichTextDocLink.Remove");
-    public void RemoveLinkage() => throw UnsupportedWrite("NotesRichTextDocLink.RemoveLinkage");
-    public void SetHotSpotTextStyle(NotesRichTextStyle style) => throw UnsupportedWrite("NotesRichTextDocLink.SetHotSpotTextStyle");
 
     private (string DbReplicaId, string ViewUnid, string DocUnid, string DisplayComment, string ServerHint, string HotspotText) ParseTarget()
     {
