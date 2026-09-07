@@ -9,3 +9,8 @@ internal sealed partial class NotesNativeApi
         return GetEnvironmentString(name.Trim());
     }
 }
+
+internal static class NotesNativeApiEnvironmentExtensions
+{
+    internal static string GetEnvironmentString(this NotesNativeApi api, string name) => api.ReadEnvironmentString(name);
+}
