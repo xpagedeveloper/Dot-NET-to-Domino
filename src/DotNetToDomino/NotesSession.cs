@@ -72,6 +72,32 @@ public sealed class NotesSession : IDisposable
     public bool IsRecycled => _recycled;
     internal NotesNativeApi Api => _api;
 
+    public string GetEnvironmentString(string name, bool system = false)
+    {
+        EnsureAlive();
+        return _api.GetEnvironmentString(ResolveEnvironmentVariableName(name, system));
+    }
+
+    public int? GetEnvironmentValue(string name, bool system = false)
+    {
+        EnsureAlive();
+        var text = _api.GetEnvironmentString(ResolveEnvironmentVariableName(name, system));
+        if (text.Length == 0) return null;
+        return int.TryParse(text, System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out var value)
+            ? value
+            : null;
+    }
+
+    /// <summary>Returns a database wrapper. When createOnFail is false, null is returned if the database cannot be opened.</summary>
+    public NotesDatabase? GetDatabase(string server, string filePath, bool createOnFail = true)
+    {
+        EnsureAlive();
+        var database = OpenDatabase(server, filePath);
+        if (database.IsOpen || createOnFail) return database;
+        database.Recycle();
+        return null;
+    }
+
     public NotesDatabase OpenDatabase(string server, string filePath)
     {
         EnsureAlive();
@@ -138,6 +164,14 @@ public sealed class NotesSession : IDisposable
     internal void Register(NotesObject value) { EnsureAlive(); lock (_childrenGate) _children.Add(value); }
     internal void Unregister(NotesObject value) { lock (_childrenGate) _children.Remove(value); }
     internal void EnsureAlive() { if (_recycled) throw new ObjectDisposedException(nameof(NotesSession), "NotesSession has been recycled."); }
+
+    private static string ResolveEnvironmentVariableName(string name, bool system)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(name);
+        name = name.Trim();
+        if (system || name.StartsWith('$')) return name;
+        return "$" + name;
+    }
 
     private static string ResolveDefaultRuntimeDirectoryWindows()
     {
