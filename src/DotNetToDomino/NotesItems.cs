@@ -152,4 +152,12 @@ public sealed class NotesRichTextItem : NotesItem
         EnsureItemAlive();
         return Session.Api.GetRichTextRecords(Parent.Handle, Name);
     }
+
+    internal void RewriteRichTextRecords(IReadOnlyList<NotesRichTextRecordRewrite> records)
+    {
+        EnsureItemAlive();
+        var original = ReadRichTextRecords();
+        Session.Api.ReplaceRichTextCdRecords(Parent.Handle, Name, original, records);
+        _richTextRevision++;
+    }
 }
