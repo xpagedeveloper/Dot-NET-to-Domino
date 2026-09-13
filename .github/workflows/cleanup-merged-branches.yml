@@ -14,7 +14,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Delete branches already contained in main
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           script: |
             const owner = context.repo.owner;
@@ -35,18 +35,19 @@ jobs:
 
               let comparison;
               try {
-                comparison = await github.rest.repos.compareCommitsWithBasehead({
+                comparison = await github.rest.repos.compareCommits({
                   owner,
                   repo,
-                  basehead: `${encodeURIComponent(branch.name)}...main`
+                  base: branch.name,
+                  head: 'main'
                 });
               } catch (error) {
                 core.warning(`Could not compare ${branch.name}: ${error.message}`);
                 continue;
               }
 
-              // If branch -> main is identical or main is ahead, every commit on
-              // the branch is already reachable from main and deletion is safe.
+              // Comparing branch -> main: identical or ahead means main contains
+              // every commit reachable from the branch, so deletion is safe.
               if (comparison.data.status !== 'identical' && comparison.data.status !== 'ahead') {
                 core.info(`Keeping unmerged branch ${branch.name} (${comparison.data.status})`);
                 continue;
