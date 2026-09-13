@@ -1,3 +1,4 @@
+using System.Collections;
 using System.Globalization;
 using DotNetToDomino.Interop;
 
@@ -43,6 +44,20 @@ public sealed class NotesDocument : NotesObject
     public bool ComputeWithForm(bool d,bool r){EnsureOpen();var ok=Session.Api.ComputeDocumentWithForm(_handle);if(!ok&&r)throw new NotesException(5,"ComputeWithForm validation failed.");return ok;} public bool ComputeWithForm(bool d,bool r,out string[] f){EnsureOpen();var x=Session.Api.ComputeDocumentWithFormAndCollectErrors(_handle);f=x.FailedFields;if(!x.Success&&r)throw new NotesException(5,"ComputeWithForm validation failed.");return x.Success;}
     public void MarkRead(string? u=null){EnsureOpen();if(!IsNewNote)Session.Api.SetDocumentUnread(ParentDatabase.Handle,NoteId,string.IsNullOrWhiteSpace(u)?Session.Username:u,false);} public void MarkUnread(string? u=null){EnsureOpen();if(!IsNewNote)Session.Api.SetDocumentUnread(ParentDatabase.Handle,NoteId,string.IsNullOrWhiteSpace(u)?Session.Username:u,true);} public void PutInFolder(string f,bool c=false){EnsureOpen();if(!IsNewNote)Session.Api.PutDocumentInFolder(ParentDatabase.Handle,NoteId,f,c);} public void RemoveFromFolder(string f){EnsureOpen();if(!IsNewNote)Session.Api.RemoveDocumentFromFolder(ParentDatabase.Handle,NoteId,f);}
     public void MakeResponse(NotesDocument p){EnsureOpen();ArgumentNullException.ThrowIfNull(p);if(!string.Equals(ParentDatabase.ReplicaID,p.ParentDatabase.ReplicaID,StringComparison.OrdinalIgnoreCase))throw new ArgumentException("MakeResponse requires documents in the same database replica.",nameof(p));Session.Api.MakeResponse(_handle,p.Handle);} public NotesDocument CopyToDatabase(NotesDatabase d){EnsureOpen();var c=Session.Api.CopyDocumentToDatabase(_handle,d.Handle);return d.Own(new NotesDocument(Session,d,c,Session.Api.GetNoteId(c),null));} public void CopyAllItems(NotesDocument d,bool r=false){EnsureOpen();Session.Api.CopyAllItems(_handle,d.Handle,r);} public NotesItem CopyItem(NotesItem i,string? n=null){EnsureOpen();var t=string.IsNullOrWhiteSpace(n)?i.Name:n.Trim();Session.Api.CopyItemToDocument(i.Parent.Handle,i.Name,_handle,t);return GetFirstItem(t)!;}
+    public void Send() => Send(false, null);
+    public void Send(bool attachForm) => Send(attachForm, null);
+    public void Send(bool attachForm, object? recipients)
+    {
+        EnsureOpen();
+        string[]? values = recipients switch
+        {
+            null => null,
+            string text => [text],
+            IEnumerable sequence => sequence.Cast<object?>().Select(value => Convert.ToString(value, CultureInfo.InvariantCulture) ?? string.Empty).ToArray(),
+            _ => [Convert.ToString(recipients, CultureInfo.InvariantCulture) ?? string.Empty]
+        };
+        Session.Api.SendNote(_handle, values);
+    }
     public void Save(){EnsureOpen();InvalidateMimeDirectory();Session.Api.SaveNote(_handle);NoteId=Session.Api.GetNoteId(_handle);_knownUniversalId=Session.Api.GetUnid(_handle);} public bool Remove(bool force=false){EnsureOpen();if(NoteId==0)throw new InvalidOperationException("Cannot remove an unsaved NotesDocument.");var db=ParentDatabase.Handle;var id=NoteId;var api=Session.Api;Recycle();return api.DeleteNote(db,id,force);}
     protected override void ReleaseNative(){InvalidateMimeDirectory();var h=_handle;_handle=0;_viewRow=null;try{if(h!=0&&Session.Api.IsInitialized)Session.Api.CloseNote(h);}finally{ParentDatabase.UnregisterChild(this);}}
 
