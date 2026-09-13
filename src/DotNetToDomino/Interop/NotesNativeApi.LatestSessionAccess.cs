@@ -20,12 +20,16 @@ internal sealed partial class NotesNativeApi
         EnsureInitialized();
         using var thread = EnterThread();
         using var passwordText = ToLmbcs(password ?? string.Empty);
-        if (passwordText.Length > ushort.MaxValue) throw new ArgumentException("Password is too long.", nameof(password));
+        if (passwordText.Length > ushort.MaxValue) throw new NotesException(5, "Password is too long for NotesSession.HashPassword.");
         var digest = Marshal.AllocHGlobal(PasswordDigestCapacity);
         try
         {
             Zero(digest, PasswordDigestCapacity);
-            CheckStatus(Resolve<SECHashPasswordDelegate>("SECHashPassword")(checked((ushort)passwordText.Length), passwordText.Pointer, PasswordDigestCapacity, out var length, digest, 0, 0), "SECHashPassword");
+            CheckStatus(Resolve<SECHashPasswordDelegate>("SECHashPassword")(
+                checked((ushort)passwordText.Length), passwordText.Pointer,
+                checked((ushort)PasswordDigestCapacity), out var length,
+                digest, 0, 0), "SECHashPassword");
+            if (length >= PasswordDigestCapacity) throw new NotesException(5, "SECHashPassword returned an invalid digest length.");
             return FromLmbcs(digest, length);
         }
         finally { Zero(passwordText.Pointer, passwordText.Length + 1); Zero(digest, PasswordDigestCapacity); Marshal.FreeHGlobal(digest); }
@@ -109,7 +113,7 @@ internal sealed partial class NotesNativeApi
     }
     private static string AccessLevelName(ushort level) => level switch { 0 => "NoAccess", 1 => "Depositor", 2 => "Reader", 3 => "Author", 4 => "Editor", 5 => "Designer", 6 => "Manager", _ => "Unknown" };
 
-    [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate ushort SECHashPasswordDelegate(ushort passwordLength, nint password, int maximumDigestLength, out ushort digestLength, nint digest, uint flags, nint reserved);
+    [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate ushort SECHashPasswordDelegate(ushort passwordLength, nint password, ushort maximumDigestLength, out ushort digestLength, nint digest, uint flags, nint reserved);
     [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate ushort SECVerifyPasswordDelegate(ushort passwordLength, nint password, ushort digestLength, nint digest, uint flags, nint reserved);
     [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate void OSSetEnvironmentVariableDelegate(nint name, nint value);
     [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate ushort NAMEGetAddressBooksDelegate(nint server, ushort options, out ushort count, out ushort length, out nint handle);
