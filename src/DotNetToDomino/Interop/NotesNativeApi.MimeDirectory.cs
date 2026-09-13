@@ -7,33 +7,14 @@ internal sealed partial class NotesNativeApi
 {
     private const ushort ErrMimeNoData = 0x3AF9;
 
-    internal nint OpenMimeDirectory(nint note)
-    {
-        EnsureInitialized();
-        Check(Resolve<MIMEOpenDirectoryDelegate>("MIMEOpenDirectory")(note, out var directory), "MIMEOpenDirectory");
-        return directory;
-    }
-
-    internal void FreeMimeDirectory(nint directory)
-    {
-        if (directory == 0) return;
-        EnsureInitialized();
-        Check(Resolve<MIMEFreeDirectoryDelegate>("MIMEFreeDirectory")(directory), "MIMEFreeDirectory");
-    }
-
+    internal nint OpenMimeDirectory(nint note) { EnsureInitialized(); CheckStatus(Resolve<MIMEOpenDirectoryDelegate>("MIMEOpenDirectory")(note, out var directory), "MIMEOpenDirectory"); return directory; }
+    internal void FreeMimeDirectory(nint directory) { if (directory == 0) return; EnsureInitialized(); CheckStatus(Resolve<MIMEFreeDirectoryDelegate>("MIMEFreeDirectory")(directory), "MIMEFreeDirectory"); }
     internal nint GetMimeRootEntity(nint directory) => GetMimeEntity(directory, 0, "MIMEGetRootEntity");
     internal nint GetMimeFirstSubpart(nint directory, nint entity) => GetMimeEntity(directory, entity, "MIMEGetFirstSubpart");
     internal nint GetMimeNextSibling(nint directory, nint entity) => GetMimeEntity(directory, entity, "MIMEGetNextSibling");
     internal nint GetMimePrevSibling(nint directory, nint entity) => GetMimeEntity(directory, entity, "MIMEGetPrevSibling");
     internal nint GetMimeParent(nint directory, nint entity) => GetMimeEntity(directory, entity, "MIMEGetParent");
-
-    internal nint IterateMimeNext(nint directory, nint topEntity, nint previousEntity)
-    {
-        EnsureInitialized();
-        Check(Resolve<MIMEIterateNextDelegate>("MIMEIterateNext")(directory, topEntity, previousEntity, out var entity), "MIMEIterateNext");
-        return entity;
-    }
-
+    internal nint IterateMimeNext(nint directory, nint topEntity, nint previousEntity) { EnsureInitialized(); CheckStatus(Resolve<MIMEIterateNextDelegate>("MIMEIterateNext")(directory, topEntity, previousEntity, out var entity), "MIMEIterateNext"); return entity; }
     internal int GetMimeEntityContentTypeSymbol(nint entity) { EnsureInitialized(); return Resolve<MIMEEntitySymbolDelegate>("MIMEEntityContentType")(entity); }
     internal int GetMimeEntityContentSubtypeSymbol(nint entity) { EnsureInitialized(); return Resolve<MIMEEntitySymbolDelegate>("MIMEEntityContentSubtype")(entity); }
     internal bool IsMimeEntityMultipart(nint entity) { EnsureInitialized(); return Resolve<MIMEEntityPredicateDelegate>("MIMEEntityIsMultiPart")(entity) != 0; }
@@ -47,41 +28,15 @@ internal sealed partial class NotesNativeApi
         EnsureInitialized();
         var status = Resolve<MIMEEntityGetTypeParamDelegate>("MIMEEntityGetTypeParam")(entity, symbol, out var handle, out var length);
         if (status == ErrMimeNoData) return string.Empty;
-        Check(status, "MIMEEntityGetTypeParam");
-        if (handle == 0 || length == 0) { if (handle != 0) Resolve<OSMemFreeDelegate>("OSMemFree")(handle); return string.Empty; }
+        CheckStatus(status, "MIMEEntityGetTypeParam");
+        if (handle == 0 || length == 0) { if (handle != 0) Resolve<OSMemFreeAccessDelegate>("OSMemFree")(handle); return string.Empty; }
         nint ptr = 0;
-        try
-        {
-            ptr = Resolve<OSLockObjectDelegate>("OSLockObject")(handle);
-            if (ptr == 0) throw new NotesException("Unable to lock MIME type parameter data.");
-            var bytes = new byte[checked((int)length)];
-            Marshal.Copy(ptr, bytes, 0, bytes.Length);
-            return Encoding.Latin1.GetString(bytes).TrimEnd('\0');
-        }
-        finally
-        {
-            if (ptr != 0) Resolve<OSUnlockObjectDelegate>("OSUnlockObject")(handle);
-            Check(Resolve<OSMemFreeDelegate>("OSMemFree")(handle), "OSMemFree(MIMEEntityGetTypeParam)");
-        }
+        try { ptr = Resolve<Search_OSLockObject>("OSLockObject")(handle); if (ptr == 0) throw new NotesException("Unable to lock MIME type parameter data."); var bytes = new byte[checked((int)length)]; Marshal.Copy(ptr, bytes, 0, bytes.Length); return Encoding.Latin1.GetString(bytes).TrimEnd('\0'); }
+        finally { if (ptr != 0) Resolve<Search_OSUnlockObject>("OSUnlockObject")(handle); CheckStatus(Resolve<OSMemFreeAccessDelegate>("OSMemFree")(handle), "OSMemFree(MIMEEntityGetTypeParam)"); }
     }
 
-    private nint GetMimeEntity(nint directory, nint entity, string function)
-    {
-        EnsureInitialized();
-        ushort status;
-        nint result;
-        if (function == "MIMEGetRootEntity") status = Resolve<MIMEGetRootEntityDelegate>(function)(directory, out result);
-        else status = Resolve<MIMEGetRelatedEntityDelegate>(function)(directory, entity, out result);
-        Check(status, function);
-        return result;
-    }
-
-    private string GetMimePointerString(nint entity, string function)
-    {
-        EnsureInitialized();
-        var value = Resolve<MIMEEntityPointerDelegate>(function)(entity);
-        return value == 0 ? string.Empty : Marshal.PtrToStringAnsi(value) ?? string.Empty;
-    }
+    private nint GetMimeEntity(nint directory, nint entity, string function) { EnsureInitialized(); ushort status; nint result; if (function == "MIMEGetRootEntity") status = Resolve<MIMEGetRootEntityDelegate>(function)(directory, out result); else status = Resolve<MIMEGetRelatedEntityDelegate>(function)(directory, entity, out result); CheckStatus(status, function); return result; }
+    private string GetMimePointerString(nint entity, string function) { EnsureInitialized(); var value = Resolve<MIMEEntityPointerDelegate>(function)(entity); return value == 0 ? string.Empty : Marshal.PtrToStringAnsi(value) ?? string.Empty; }
 
     [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate ushort MIMEOpenDirectoryDelegate(nint note, out nint directory);
     [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate ushort MIMEFreeDirectoryDelegate(nint directory);
