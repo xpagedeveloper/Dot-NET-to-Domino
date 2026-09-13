@@ -1,8 +1,13 @@
 namespace DotNetToDomino;
 
-/// <summary>Notes/Domino constants shared by database, rich-text, and MIME APIs.</summary>
+/// <summary>Notes/Domino constants shared by database, rich-text, MIME, and directory APIs.</summary>
 public static class NotesConst
 {
+    public const int REPLICA_CANDIDATE = 1245;
+    public const int TEMPLATE_CANDIDATE = 1246;
+    public const int DATABASE = 1247;
+    public const int TEMPLATE = 1248;
+
     public const int DBMOD_DOC_DATA = 0x0001;
     public const int FORM = 0x0004;
     public const int VIEW = 0x0008;
