@@ -351,7 +351,7 @@ Status markers:
 /system naming semantics audited against XPScript.
 - [x] `GetEnvironmentValue` — 32-bit integer conversion plus missing/non-numeric `null` behavior audited against XPScript.
 - [x] `GetDatabase` — `createOnFail` and closed-wrapper/null behavior audited against current XPScript implementation.
-- [x] `OpenByReplicaID` — locate/open flow, closed error wrapper and invalid replica-ID runtime error semantics aligned with XPScript.
+- [x] `OpenByReplicaID` — locate/open flow and closed error wrapper match XPScript; invalid replica IDs are captured in `OpenError` through the same native-error path.
 - [x] Factory/access member for `NotesDBDirectory` added directly to `NotesSession`, matching the XPScript surface.
 - [x] MIME-related session behavior: `ConvertMIME=false` now opens notes with `OPEN_RAW_MIME_PART` through `NSFNoteOpenExt` / `NSFNoteOpenByUNIDExtended`, matching XPScript/JNX semantics.
 - [~] Inventory any other NotesSession members added since the target baseline; no additional blocker found in the audited P0 set, but the broader runtime inventory remains open.
@@ -359,18 +359,18 @@ Status markers:
 ## P0 — NotesDocument additions/changes
 
 - [ ] Re-audit current `NotesDocument` source/docs/samples member-by-member.
-- [ ] `Authors`.
-- [ ] `SentByAgent`.
-- [ ] `NameOfProfile`.
-- [ ] `Key`.
-- [ ] `IsProfile` current semantics.
-- [ ] Native-backed `LastAccessed`.
-- [ ] Native/status-backed `IsDeleted`.
-- [ ] Native/status-backed `IsValid`.
-- [ ] MIME entity creation/get/close integration.
-- [ ] Verify MIME/rich-text/item conversion interactions.
-- [ ] Recheck `Remove` lifecycle after the corrected `NSFNoteDelete(database, NOTEID, flags)` ABI.
-- [ ] Recheck response-table reopen behavior before package publication.
+- [x] `Authors` — `$UpdatedBy` item values audited against the physical XPScript implementation.
+- [x] `SentByAgent` — `$AssistMail` value `1` semantics audited against XPScript.
+- [x] `NameOfProfile` — `$Name`/`$profile_` identity parsing audited against XPScript.
+- [x] `Key` — profile-key parsing audited against XPScript.
+- [x] `IsProfile` current semantics audited against the same `$profile_` identity parser as XPScript.
+- [x] Native-backed `LastAccessed` uses `NSFNoteGetInfo` member 8 and matches XPScript.
+- [x] Native/status-backed `IsDeleted` uses `NSFDbGetNoteInfoExt` and Domino deleted-note status semantics.
+- [x] Native/status-backed `IsValid` is captured at document creation using `NSFDbGetNoteInfoExt`, matching XPScript.
+- [~] MIME entity creation/get/close integration remains partial; document open-mode conversion is aligned but the full MIME entity/header surface is still incomplete.
+- [~] MIME/rich-text/item conversion interactions: removed the extra post-open conversion; live HCL runtime coverage is still required.
+- [x] `Remove` lifecycle rechecked: recycle/close precedes `NSFNoteDelete(database, NOTEID, flags)` and unsaved documents raise Notes runtime error 5.
+- [x] Response-table reopen behavior rechecked: normal note opens include `OPEN_RESPONSE_ID_TABLE` (`0x1000`), matching the XPScript path.
 - [ ] Inventory other document members changed in recent XPScript commits.
 
 ## P0 — NotesAgent additions/changes
