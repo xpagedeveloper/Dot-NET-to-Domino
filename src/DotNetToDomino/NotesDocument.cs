@@ -33,6 +33,28 @@ public sealed class NotesDocument : NotesObject
     internal nint Handle { get { EnsureOpen(); return _handle; } } internal NotesSession SessionForMime => Session; internal void AttachViewRow(NotesViewRow row) { EnsureAlive(); _viewRow = row; }
     internal NotesMimeDirectoryOwner GetMimeDirectoryOwner() { EnsureOpen(); return _mimeDirectoryOwner ??= new NotesMimeDirectoryOwner(Session.Api, _handle); }
     internal void InvalidateMimeDirectory() { var o = _mimeDirectoryOwner; _mimeDirectoryOwner = null; o?.Dispose(); }
+    public NotesMIMEEntity? GetMIMEEntity(string itemName = "Body")
+    {
+        EnsureOpen();
+        itemName = string.IsNullOrWhiteSpace(itemName) ? "Body" : itemName.Trim();
+        if (!string.Equals(itemName, "Body", StringComparison.OrdinalIgnoreCase))
+            throw new NotSupportedException("NotesDocument.GetMIMEEntity currently supports the Body item only; MIMEOpenDirectory is note-level.");
+        if (!Session.Api.IsMimeItem(_handle, itemName)) return null;
+        return new NotesMIMEEntity(Session, this, itemName);
+    }
+
+    public NotesMIMEEntity CreateMIMEEntity(string itemName = "Body")
+    {
+        EnsureOpen();
+        itemName = string.IsNullOrWhiteSpace(itemName) ? "Body" : itemName.Trim();
+        if (!string.Equals(itemName, "Body", StringComparison.OrdinalIgnoreCase))
+            throw new NotSupportedException("NotesDocument.CreateMIMEEntity currently supports the Body item only; native PMIMEENTITY access is note-level.");
+        if (HasItem(itemName)) throw new NotesException(5, "Notes item '" + itemName + "' already exists.");
+        InvalidateMimeDirectory();
+        Session.Api.CreateEmptyMimePart(_handle, itemName);
+        return new NotesMIMEEntity(Session, this, itemName);
+    }
+
     public void CloseMIMEEntities() { EnsureOpen(); InvalidateMimeDirectory(); }
 
     public NotesItem? GetFirstItem(string itemName) { EnsureOpen(); if (string.IsNullOrWhiteSpace(itemName) || !Session.Api.HasItem(_handle, itemName)) return null; var m = Session.Api.GetItemMetadata(_handle, itemName); return ParentDatabase.Own(m.DataType == NotesNativeApi.NotesTypeComposite ? new NotesRichTextItem(Session, this, m.Name) : new NotesItem(Session, this, m.Name)); }

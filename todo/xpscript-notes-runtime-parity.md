@@ -32,10 +32,10 @@ Status markers:
 
 ### NotesMIMEEntity
 
-- [ ] Add `NotesMIMEEntity` based on the current XPScript implementation.
-- [ ] Add `NotesDocument.CreateMIMEEntity(...)` overloads supported by XPScript.
-- [ ] Add `NotesDocument.GetMIMEEntity(...)` overloads supported by XPScript.
-- [ ] Add `NotesDocument.CloseMIMEEntities(...)` with the same save/recycle semantics.
+- [~] `NotesMIMEEntity` exists and the native directory-backed core is present; several public data/header mutation members remain unsupported and are still being audited.
+- [x] `NotesDocument.CreateMIMEEntity(...)` moved onto `NotesDocument` and now creates a packed native `MIME_PART` with `NSFItemAppend`, matching XPScript Body-only semantics.
+- [x] `NotesDocument.GetMIMEEntity(...)` moved onto `NotesDocument` with the same current Body-only native-directory restriction as XPScript.
+- [x] `NotesDocument.CloseMIMEEntities()` releases the cached native MIME directory; save/recycle paths also invalidate it before note update/close.
 - [ ] Port MIME entity parent/child/sibling traversal using the same native handles and ownership rules.
 - [ ] Port child enumeration and `AppendChildEntity` behavior.
 - [ ] Port entity removal and ensure handles become invalid safely after removal.
@@ -44,7 +44,7 @@ Status markers:
 - [ ] Port MIME encoding/decoding behavior, including current encoding classification logic.
 - [ ] Port Content-ID and Content-Location behavior where implemented.
 - [ ] Verify multipart MIME behavior and nested child entities.
-- [ ] Verify MIME handles are closed exactly once and cannot outlive their document/session.
+- [~] MIME directory ownership is centralized and invalidated on close/save/recycle; full child/header lifetime verification remains open until the remaining native entity/header surface is complete.
 - [ ] Verify `NotesSession.ConvertMIME` interaction with document/item access.
 
 ### NotesMIMEHeader
