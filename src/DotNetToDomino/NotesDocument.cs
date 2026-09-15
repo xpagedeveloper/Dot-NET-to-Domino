@@ -16,7 +16,7 @@ public sealed class NotesDocument : NotesObject
     internal NotesDocument(NotesSession session, NotesDatabase parent, nint handle, uint? knownNoteId, string? knownUnid) : base(session)
     {
         ParentDatabase = parent; _handle = handle;
-        try { NoteId = knownNoteId ?? Session.Api.GetNoteId(handle); _isValidAtCreation = NoteId == 0 || Session.Api.IsDocumentValid(parent.Handle, NoteId); _knownUniversalId = knownUnid ?? (handle == 0 ? string.Empty : Session.Api.GetUnid(handle)); if (handle != 0 && session.ConvertMIME) Session.Api.ConvertMimePartsToComposite(handle); }
+        try { NoteId = knownNoteId ?? Session.Api.GetNoteId(handle); _isValidAtCreation = NoteId == 0 || Session.Api.IsDocumentValid(parent.Handle, NoteId); _knownUniversalId = knownUnid ?? (handle == 0 ? string.Empty : Session.Api.GetUnid(handle)); }
         catch { _handle = 0; try { if (handle != 0) Session.Api.CloseNote(handle); } finally { Session.Unregister(this); } throw; }
     }
 
@@ -58,7 +58,7 @@ public sealed class NotesDocument : NotesObject
         };
         Session.Api.SendNote(_handle, values);
     }
-    public void Save(){EnsureOpen();InvalidateMimeDirectory();Session.Api.SaveNote(_handle);NoteId=Session.Api.GetNoteId(_handle);_knownUniversalId=Session.Api.GetUnid(_handle);} public bool Remove(bool force=false){EnsureOpen();if(NoteId==0)throw new InvalidOperationException("Cannot remove an unsaved NotesDocument.");var db=ParentDatabase.Handle;var id=NoteId;var api=Session.Api;Recycle();return api.DeleteNote(db,id,force);}
+    public void Save(){EnsureOpen();InvalidateMimeDirectory();Session.Api.SaveNote(_handle);NoteId=Session.Api.GetNoteId(_handle);_knownUniversalId=Session.Api.GetUnid(_handle);} public bool Remove(bool force=false){EnsureOpen();if(NoteId==0)throw new NotesException(5,"Cannot remove an unsaved NotesDocument.");var db=ParentDatabase.Handle;var id=NoteId;var api=Session.Api;Recycle();return api.DeleteNote(db,id,force);}
     protected override void ReleaseNative(){InvalidateMimeDirectory();var h=_handle;_handle=0;_viewRow=null;try{if(h!=0&&Session.Api.IsInitialized)Session.Api.CloseNote(h);}finally{ParentDatabase.UnregisterChild(this);}}
 
     private bool TryGetProfileIdentity(out string profileName,out string key){profileName=string.Empty;key=string.Empty;if(_handle==0||!HasItem("$Name"))return false;var value=GetString("$Name");const string prefix="$profile_";if(!value.StartsWith(prefix,StringComparison.OrdinalIgnoreCase)||value.Length<prefix.Length+3||!int.TryParse(value.AsSpan(prefix.Length,3),out var len))return false;var off=prefix.Length+3;if(value.Length<off+len)return false;profileName=value.Substring(off,len);var k=off+len;if(k<value.Length&&value[k]=='_')k++;if(k<value.Length)key=value[k..];return true;}
