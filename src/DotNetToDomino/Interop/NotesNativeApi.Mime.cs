@@ -6,6 +6,28 @@ internal sealed partial class NotesNativeApi
 {
     private const ushort MimeNotesTypeMimePart = 25;
 
+    internal void CreateEmptyMimePart(nint note, string itemName)
+    {
+        EnsureInitialized(); using var thread = EnterThread(); ArgumentException.ThrowIfNullOrWhiteSpace(itemName);
+        const ushort mimePartVersion = 2;
+        const byte mimePartBody = 2;
+        const int mimePartSize = 20;
+        var mimePart = new byte[mimePartSize];
+        mimePart[0] = (byte)mimePartVersion;
+        mimePart[1] = (byte)(mimePartVersion >> 8);
+        mimePart[6] = mimePartBody;
+        using var name = ToLmbcs(itemName);
+        var value = Marshal.AllocHGlobal(mimePart.Length);
+        try
+        {
+            Marshal.Copy(mimePart, 0, value, mimePart.Length);
+            CheckStatus(Resolve<Mime_NSFItemAppendDelegate>("NSFItemAppend")(
+                note, 0, name.Pointer, checked((ushort)name.Length), MimeNotesTypeMimePart,
+                value, checked((uint)mimePart.Length)), "NSFItemAppend(empty MIME entity)");
+        }
+        finally { Marshal.FreeHGlobal(value); }
+    }
+
     internal bool IsMimeItem(nint note, string itemName)
     {
         EnsureInitialized();
@@ -58,6 +80,7 @@ internal sealed partial class NotesNativeApi
         finally { Resolve<MIMEStreamCloseDelegate>("MIMEStreamClose")(stream); }
     }
 
+    [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate ushort Mime_NSFItemAppendDelegate(nint note, ushort itemFlags, nint itemName, ushort itemNameLength, ushort itemType, nint itemValue, uint itemValueLength);
     [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate ushort MIMEStreamOpenDelegate(nint note, nint itemName, ushort itemNameLength, uint flags, out nint stream);
     [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate int MIMEStreamReadDelegate(nint data, out uint dataLength, uint maxDataLength, nint stream);
     [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate int MIMEStreamWriteDelegate(nint data, uint dataLength, nint stream);
