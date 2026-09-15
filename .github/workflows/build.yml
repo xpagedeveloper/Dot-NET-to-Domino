@@ -21,6 +21,10 @@ jobs:
         run: dotnet restore DotNetToDomino.sln
       - name: Build
         run: dotnet build DotNetToDomino.sln -c Release --no-restore
+      - name: Restore integration test
+        run: dotnet restore test/DotNetToDomino.Integration/DotNetToDomino.Integration.csproj
+      - name: Build integration test
+        run: dotnet build test/DotNetToDomino.Integration/DotNetToDomino.Integration.csproj -c Release --no-restore
       - name: Pack
         run: dotnet pack src/DotNetToDomino/DotNetToDomino.csproj -c Release --no-build -o artifacts
       - uses: actions/upload-artifact@v4

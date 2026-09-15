@@ -12,6 +12,7 @@ internal sealed partial class NotesNativeApi
     private const ushort InfoParseDesignClass = 3;
     private const ushort NoteMemberId = 1;
     private const ushort NoteMemberOid = 2;
+    private const uint OpenRawMimePart = 0x02000000u;
 
     [StructLayout(LayoutKind.Sequential)]
     private struct NotesUnid
@@ -87,26 +88,40 @@ internal sealed partial class NotesNativeApi
         return level;
     }
 
-    internal nint TryOpenNote(nint db, uint noteId)
+    internal nint TryOpenNote(nint db, uint noteId) => TryOpenNote(db, noteId, false);
+
+    internal nint TryOpenNote(nint db, uint noteId, bool rawMime)
     {
         EnsureInitialized();
         using var thread = EnterThread();
-        var status = Resolve<NSFNoteOpenDelegate>("NSFNoteOpen")(db, noteId, 0x1000, out var note);
+        ushort status;
+        nint note;
+        if (rawMime)
+            status = Resolve<NSFNoteOpenExtMimeDelegate>("NSFNoteOpenExt")(db, noteId, OpenRawMimePart, out note);
+        else
+            status = Resolve<NSFNoteOpenDelegate>("NSFNoteOpen")(db, noteId, 0x1000, out note);
         if (status == 0) return note;
         if (IsMissingNoteStatus(status)) return 0;
-        CheckStatus(status, "NSFNoteOpen");
+        CheckStatus(status, rawMime ? "NSFNoteOpenExt(OPEN_RAW_MIME_PART)" : "NSFNoteOpen");
         return 0;
     }
 
-    internal nint TryOpenNoteByUnid(nint db, string unidText)
+    internal nint TryOpenNoteByUnid(nint db, string unidText) => TryOpenNoteByUnid(db, unidText, false);
+
+    internal nint TryOpenNoteByUnid(nint db, string unidText, bool rawMime)
     {
         EnsureInitialized();
         using var thread = EnterThread();
         var unid = ParseUnid(unidText);
-        var status = Resolve<NSFNoteOpenByUnidDelegate>("NSFNoteOpenByUNID")(db, ref unid, 0x1000, out var note);
+        ushort status;
+        nint note;
+        if (rawMime)
+            status = Resolve<NSFNoteOpenByUnidExtendedMimeDelegate>("NSFNoteOpenByUNIDExtended")(db, ref unid, OpenRawMimePart, out note);
+        else
+            status = Resolve<NSFNoteOpenByUnidDelegate>("NSFNoteOpenByUNID")(db, ref unid, 0x1000, out note);
         if (status == 0) return note;
         if (IsMissingNoteStatus(status)) return 0;
-        CheckStatus(status, "NSFNoteOpenByUNID");
+        CheckStatus(status, rawMime ? "NSFNoteOpenByUNIDExtended(OPEN_RAW_MIME_PART)" : "NSFNoteOpenByUNID");
         return 0;
     }
 
@@ -196,7 +211,7 @@ internal sealed partial class NotesNativeApi
     private static NotesTimeDate ParseReplicaId(string text)
     {
         text = (text ?? string.Empty).Replace("-", string.Empty, StringComparison.Ordinal).Replace(":", string.Empty, StringComparison.Ordinal).Trim();
-        if (text.Length != 16 || text.Any(c => !Uri.IsHexDigit(c))) throw new ArgumentException("Notes replica ID must contain exactly 16 hexadecimal characters.", nameof(text));
+        if (text.Length != 16 || text.Any(c => !Uri.IsHexDigit(c))) throw new NotesException(13, "Notes replica ID must contain exactly 16 hexadecimal characters.");
         return new NotesTimeDate
         {
             Innards1 = uint.Parse(text[..8], NumberStyles.HexNumber, CultureInfo.InvariantCulture),
@@ -228,7 +243,9 @@ internal sealed partial class NotesNativeApi
     [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate ushort NSFDbSpaceUsageDelegate(nint db, out uint allocatedBytes, out uint freeBytes);
     [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate void NSFDbAccessGetDelegate(nint db, out ushort accessLevel, out ushort accessFlags);
     [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate ushort NSFNoteOpenDelegate(nint db, uint noteId, ushort flags, out nint note);
+    [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate ushort NSFNoteOpenExtMimeDelegate(nint db, uint noteId, uint flags, out nint note);
     [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate ushort NSFNoteOpenByUnidDelegate(nint db, ref NotesUnid unid, ushort flags, out nint note);
+    [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate ushort NSFNoteOpenByUnidExtendedMimeDelegate(nint db, ref NotesUnid unid, uint flags, out nint note);
     [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate ushort NSFNoteCloseDelegate(nint note);
     [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate void NSFNoteGetInfoDelegate(nint note, ushort member, nint value);
 }
