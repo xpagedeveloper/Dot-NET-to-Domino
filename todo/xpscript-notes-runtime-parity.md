@@ -402,7 +402,7 @@ Status markers:
 - [x] `Agents`, `Forms`, `Views` stale-design-note handling matches current XPScript: missing design notes are skipped and views that cannot be opened are omitted.
 - [x] `CreateCopy` overload shape is source-compatible with the current XPScript 2/3/4-argument surface through C# optional parameters; includeDocuments remains the XPScript extension.
 - [x] `GetModifiedDocuments` note-class validation and modified-document/design metadata are present.
-- [~] Inventory database members added after the target baseline; current lifecycle, access, replica/copy, LotusScript aliases, metadata, FT-index, profile/document and design-collection surfaces audited, broader docs/samples sweep remains.
+- [~] Inventory database members added after the target baseline; current lifecycle, access, replica/copy, LotusScript aliases, metadata, FT-index, profile/document and design-collection surfaces audited. `IsFTIndexed` and `LastFTIndexed` were found in current XPScript docs/samples/runtime and ported as native-backed properties. Broader surface sweep remains.
 
 ## P1 — NotesDateTime
 
