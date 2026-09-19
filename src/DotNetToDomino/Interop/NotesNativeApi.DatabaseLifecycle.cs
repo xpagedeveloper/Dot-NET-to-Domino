@@ -99,6 +99,19 @@ internal sealed partial class NotesNativeApi
 
     internal bool IsDatabaseFullTextIndexed(nint db) => GetDatabaseLastFullTextIndexed(db).HasValue;
 
+    internal void SignNoteById(nint db, uint noteId)
+    {
+        EnsureInitialized();
+        using var thread = EnterThread();
+        CheckStatus(Resolve<DbLife_NSFNoteOpen>("NSFNoteOpen")(db, noteId, 0, out var note), "NSFNoteOpen(sign)");
+        try
+        {
+            CheckStatus(Resolve<DbLife_NSFNoteSign>("NSFNoteSign")(note), "NSFNoteSign");
+            CheckStatus(Resolve<DbLife_NSFNoteUpdate>("NSFNoteUpdate")(note, 0), "NSFNoteUpdate(sign)");
+        }
+        finally { CloseNote(note); }
+    }
+
     internal void DeleteFullTextIndex(nint db)
     {
         EnsureInitialized();
@@ -114,6 +127,9 @@ internal sealed partial class NotesNativeApi
     [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate ushort DbLife_NSFDbModifiedTime(nint db, out NotesTimeDate dataModified, out NotesTimeDate nonDataModified);
     [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate ushort DbLife_NSFDbMajorMinorVersionGet(nint db, out ushort majorVersion, out ushort minorVersion);
     [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate int DbLife_TimeDateCollate(ref NotesTimeDate first, ref NotesTimeDate second);
+    [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate ushort DbLife_NSFNoteOpen(nint db, uint noteId, ushort flags, out nint note);
+    [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate ushort DbLife_NSFNoteSign(nint note);
+    [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate ushort DbLife_NSFNoteUpdate(nint note, ushort flags);
     [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate ushort DbLife_FTGetLastIndexTime(nint db, out NotesTimeDate indexed);
     [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate ushort DbLife_FTDeleteIndex(nint db);
 }
