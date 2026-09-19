@@ -51,7 +51,10 @@ public sealed class NotesAgent : NotesObject
         {
             EnsureAlive();
             var text = ReadText("$AssistTrigger").Trim();
-            return text.Length == 0 ? 0 : int.TryParse(text, out var value) ? value : 0;
+            if (text.Length == 0) return 0;
+            if (!int.TryParse(text, System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out var value))
+                throw new NotesException(13, "NotesAgent Trigger is not a valid integer.");
+            return value;
         }
     }
     public string NotesURL => $"notes://{Parent.Server}/{Parent.FilePath}/0/{_noteId:X8}";
@@ -128,7 +131,7 @@ public sealed class NotesAgent : NotesObject
 
     private static void ValidateParameterNoteId(uint noteId)
     {
-        if (noteId == 0) throw new ArgumentOutOfRangeException(nameof(noteId), "NotesAgent parameter NoteID must be non-zero.");
+        if (noteId == 0) throw new NotesException(5, "NotesAgent parameter NoteID must be a non-zero hexadecimal Note ID.");
     }
 
     private static uint ParseParameterNoteId(string value)
@@ -137,7 +140,7 @@ public sealed class NotesAgent : NotesObject
         var text = value.Trim();
         if (text.StartsWith("0x", StringComparison.OrdinalIgnoreCase)) text = text[2..];
         if (!uint.TryParse(text, System.Globalization.NumberStyles.HexNumber, System.Globalization.CultureInfo.InvariantCulture, out var noteId) || noteId == 0)
-            throw new ArgumentException("NotesAgent parameter NoteID must be a non-zero hexadecimal Note ID.", nameof(value));
+            throw new NotesException(5, "NotesAgent parameter NoteID must be a non-zero hexadecimal Note ID.");
         return noteId;
     }
 

@@ -375,22 +375,22 @@ Status markers:
 
 ## P0 — NotesAgent additions/changes
 
-- [ ] Re-audit the latest XPScript `NotesAgent` implementation; do not rely on the September 4 target snapshot.
-- [ ] `ReturnMessage` and stdout normalization.
-- [ ] Current `Run(noteId)` parameter-document semantics.
-- [ ] `RunWithDocumentContext(document, noteId)` current semantics.
-- [ ] `ParameterDocID` if now native-backed/real; omit if still placeholder.
-- [ ] `IsEnabled` if now native-backed/real.
-- [ ] `HasRunSinceModified` if now native-backed/real.
-- [ ] `ServerName` getter/setter and persistence behavior.
-- [ ] `IsPublic` current implementation.
-- [ ] `Trigger` current implementation.
-- [ ] `OnBehalfOf` current implementation.
-- [ ] `CommonOwner` current implementation.
-- [ ] Agent reopen/run behavior after save/sign/update.
-- [ ] Private-agent lookup fallback.
-- [ ] Unsigned-agent sign/update/retry behavior.
-- [ ] Remove any remaining constant/no-op agent properties not backed by real XPScript behavior.
+- [~] Re-audit the latest XPScript `NotesAgent` implementation; physical public/native paths below audited, live HCL runtime validation remains.
+- [x] `ReturnMessage` and stdout normalization — memory stdout capture and prefix normalization match XPScript.
+- [x] Current `Run(noteId)` parameter-document semantics — non-zero hexadecimal NOTEID and `SetParamNoteID` native path aligned.
+- [x] `RunWithDocumentContext(document, noteId)` — document context plus optional `SetParamNoteID` aligned with XPScript.
+- [x] `ParameterDocID` — reflects the parameter NOTEID supplied for the most recent run, matching XPScript.
+- [x] `IsEnabled` — native `AgentIsEnabled` plus pending persisted state matches XPScript.
+- [x] `HasRunSinceModified` — `$AssistLastRun`/`$AssistVersion` plus `TimeDateCollate` matches XPScript.
+- [x] `ServerName` getter/setter and persistence — `$MachineName`, pending state, sign/update on save match XPScript.
+- [x] `IsPublic` — `$AssistFlags` private flag semantics match XPScript.
+- [x] `Trigger` — `$AssistTrigger` integer conversion aligned; invalid numeric text now raises Notes error 13 instead of silently returning zero.
+- [x] `OnBehalfOf` — `$OnBehalfOf` design-note text path matches XPScript.
+- [x] `CommonOwner` — owner name parsing through `NotesName.Common` matches XPScript.
+- [x] Agent reopen/run behavior after save/sign/update — unsigned open retries after native save/sign/update path.
+- [x] Private-agent lookup fallback — `NIFFindPrivateDesignNote` fallback is present with optional-export handling.
+- [x] Unsigned-agent sign/update/retry behavior — save/sign then `AgentOpen` retry matches current XPScript intent.
+- [x] No remaining mutable constant/no-op agent properties found in the audited public `NotesAgent` surface; `IsNotesAgent=true` is the deliberate XPScript contract constant.
 
 ## P1 — NotesDatabase additions/changes
 
