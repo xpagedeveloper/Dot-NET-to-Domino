@@ -394,15 +394,15 @@ Status markers:
 
 ## P1 — NotesDatabase additions/changes
 
-- [ ] Re-audit all current `NotesDatabase` source/docs/samples.
-- [ ] `Open(...)` assigned/unassigned database semantics.
-- [ ] `OpenError` behavior and reset rules.
-- [ ] `QueryAccess` integration.
-- [ ] `OpenByReplicaID` convenience aliases.
-- [ ] `Agents`, `Forms`, `Views` stale-design-note handling.
-- [ ] `CreateCopy` overload shape versus optional-parameter target API.
-- [ ] `GetModifiedDocuments` note-class constants and metadata.
-- [ ] Inventory any database members added after the target baseline.
+- [~] Re-audit all current `NotesDatabase` source/docs/samples; current compiler post-processors and DotNetToDomino surface physically compared, live HCL runtime validation remains.
+- [x] `Open(...)` assigned/unassigned database semantics match the current XPScript compatibility implementation.
+- [x] `OpenError` behavior and reset rules match current XPScript: failed native open stores the Notes error text and successful open clears it.
+- [x] `QueryAccess` integration is present and native-backed through names-list/ACL lookup.
+- [x] `OpenByReplicaID` convenience aliases are present for current-server and explicit-server calls.
+- [x] `Agents`, `Forms`, `Views` stale-design-note handling matches current XPScript: missing design notes are skipped and views that cannot be opened are omitted.
+- [x] `CreateCopy` overload shape is source-compatible with the current XPScript 2/3/4-argument surface through C# optional parameters; includeDocuments remains the XPScript extension.
+- [x] `GetModifiedDocuments` note-class validation and modified-document/design metadata are present.
+- [~] Inventory database members added after the target baseline; current lifecycle, access, replica/copy, LotusScript aliases, metadata, FT-index, profile/document and design-collection surfaces audited. `IsFTIndexed`, `LastFTIndexed`, and database `Sign()` were found in current XPScript docs/samples/runtime and ported as native-backed surfaces. `Sign()` signs and updates the selected design notes, matching current XPScript. Broader surface sweep remains.
 
 ## P1 — NotesDateTime
 
