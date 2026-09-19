@@ -19,6 +19,16 @@ public sealed class NotesDatabase : NotesObject
     public NotesView? GetView(string name) { EnsureAlive(); if (!IsOpen) return null; ArgumentException.ThrowIfNullOrWhiteSpace(name); try { return Own(new NotesView(Session, this, Session.Api.OpenView(_handle, name.Trim()), name.Trim())); } catch (NotesException) { return null; } } public NotesView? OpenView(string name) => GetView(name);
     public NotesDocument? GetDocumentByID(uint id) { EnsureAlive(); if (!IsOpen || id == 0) return null; var note = Session.Api.TryOpenNote(_handle, id, !Session.ConvertMIME); return note == 0 ? null : Own(new NotesDocument(Session, this, note, id, null)); } public NotesDocument? GetDocumentByID(string id) => GetDocumentByID(ParseNoteId(id)); public NotesDocument? GetDocumentByNoteId(uint id) => GetDocumentByID(id); public NotesDocument? GetDocumentByNoteId(string id) => GetDocumentByID(id); public NotesDocument? OpenDocumentByNoteId(uint id) => GetDocumentByID(id); public NotesDocument? OpenDocumentByNoteId(string id) => GetDocumentByID(id);
     public NotesDocument? GetDocumentByUNID(string unid) { EnsureAlive(); if (!IsOpen || string.IsNullOrWhiteSpace(unid)) return null; unid = NormalizeUnid(unid); var note = Session.Api.TryOpenNoteByUnid(_handle, unid, !Session.ConvertMIME); return note == 0 ? null : Own(new NotesDocument(Session, this, note, null, unid)); } public NotesDocument? OpenDocumentByUNID(string unid) => GetDocumentByUNID(unid);
+    public void Sign()
+    {
+        EnsureOpen();
+        using var design = CreateNoteCollection(false);
+        design.SelectAllDesignElements(true);
+        design.BuildCollection();
+        foreach (var noteId in design)
+            Session.Api.SignNoteById(_handle, noteId);
+    }
+
     public NotesDocument CreateDocument() { EnsureOpen(); return Own(new NotesDocument(Session, this, Session.Api.CreateNote(_handle), 0, null)); } public NotesDocumentCollection CreateDocumentCollection() { EnsureOpen(); return Own(new NotesDocumentCollection(Session, this, [])); }
     public NotesDocumentCollection? GetModifiedDocuments() => GetModifiedDocuments(null, NotesConst.DBMOD_DOC_DATA); public NotesDocumentCollection? GetModifiedDocuments(NotesDateTime? since) => GetModifiedDocuments(since, NotesConst.DBMOD_DOC_DATA); public NotesDocumentCollection? GetModifiedDocuments(NotesDateTime? since, int noteClass) { EnsureAlive(); if (!IsOpen) return null; const int supported = 0x0F5D; if (noteClass != NotesConst.DBMOD_DOC_ALL && (noteClass <= 0 || (noteClass & ~supported) != 0)) throw new ArgumentOutOfRangeException(nameof(noteClass)); var modified = Session.Api.GetModifiedNoteIds(_handle, checked((ushort)noteClass), since?.NativeValue); var collection = Own(new NotesDocumentCollection(Session, this, modified.NoteIds)); collection.InitializeModifiedMetadata(modified.UntilTime, modified.DocumentNoteIds, modified.DesignNoteIds); return collection; }
     public NotesDocument GetProfileDocument(string profileName, string? profileKey = null) { EnsureOpen(); ArgumentException.ThrowIfNullOrWhiteSpace(profileName); var note = Session.Api.OpenProfile(_handle, profileName, profileKey ?? string.Empty); return Own(new NotesDocument(Session, this, note, Session.Api.GetNoteId(note), null)); }
