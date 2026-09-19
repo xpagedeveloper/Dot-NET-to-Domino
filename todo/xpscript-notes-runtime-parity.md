@@ -96,16 +96,16 @@ Status markers:
 
 ## P0 — NotesDocument additions/changes
 
-- [ ] Re-audit current `NotesDocument` source/docs/samples member-by-member.
+- [~] Re-audit current `NotesDocument` source/docs/samples member-by-member; the P0 members below are physically traced, broader recent-member inventory remains open.
 - [ ] `Authors`.
 - [ ] `SentByAgent`.
 - [ ] `NameOfProfile`.
 - [ ] `Key`.
 - [ ] `IsProfile` current semantics.
-- [ ] Native-backed `LastAccessed`.
+- [x] Native-backed `LastAccessed` — `NSFNoteGetInfo` member 8 matches XPScript.
 - [ ] Native/status-backed `IsDeleted`.
 - [ ] Native/status-backed `IsValid`.
-- [ ] MIME entity creation/get/close integration.
+- [~] MIME entity creation/get/close integration remains partial; document open-mode conversion is aligned but the full MIME entity/header surface is still incomplete.
 - [ ] Verify MIME/rich-text/item conversion interactions.
 - [ ] Recheck `Remove` lifecycle after the corrected `NSFNoteDelete(database, NOTEID, flags)` ABI.
 - [ ] Recheck response-table reopen behavior before package publication.
