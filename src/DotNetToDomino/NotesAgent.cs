@@ -51,7 +51,10 @@ public sealed class NotesAgent : NotesObject
         {
             EnsureAlive();
             var text = ReadText("$AssistTrigger").Trim();
-            if (text.Length == 0) return 0;\n            if (!int.TryParse(text, System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out var value))\n                throw new NotesException(13, "NotesAgent Trigger is not a valid integer.");\n            return value;
+            if (text.Length == 0) return 0;
+            if (!int.TryParse(text, System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out var value))
+                throw new NotesException(13, "NotesAgent Trigger is not a valid integer.");
+            return value;
         }
     }
     public string NotesURL => $"notes://{Parent.Server}/{Parent.FilePath}/0/{_noteId:X8}";
