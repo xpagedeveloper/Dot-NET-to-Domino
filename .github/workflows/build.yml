@@ -31,3 +31,4 @@ jobs:
         with:
           name: DotNetToDomino-nuget
           path: artifacts/*
+          retention-days: 3
