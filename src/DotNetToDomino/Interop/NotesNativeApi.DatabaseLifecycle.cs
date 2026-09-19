@@ -87,6 +87,18 @@ internal sealed partial class NotesNativeApi
         return major;
     }
 
+    internal NotesTimeDate? GetDatabaseLastFullTextIndexed(nint db)
+    {
+        EnsureInitialized();
+        using var thread = EnterThread();
+        var status = Resolve<DbLife_FTGetLastIndexTime>("FTGetLastIndexTime")(db, out var indexed);
+        if ((status & 0x3FFF) == 0x0F02) return null;
+        CheckStatus(status, "FTGetLastIndexTime");
+        return indexed;
+    }
+
+    internal bool IsDatabaseFullTextIndexed(nint db) => GetDatabaseLastFullTextIndexed(db).HasValue;
+
     internal void DeleteFullTextIndex(nint db)
     {
         EnsureInitialized();
@@ -102,5 +114,6 @@ internal sealed partial class NotesNativeApi
     [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate ushort DbLife_NSFDbModifiedTime(nint db, out NotesTimeDate dataModified, out NotesTimeDate nonDataModified);
     [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate ushort DbLife_NSFDbMajorMinorVersionGet(nint db, out ushort majorVersion, out ushort minorVersion);
     [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate int DbLife_TimeDateCollate(ref NotesTimeDate first, ref NotesTimeDate second);
+    [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate ushort DbLife_FTGetLastIndexTime(nint db, out NotesTimeDate indexed);
     [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate ushort DbLife_FTDeleteIndex(nint db);
 }
