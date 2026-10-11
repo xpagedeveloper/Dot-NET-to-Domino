@@ -44,16 +44,29 @@ public sealed class NotesMIMEEntity : NotesObject
         return GetNextEntity();
     }
 
-    public string ContentAsText => throw Unsupported(nameof(ContentAsText));
-    public string Headers => throw Unsupported(nameof(Headers));
+    public string ContentAsText { get { EnsureEntityAlive(); return ReadRootText(nameof(ContentAsText)); } }
+    public string Headers { get { EnsureEntityAlive(); return ReadRootHeaders(null); } }
     public string Preamble { get => throw Unsupported(nameof(Preamble)); set => throw Unsupported(nameof(Preamble)); }
-    public int Encoding => throw Unsupported(nameof(Encoding));
+    public int Encoding
+    {
+        get
+        {
+            EnsureEntityAlive();
+            var value = GetRootHeader(ReadRootEntity(nameof(Encoding)), "Content-Transfer-Encoding").Trim();
+            return value.Equals("base64", StringComparison.OrdinalIgnoreCase) ? 1727
+                : value.Equals("quoted-printable", StringComparison.OrdinalIgnoreCase) ? 1726
+                : value.Equals("7bit", StringComparison.OrdinalIgnoreCase) ? 1724
+                : value.Equals("8bit", StringComparison.OrdinalIgnoreCase) ? 1725
+                : value.Equals("binary", StringComparison.OrdinalIgnoreCase) ? 1728
+                : 1725;
+        }
+    }
     public NotesMIMEHeader? GetNthHeader(string name, int occurrence = 1) => throw Unsupported(nameof(GetNthHeader));
     public NotesMIMEHeader CreateHeader(string name) => throw Unsupported(nameof(CreateHeader));
-    public string GetSomeHeaders(string headerNames) => throw Unsupported(nameof(GetSomeHeaders));
-    public void GetContentAsBytes(NotesStream stream) => throw Unsupported(nameof(GetContentAsBytes));
-    public void GetContentAsText(NotesStream stream, bool entityCharset = false) => throw Unsupported(nameof(GetContentAsText));
-    public void GetEntityAsText(NotesStream stream) => throw Unsupported(nameof(GetEntityAsText));
+    public string GetSomeHeaders(string headerNames) { EnsureEntityAlive(); return ReadRootHeaders(headerNames); }
+    public void GetContentAsBytes(NotesStream stream) { EnsureEntityAlive(); ArgumentNullException.ThrowIfNull(stream); stream.Write(ReadRootContent(nameof(GetContentAsBytes))); }
+    public void GetContentAsText(NotesStream stream, bool entityCharset = false) { EnsureEntityAlive(); ArgumentNullException.ThrowIfNull(stream); stream.WriteText(ReadRootText(nameof(GetContentAsText))); }
+    public void GetEntityAsText(NotesStream stream) { EnsureEntityAlive(); ArgumentNullException.ThrowIfNull(stream); stream.Write(ReadRootEntity(nameof(GetEntityAsText))); }
     public void SetContentFromText(NotesStream stream, string contentType, int encoding) => throw Unsupported(nameof(SetContentFromText));
     public void SetContentFromBytes(NotesStream stream, string contentType, int encoding) => throw Unsupported(nameof(SetContentFromBytes));
     public void EncodeContent(int encoding) => throw Unsupported(nameof(EncodeContent));
@@ -66,6 +79,126 @@ public sealed class NotesMIMEEntity : NotesObject
         _document.InvalidateMimeDirectory();
         _document.RemoveItem(_itemName);
         Recycle();
+    }
+
+    private void EnsureRootEntity(string member)
+    {
+        EnsureEntityAlive();
+        if (_nativeEntity != _owner.RootEntity)
+            throw new NotSupportedException("NotesMIMEEntity." + member + " currently supports the root entity only; child-entity data access is not yet verified.");
+    }
+
+    private byte[] ReadRootEntity(string member)
+    {
+        EnsureRootEntity(member);
+        return Session.Api.ReadMimeStream(_document.Handle, _itemName);
+    }
+
+    private byte[] ReadRootContent(string member)
+    {
+        var raw = ReadRootEntity(member);
+        var bodyOffset = FindRootBodyOffset(raw);
+        var body = bodyOffset >= raw.Length ? [] : raw[bodyOffset..];
+        var transferEncoding = GetRootHeader(raw, "Content-Transfer-Encoding").Trim();
+        if (transferEncoding.Equals("base64", StringComparison.OrdinalIgnoreCase))
+        {
+            try { return Convert.FromBase64String(System.Text.Encoding.ASCII.GetString(body)); }
+            catch (FormatException ex) { throw new NotesException(5, "Invalid base64 MIME root content: " + ex.Message); }
+        }
+        if (transferEncoding.Equals("quoted-printable", StringComparison.OrdinalIgnoreCase))
+            return DecodeQuotedPrintable(body);
+        return body;
+    }
+
+    private string ReadRootText(string member)
+    {
+        var content = ReadRootContent(member);
+        var charset = Charset.Trim();
+        if (charset.Length == 0) return System.Text.Encoding.UTF8.GetString(content);
+        try { return System.Text.Encoding.GetEncoding(charset).GetString(content); }
+        catch (ArgumentException ex) { throw new NotesException(5, "Unsupported MIME root charset '" + charset + "': " + ex.Message); }
+    }
+
+    private string ReadRootHeaders(string? headerNames)
+    {
+        var raw = ReadRootEntity(nameof(Headers));
+        var bodyOffset = FindRootBodyOffset(raw);
+        var headerBytes = raw[..Math.Min(bodyOffset, raw.Length)];
+        var text = System.Text.Encoding.Latin1.GetString(headerBytes).TrimEnd('\r', '\n');
+        if (string.IsNullOrWhiteSpace(headerNames)) return text;
+        var wanted = new HashSet<string>(headerNames.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries), StringComparer.OrdinalIgnoreCase);
+        if (wanted.Count == 0) return text;
+        var result = new List<string>();
+        string? currentName = null;
+        var current = new System.Text.StringBuilder();
+        void Flush()
+        {
+            if (currentName is not null && wanted.Contains(currentName)) result.Add(current.ToString());
+            currentName = null; current.Clear();
+        }
+        foreach (var line in text.Replace("\r\n", "\n", StringComparison.Ordinal).Replace('\r', '\n').Split('\n'))
+        {
+            if ((line.StartsWith(' ') || line.StartsWith('\t')) && currentName is not null) { current.Append("\r\n").Append(line); continue; }
+            Flush();
+            var colon = line.IndexOf(':');
+            if (colon <= 0) continue;
+            currentName = line[..colon].Trim();
+            current.Append(line);
+        }
+        Flush();
+        return string.Join("\r\n", result);
+    }
+
+    private static string GetRootHeader(byte[] raw, string name)
+    {
+        var bodyOffset = FindRootBodyOffset(raw);
+        var text = System.Text.Encoding.Latin1.GetString(raw, 0, Math.Max(0, Math.Min(raw.Length, bodyOffset)))
+            .Replace("\r\n", "\n", StringComparison.Ordinal).Replace('\r', '\n');
+        string currentName = string.Empty;
+        var currentValue = new System.Text.StringBuilder();
+        foreach (var line in text.Split('\n'))
+        {
+            if ((line.StartsWith(' ') || line.StartsWith('\t')) && currentName.Length > 0) { currentValue.Append(' ').Append(line.Trim()); continue; }
+            if (currentName.Equals(name, StringComparison.OrdinalIgnoreCase)) return currentValue.ToString();
+            var colon = line.IndexOf(':');
+            if (colon <= 0) { currentName = string.Empty; currentValue.Clear(); continue; }
+            currentName = line[..colon].Trim(); currentValue.Clear(); currentValue.Append(line[(colon + 1)..].Trim());
+        }
+        return currentName.Equals(name, StringComparison.OrdinalIgnoreCase) ? currentValue.ToString() : string.Empty;
+    }
+
+    private static int FindRootBodyOffset(byte[] raw)
+    {
+        for (var i = 0; i + 3 < raw.Length; i++)
+            if (raw[i] == 13 && raw[i + 1] == 10 && raw[i + 2] == 13 && raw[i + 3] == 10) return i + 4;
+        for (var i = 0; i + 1 < raw.Length; i++)
+            if (raw[i] == 10 && raw[i + 1] == 10) return i + 2;
+        return raw.Length;
+    }
+
+    private static byte[] DecodeQuotedPrintable(byte[] input)
+    {
+        using var output = new MemoryStream();
+        for (var i = 0; i < input.Length; i++)
+        {
+            if (input[i] == '=' && i + 1 < input.Length && (input[i + 1] == '\r' || input[i + 1] == '\n'))
+            {
+                if (input[i + 1] == '\r' && i + 2 < input.Length && input[i + 2] == '\n') i += 2; else i++;
+                continue;
+            }
+            if (input[i] == '=' && i + 2 < input.Length && TryHex(input[i + 1], out var hi) && TryHex(input[i + 2], out var lo))
+            { output.WriteByte((byte)((hi << 4) | lo)); i += 2; continue; }
+            output.WriteByte(input[i]);
+        }
+        return output.ToArray();
+    }
+
+    private static bool TryHex(byte value, out int result)
+    {
+        if (value >= '0' && value <= '9') { result = value - '0'; return true; }
+        if (value >= 'A' && value <= 'F') { result = value - 'A' + 10; return true; }
+        if (value >= 'a' && value <= 'f') { result = value - 'a' + 10; return true; }
+        result = 0; return false;
     }
 
     private string TypeParam(int symbol) { EnsureEntityAlive(); return _owner.TypeParam(_nativeEntity, symbol); }
