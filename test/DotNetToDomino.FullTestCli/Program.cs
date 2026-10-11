@@ -157,6 +157,16 @@ else
         catch (ArgumentOutOfRangeException ex) when (ex.ParamName == "type") { }
         try { _ = directory.OpenDatabase(null!); throw new InvalidOperationException("Null database path was accepted."); }
         catch (ArgumentException ex) when (ex.ParamName == "filePath") { }
+        if (!string.IsNullOrWhiteSpace(databasePath))
+        {
+            using var database = session.GetDatabase(server, databasePath, false) ?? throw new InvalidOperationException("Database not found.");
+            try { _ = database.Search(null!); throw new InvalidOperationException("Null formula was accepted."); }
+            catch (ArgumentNullException ex) when (ex.ParamName == "formula") { }
+            try { _ = database.FTSearch("   "); throw new InvalidOperationException("Blank full-text query was accepted."); }
+            catch (ArgumentException ex) when (ex.ParamName == "query") { }
+            try { _ = database.Search("@All", -1); throw new InvalidOperationException("Negative maxResults was accepted."); }
+            catch (ArgumentOutOfRangeException ex) when (ex.ParamName == "maxResults") { }
+        }
     });
     if (!string.IsNullOrWhiteSpace(databasePath)) Check("database and document surface", () => { using var database = session.GetDatabase(server, databasePath, false) ?? throw new InvalidOperationException("Database not found."); if (!database.IsOpen) throw new InvalidOperationException(database.OpenError); _ = database.Title; _ = database.Categories; _ = database.TemplateName; _ = database.DesignTemplateName; _ = database.ReplicaID; _ = database.Size; _ = database.PercentUsed; _ = database.CurrentAccessLevel; _ = database.Created; _ = database.LastModified; _ = database.FileFormat; using var access = database.QueryAccess(); _ = access.Level; _ = access.LevelName; _ = access.AccessFlags; _ = access.NamesList; _ = access.Groups; _ = access.Roles; using var document = database.CreateDocument(); document.ReplaceItemValue("Form", "FullTest").Recycle(); document.ReplaceItemValue("Subject", "Full test").Recycle(); if (!document.HasItem("Subject") || document.GetString("Subject") != "Full test") throw new InvalidOperationException("Document item round trip failed."); using var mime = document.CreateMIMEEntity(); _ = mime.GetChildren(); _ = mime.GetHeaders(); using var content = session.CreateStream(); content.WriteText("MIME full test"); mime.SetContentFromText(content, "text/plain; charset=utf-8", 1727); try { mime.EncodeContent(11); throw new InvalidOperationException("Invalid MIME encoding was accepted."); } catch (ArgumentOutOfRangeException ex) when (ex.ParamName == "encoding") { } });
 }
