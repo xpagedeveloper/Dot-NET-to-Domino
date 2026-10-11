@@ -508,7 +508,7 @@ Status markers:
 
 Audit every current public Notes object found in XPScript `docs`, `samples`, and runtime source, including at minimum:
 
-- [ ] `NotesName`
+- [x] `NotesName` — added the missing XPScript component properties and aligned RFC821/RFC822 parsing, including address extraction and up to three comments.
 - [ ] `NotesStream`
 - [ ] `NotesDXLImporter`
 - [ ] `NotesDXLExporter`

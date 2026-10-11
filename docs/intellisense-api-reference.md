@@ -80,4 +80,7 @@ The required columns are `Member`, `Syntax`, `Parameters`, `Description`, and `E
 | `NotesRichTextDocLink.HotSpotText` | `link.HotSpotText` | none | Gets the link hotspot text. | [TODO](../todo/xpscript-notes-runtime-parity.md) |
 | `NotesEmbeddedObject.ToByteArray` | `embedded.ToByteArray()` | none | Reads attachment bytes through the native Notes API. | [TODO](../todo/xpscript-notes-runtime-parity.md) |
 | `NotesEmbeddedObject.ExtractFile` | `embedded.ExtractFile(path)` | `path`: output file path. | Saves an embedded attachment to a file. | [TODO](../todo/xpscript-notes-runtime-parity.md) |
+| `NotesName.Addr822Comment1..3` | `name.Addr822Comment1` etc. | none | Gets up to three parsed RFC822 comments. | [TODO](../todo/xpscript-notes-runtime-parity.md) |
+| `NotesName.Generation/Given/Initials/Surname` | `name.Generation` etc. | none | Gets parsed hierarchical name components. | [TODO](../todo/xpscript-notes-runtime-parity.md) |
+| `NotesName.Keyword/Language` | `name.Keyword` / `name.Language` | none | Gets parsed Notes name keyword/language components. | [TODO](../todo/xpscript-notes-runtime-parity.md) |
 

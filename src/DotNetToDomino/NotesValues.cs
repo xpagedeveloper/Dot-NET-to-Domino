@@ -32,6 +32,15 @@ public sealed class NotesName : NotesObject
     public string Addr821 => Part("ADDR821");
     public string Addr822LocalPart => Part("LOCALPART");
     public string Addr822Phrase => Part("PHRASE");
+    public string Addr822Comment1 => Part("COMMENT1");
+    public string Addr822Comment2 => Part("COMMENT2");
+    public string Addr822Comment3 => Part("COMMENT3");
+    public string Generation => Part("G");
+    public string Given => Part("GIVEN");
+    public string Initials => Part("INITIALS");
+    public string Surname => Part("SURNAME");
+    public string Keyword => Part("KEYWORD");
+    public string Language => Part("LANGUAGE");
     private string Part(string key) { EnsureAlive(); return _parts.TryGetValue(key, out var value) ? value : string.Empty; }
     private void ParseCanonical(string value)
     {
@@ -51,16 +60,27 @@ public sealed class NotesName : NotesObject
     {
         var at = source.LastIndexOf('@');
         if (at <= 0 || at >= source.Length - 1) return;
-        _parts["ADDR821"] = source;
         var before = source[..at].Trim();
         var lt = before.LastIndexOf('<');
-        var gt = before.LastIndexOf('>');
+        var gt = source.IndexOf('>', lt + 1);
         if (lt >= 0 && gt > lt)
         {
             _parts["PHRASE"] = before[..lt].Trim().Trim('"');
-            _parts["LOCALPART"] = before[(lt + 1)..gt].Split('@')[0];
+            var address = source[(lt + 1)..gt].Trim();
+            _parts["ADDR821"] = address;
+            _parts["LOCALPART"] = address.Split('@')[0];
         }
-        else _parts["LOCALPART"] = before;
+        else
+        {
+            var end = source.IndexOfAny([' ', '\t', '(']);
+            var address = (end < 0 ? source : source[..end]).Trim();
+            _parts["ADDR821"] = address;
+            _parts["LOCALPART"] = address.Split('@')[0];
+        }
+
+        var comments = System.Text.RegularExpressions.Regex.Matches(source[(at + 1)..], @"\(([^)]*)\)");
+        for (var index = 0; index < comments.Count && index < 3; index++)
+            _parts["COMMENT" + (index + 1).ToString(CultureInfo.InvariantCulture)] = comments[index].Groups[1].Value.Trim();
     }
     protected override void ReleaseNative() => _parts.Clear();
 }
