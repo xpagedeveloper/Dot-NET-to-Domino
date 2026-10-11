@@ -8,6 +8,19 @@ void Check(string name, Action action)
     catch (Exception ex) { failures.Add($"{name}: {ex.GetType().FullName}: {ex.Message}"); Console.Error.WriteLine($"FAIL {failures[^1]}"); }
 }
 
+void ExpectException<TException>(string name, Action action) where TException : Exception
+{
+    try
+    {
+        action();
+        throw new InvalidOperationException($"{name}: expected {typeof(TException).Name}, but no exception was thrown.");
+    }
+    catch (TException)
+    {
+        Console.WriteLine($"PASS {name}");
+    }
+}
+
 Check("NuGet assembly loaded", () =>
 {
     if (typeof(NotesSession).Assembly.GetName().Name != "DotNetToDomino") throw new InvalidOperationException("Wrong assembly loaded.");
@@ -188,6 +201,13 @@ else
             try { _ = database.GetDocumentByID(0); throw new InvalidOperationException("Zero Note ID was accepted."); }
             catch (ArgumentOutOfRangeException ex) when (ex.ParamName == "id") { }
         }
+    });
+    Check("exception trapping", () =>
+    {
+        ExpectException<ArgumentNullException>("null password is trapped", () => session.HashPassword(null!));
+        ExpectException<ArgumentNullException>("null name is trapped", () => session.CreateName(null!));
+        ExpectException<ArgumentNullException>("null replica ID is trapped", () => session.OpenByReplicaID(server, null!));
+        Console.WriteLine("PASS exception trapping continued after invalid calls");
     });
     if (!string.IsNullOrWhiteSpace(databasePath)) Check("database and document surface", () => { using var database = session.GetDatabase(server, databasePath, false) ?? throw new InvalidOperationException("Database not found."); if (!database.IsOpen) throw new InvalidOperationException(database.OpenError); _ = database.Title; _ = database.Categories; _ = database.TemplateName; _ = database.DesignTemplateName; _ = database.ReplicaID; _ = database.Size; _ = database.PercentUsed; _ = database.CurrentAccessLevel; _ = database.Created; _ = database.LastModified; _ = database.FileFormat; using var access = database.QueryAccess(); _ = access.Level; _ = access.LevelName; _ = access.AccessFlags; _ = access.NamesList; _ = access.Groups; _ = access.Roles; using var document = database.CreateDocument(); document.ReplaceItemValue("Form", "FullTest").Recycle(); document.ReplaceItemValue("Subject", "Full test").Recycle(); if (!document.HasItem("Subject") || document.GetString("Subject") != "Full test") throw new InvalidOperationException("Document item round trip failed."); using var mime = document.CreateMIMEEntity(); _ = mime.GetChildren(); _ = mime.GetHeaders(); using var content = session.CreateStream(); content.WriteText("MIME full test"); mime.SetContentFromText(content, "text/plain; charset=utf-8", 1727); try { mime.EncodeContent(11); throw new InvalidOperationException("Invalid MIME encoding was accepted."); } catch (ArgumentOutOfRangeException ex) when (ex.ParamName == "encoding") { } });
 }
