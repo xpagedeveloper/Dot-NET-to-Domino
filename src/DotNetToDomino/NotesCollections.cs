@@ -25,11 +25,24 @@ public sealed class NotesDocumentCollection : NotesObject, IReadOnlyCollection<u
 
     public NotesDatabase Parent { get { EnsureAlive(); return _parent; } }
     public int Count { get { EnsureAlive(); return _noteIds.Length; } }
+    public NotesDocumentCollection Clone() { EnsureAlive(); return Parent.Own(new NotesDocumentCollection(Session, Parent, _noteIds)); }
     public string? FirstNoteId => Count == 0 ? null : _noteIds[0].ToString("X8", CultureInfo.InvariantCulture);
     public NotesDateTime? UntilTime { get { EnsureAlive(); return _hasModifiedMetadata ? NotesDateTime.FromNative(Session, _untilTime) : null; } }
     public NotesDocumentCollection Documents { get { EnsureAlive(); EnsureModifiedMetadata(); return CreateModifiedSubset(_documentNoteIds!, true); } }
     public NotesDocumentCollection DesignElements { get { EnsureAlive(); EnsureModifiedMetadata(); return CreateModifiedSubset(_designNoteIds!, false); } }
     internal IReadOnlyList<uint> NoteIds { get { EnsureAlive(); return _noteIds; } }
+
+    public bool Contains(NotesDocument document)
+    {
+        ArgumentNullException.ThrowIfNull(document); EnsureAlive(); EnsureSameReplica(document.ParentDatabase);
+        return Array.IndexOf(_noteIds, document.NoteId) >= 0;
+    }
+
+    public bool Contains(NotesDocumentCollection collection)
+    {
+        ArgumentNullException.ThrowIfNull(collection); EnsureAlive(); EnsureSameReplica(collection.Parent);
+        var current = _noteIds.ToHashSet(); return collection._noteIds.All(current.Contains);
+    }
 
     internal void InitializeModifiedMetadata(NotesTimeDate untilTime, IEnumerable<uint> documentNoteIds, IEnumerable<uint> designNoteIds)
     {
