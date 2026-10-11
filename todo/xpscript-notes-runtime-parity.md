@@ -450,6 +450,7 @@ Status markers:
 
 - [x] Port/verify `SetPosition` for linked rich-text and embedded elements.
 - [x] Port/verify `SetPositionAtEnd` for the resolved element record.
+- [x] Resolve table, paragraph, and embedded-hotspot end boundaries when positioning at end.
 - [ ] Verify section/table/doclink/hotspot boundary positioning.
 - [ ] Verify navigator invalidation after rich-text mutation.
 

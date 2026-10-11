@@ -408,7 +408,34 @@ public sealed class NotesRichTextNavigator : NotesObject
     public void SetPositionAtEnd(object element)
     {
         SetPosition(element);
-        _charOffset = CurrentRecord.Text.Length;
+        var endIndex = FindElementEnd(_currentIndex, _lastElementType);
+        _charOffset = _records[endIndex].Text.Length;
+        _currentIndex = endIndex;
+    }
+
+    private int FindElementEnd(int startIndex, int elementType)
+    {
+        if (elementType is ElementTable or ElementEmbeddedObject)
+        {
+            var table = elementType == ElementTable;
+            var depth = 0;
+            for (var i = startIndex; i <= Math.Min(_rangeEnd, _records.Count - 1); i++)
+            {
+                var signature = _records[i].Signature;
+                var begin = table ? signature is 163 or 207 : signature is unchecked((ushort)-87) or unchecked((ushort)-83) or unchecked((ushort)-130);
+                var end = table ? signature is 165 or 209 : signature is 170 or 174 or 127;
+                if (begin) depth++;
+                else if (end && --depth == 0) return i;
+            }
+            throw new InvalidOperationException($"Rich-text {(table ? "table" : "embedded hotspot")} has no matching end record in the navigator range.");
+        }
+        if (elementType == ElementTextParagraph)
+        {
+            for (var i = startIndex + 1; i <= Math.Min(_rangeEnd, _records.Count - 1); i++)
+                if (_records[i].ElementType == ElementTextParagraph) return i - 1;
+            return Math.Min(_rangeEnd, _records.Count - 1);
+        }
+        return startIndex;
     }
 
     public object? GetFirstElement(int type)
