@@ -491,10 +491,10 @@ Status markers:
 
 ## P1 — NotesForm and design objects
 
-- [ ] Re-audit current `NotesForm` surface and implementation.
-- [ ] Inventory any new form properties/functions added recently.
-- [ ] Audit any newly introduced design-element objects in XPScript.
-- [ ] For design mutation APIs, distinguish real native/DXL implementation from compiler-only scaffolding.
+- [x] Re-audit current `NotesForm` surface and implementation; `Parent`, `Name`, `NoteID`, and `NotesURL` match XPScript.
+- [x] Inventory current form properties/functions; no additional form members are present in the physical XPScript runtime.
+- [x] Audit newly introduced design-element objects; forms are wrappers around design-note IDs, while mutation remains exposed through DXL APIs.
+- [x] Distinguish design mutation APIs: no compiler-only form mutation was added; real design mutation remains in `NotesDXLImporter`/`NotesDXLExporter`.
 
 ## P1 — NotesDocumentCollection / NotesNoteCollection
 
