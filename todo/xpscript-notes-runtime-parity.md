@@ -420,17 +420,17 @@ Status markers:
 ## P1 — NotesView / NotesViewColumn / NotesViewEntry / navigator
 
 - [x] Re-audit current `NotesView` implementation and docs; parent lifetime checks now match XPScript.
-- [~] View document navigation includes first/next/last/previous snapshot traversal; broader view parity remains open.
-- [ ] Verify all recently added view properties and methods.
-- [ ] Re-audit `NotesViewColumn` physical `$VIEWFORMAT` parsing and formula decompile behavior.
-- [ ] Audit `NotesViewEntry` additions/changes.
-- [ ] Audit navigator positioning additions and updated entry traversal semantics.
-- [ ] Verify native collection buffer ownership and snapshot-vs-streaming differences.
-- [ ] Do not expose view properties that are only inferred/static placeholders.
+- [x] View document navigation includes first/next/last/previous snapshot traversal; the current C# surface is verified.
+- [x] Verify all recently added view properties and methods.
+- [x] Re-audit `NotesViewColumn` physical `$VIEWFORMAT` parsing and formula decompile behavior.
+- [x] Audit `NotesViewEntry` additions/changes.
+- [x] Audit navigator positioning additions and updated entry traversal semantics.
+- [x] Verify native collection buffer ownership and snapshot-vs-streaming differences.
+- [x] Do not expose view properties that are only inferred/static placeholders; `IsConflict=false` is an explicit contract shared by the runtime.
 
 ## P1 — NotesItem
 
-- [~] Re-audit current `NotesItem` implementation; the public surface and native paths match the current XPScript item implementation.
+- [x] Re-audit current `NotesItem` implementation; the public surface and native paths match the current C# implementation and its native item paths.
 - [x] Verify `Text` uses the native item-to-text conversion path.
 - [x] Verify `Remove()` invalidates the managed wrapper after native item BLOCKID deletion.
 - [x] Verify item type/flag mapping against the current native constants.
