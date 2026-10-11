@@ -456,8 +456,8 @@ Status markers:
 
 ### NotesRichTextRange
 
-- [ ] Audit new range mutation functions.
-- [ ] Port `Remove` if physically implemented.
+- [~] Audit new range mutation functions; CD-record rewrite support is available for complete-record operations.
+- [x] Port `Remove` for ranges aligned to complete rich-text records.
 - [ ] Port `SetStyle` if physically implemented.
 - [ ] Verify logical-span calculations and mutation rollback.
 

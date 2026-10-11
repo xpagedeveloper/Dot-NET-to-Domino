@@ -666,6 +666,18 @@ public sealed class NotesRichTextRange : NotesObject
     public void SetBegin(NotesRichTextRange range) { ArgumentNullException.ThrowIfNull(range); SetBeginCore(range.BeginRecord, range.BeginOffset, range.Type, range.RichTextItem); }
     public void SetEnd(NotesRichTextNavigator navigator) { ArgumentNullException.ThrowIfNull(navigator); SetEndCore(navigator.CurrentIndex, navigator.CurrentCharOffset, navigator.CurrentElementType, navigator.RichTextItem); }
     public void SetEnd(NotesRichTextRange range) { ArgumentNullException.ThrowIfNull(range); SetEndCore(range.EndRecord, range.EndOffset, range.Type, range.RichTextItem); }
+    public void Remove()
+    {
+        EnsureRangeAlive();
+        var records = _item.ReadRichTextRecords();
+        if (records.Count == 0 || _endRecord < _beginRecord) return;
+        if (_beginOffset != 0 || _endRecord >= records.Count || _endOffset != records[_endRecord].Text.Length)
+            throw new InvalidOperationException("NotesRichTextRange.Remove requires complete rich-text element boundaries.");
+        var rewritten = NotesRichTextCdTransform.Transform(records, record =>
+            record.RecordIndex >= _beginRecord && record.RecordIndex <= _endRecord ? null : NotesRichTextRecordRewrite.Preserve(record));
+        _item.RewriteRichTextRecords(rewritten);
+        ResetCore();
+    }
 
     internal NotesRichTextItem RichTextItem => _item;
     internal int BeginRecord { get { EnsureRangeAlive(); return _beginRecord; } }
