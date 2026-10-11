@@ -87,6 +87,15 @@ public sealed class NotesMIMEEntity : NotesObject
         return new NotesMIMEHeader(Session, this, normalizedName, occurrence);
     }
     public string GetSomeHeaders(string headerNames) { EnsureEntityAlive(); return ReadRootHeaders(headerNames); }
+    public void RemoveHeaders(string name)
+    {
+        EnsureRootEntity(nameof(RemoveHeaders));
+        ValidateHeaderName(name);
+        var wanted = name.Trim();
+        var headers = ReadRootHeaderValues();
+        headers.RemoveAll(header => header.Name.Equals(wanted, StringComparison.OrdinalIgnoreCase));
+        RewriteRootHeaders(headers);
+    }
     public void GetContentAsBytes(NotesStream stream) { EnsureEntityAlive(); ArgumentNullException.ThrowIfNull(stream); stream.Write(ReadRootContent(nameof(GetContentAsBytes))); }
     public void GetContentAsText(NotesStream stream, bool entityCharset = false) { EnsureEntityAlive(); ArgumentNullException.ThrowIfNull(stream); stream.WriteText(ReadRootText(nameof(GetContentAsText))); }
     public void GetEntityAsText(NotesStream stream) { EnsureEntityAlive(); ArgumentNullException.ThrowIfNull(stream); stream.Write(ReadRootEntity(nameof(GetEntityAsText))); }

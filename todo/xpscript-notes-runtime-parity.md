@@ -56,7 +56,7 @@ Status markers:
 - [x] Port root header name/value getters.
 - [~] Port root header value setters/overloads implemented by XPScript; child-entity mutation remains.
 - [ ] Port header parameter access/mutation if implemented.
-- [ ] Port header removal and `RemoveHeaders` behavior.
+- [~] Port root header removal and `RemoveHeaders`; child-entity mutation remains.
 - [ ] Verify header enumeration and duplicate-header semantics.
 - [ ] Verify header/entity handle lifetime and native memory ownership.
 
