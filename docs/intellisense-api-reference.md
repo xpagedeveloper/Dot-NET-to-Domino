@@ -57,6 +57,9 @@ The required columns are `Member`, `Syntax`, `Parameters`, `Description`, and `E
 | `NotesView.GetPrevDocument` | `view.GetPrevDocument(document)` | `document`: current document. | Returns the preceding document in a view. | [TODO](../todo/xpscript-notes-runtime-parity.md) |
 | `NotesView.CreateViewNav` | `view.CreateViewNav()` | none | Creates a view navigator. | [README](../README.md) |
 | `NotesStream.Read` | `stream.Read(maxBytes)` | `maxBytes`: requested byte count. | Reads bytes from a Notes stream. | [README](../README.md) |
+| `NotesStream.Position` | `stream.Position` | `int` byte position. | Gets or sets the current stream position, clamped to the stream length. | [TODO](../todo/xpscript-notes-runtime-parity.md) |
+| `NotesStream.Write` | `stream.Write(bytes)` / `stream.Write(text)` | `byte[]` or text. | Writes binary or encoded text data to a writable stream. | [TODO](../todo/xpscript-notes-runtime-parity.md) |
+| `NotesStream.ReadText` | `stream.ReadText(maxBytes)` | optional byte count. | Reads and decodes stream data using `Charset`. | [TODO](../todo/xpscript-notes-runtime-parity.md) |
 | `NotesSession.CreateStream` | `session.CreateStream()` | none | Creates a Notes stream. | [README](../README.md) |
 | `NotesDateTime.SetNow` | `dateTime.SetNow()` | none | Replaces the value with the current Domino time/date. | [TODO](../todo/xpscript-notes-runtime-parity.md) |
 | `NotesDateTime.TimeDifference` | `dateTime.TimeDifference(other)` | `other`: another NotesDateTime. | Returns the GMT difference in seconds. | [TODO](../todo/xpscript-notes-runtime-parity.md) |

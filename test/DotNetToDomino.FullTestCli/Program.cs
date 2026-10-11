@@ -14,6 +14,8 @@ Check("NuGet assembly loaded", () =>
     var toByteArray = typeof(NotesEmbeddedObject).GetMethod(nameof(NotesEmbeddedObject.ToByteArray), Type.EmptyTypes)
         ?? throw new InvalidOperationException("NotesEmbeddedObject.ToByteArray is missing.");
     if (toByteArray.ReturnType != typeof(byte[])) throw new InvalidOperationException($"NotesEmbeddedObject.ToByteArray must return byte[], not {toByteArray.ReturnType.FullName}.");
+    if (typeof(NotesStream).GetProperty(nameof(NotesStream.Position))?.PropertyType != typeof(int)) throw new InvalidOperationException("NotesStream.Position must be int.");
+    if (typeof(NotesStream).GetMethod(nameof(NotesStream.Write), new[] { typeof(string) }) is null) throw new InvalidOperationException("NotesStream.Write(string) is missing.");
 });
 Check("public API surface", () =>
 {
