@@ -453,8 +453,8 @@ Status markers:
 - [x] Port/verify `SetPosition` for linked rich-text and embedded elements.
 - [x] Port/verify `SetPositionAtEnd` for the resolved element record.
 - [x] Resolve table, paragraph, and embedded-hotspot end boundaries when positioning at end.
-- [ ] Verify section/table/doclink/hotspot boundary positioning.
-- [ ] Verify navigator invalidation after rich-text mutation.
+- [x] Verify section/table/doclink/hotspot boundary positioning; section/doclink/table-cell records are identity-backed and table/attachment hotspots use delimited spans.
+- [x] Verify navigator invalidation after rich-text mutation; revision changes force record reload and clear the current position.
 
 ### NotesRichTextRange
 
@@ -462,7 +462,7 @@ Status markers:
 - [x] Port `Remove` for ranges aligned to complete rich-text records.
 - [x] Port `SetStyle` for text-run CD records using the native rewrite path.
 - [ ] Port `SetStyle` if physically implemented.
-- [ ] Verify logical-span calculations and mutation rollback.
+- [x] Verify logical-span calculations and mutation rollback; complete-record rewrites validate canonical identity and apply through the native transform path.
 
 ### NotesRichTextSection
 

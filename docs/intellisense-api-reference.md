@@ -27,6 +27,7 @@ The required columns are `Member`, `Syntax`, `Parameters`, `Description`, and `E
 | `Notes*` inventory | all public Notes objects | concrete C# types. | Current XPScript Notes runtime inventory has corresponding C# objects; no public XPScript-only Notes object remains unidentified. | [TODO](../todo/xpscript-notes-runtime-parity.md) |
 | `NotesMIMEHeader.SetParamVal` | `header.SetParamVal(name, value)` | parameter name and value. | Replaces or appends a root MIME header parameter while preserving other parameters. | [TODO](../todo/xpscript-notes-runtime-parity.md) |
 | `NotesMIMEEntity.GetChildren` | `entity.GetChildren()` | none. | Enumerates direct child entities using managed wrappers tied to the MIME directory owner. | [TODO](../todo/xpscript-notes-runtime-parity.md) |
+| `NotesRichTextNavigator.SetPositionAtEnd` | `navigator.SetPositionAtEnd(element)` | linked rich-text element. | Resolves logical table/attachment/paragraph spans and identity-backed section/doclink/cell records. | [TODO](../todo/xpscript-notes-runtime-parity.md) |
 | `NotesMail.SendTo` | `mail.SendTo = recipients` | recipients: primary recipients. | Sets primary mail recipients. | [mail parity](xpscript-missing-notes-surface.md) |
 | `NotesMail.Subject` | `mail.Subject = subject` | subject: message subject. | Sets the mail subject. | [mail parity](xpscript-missing-notes-surface.md) |
 | `NotesMail.Body` | `mail.Body = body` | body: plain-text message body. | Sets the plain-text body. | [mail parity](xpscript-missing-notes-surface.md) |
