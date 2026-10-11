@@ -418,7 +418,7 @@ Status markers:
 
 ## P1 — NotesView / NotesViewColumn / NotesViewEntry / navigator
 
-- [ ] Re-audit current `NotesView` implementation and docs.
+- [x] Re-audit current `NotesView` implementation and docs; parent lifetime checks now match XPScript.
 - [~] View document navigation includes first/next/last/previous snapshot traversal; broader view parity remains open.
 - [ ] Verify all recently added view properties and methods.
 - [ ] Re-audit `NotesViewColumn` physical `$VIEWFORMAT` parsing and formula decompile behavior.

@@ -211,7 +211,7 @@ public sealed class NotesViewEntryCollection : NotesObject, IReadOnlyCollection<
         _replicaId = session.Api.GetDatabaseReplicaId(database.Handle);
     }
 
-    public NotesView Parent => _view;
+    public NotesView Parent { get { EnsureAlive(); return _view; } }
     public int Count { get { EnsureAlive(); return _rows.Length; } }
     public string Query { get { EnsureAlive(); return _query; } }
     public NotesViewEntry? GetFirstEntry() => OpenAt(_rows.Length == 0 ? -1 : 0);

@@ -4,15 +4,16 @@ namespace DotNetToDomino;
 public sealed class NotesView : NotesObject
 {
     private nint _handle;
+    private readonly NotesDatabase _parent;
 
     internal NotesView(NotesSession session, NotesDatabase parent, nint handle, string name) : base(session)
     {
-        Parent = parent;
+        _parent = parent;
         _handle = handle;
         Name = name;
     }
 
-    public NotesDatabase Parent { get; }
+    public NotesDatabase Parent { get { EnsureAlive(); return _parent; } }
     public string Name { get; }
     public string[] ColumnNames { get { EnsureOpen(); return Session.Api.GetViewColumns(Parent.Handle, Name).Select(column => column.ItemName).ToArray(); } }
     public IReadOnlyList<NotesViewColumn> Columns

@@ -25,6 +25,9 @@ Check("NuGet assembly loaded", () =>
         if (typeof(NotesForm).GetProperty(property)?.PropertyType != typeof(string)) throw new InvalidOperationException($"NotesForm.{property} is missing.");
     if (typeof(NotesDocumentCollection).GetProperty(nameof(NotesDocumentCollection.Parent))?.PropertyType != typeof(NotesDatabase)) throw new InvalidOperationException("NotesDocumentCollection.Parent is missing.");
     if (typeof(NotesNoteCollection).GetProperty(nameof(NotesNoteCollection.Parent))?.PropertyType != typeof(NotesDatabase)) throw new InvalidOperationException("NotesNoteCollection.Parent is missing.");
+    if (typeof(NotesView).GetProperty(nameof(NotesView.Parent))?.PropertyType != typeof(NotesDatabase)) throw new InvalidOperationException("NotesView.Parent is missing.");
+    if (typeof(NotesViewColumn).GetProperty(nameof(NotesViewColumn.Parent))?.PropertyType != typeof(NotesView)) throw new InvalidOperationException("NotesViewColumn.Parent is missing.");
+    if (typeof(NotesViewEntry).GetProperty(nameof(NotesViewEntry.Parent))?.PropertyType != typeof(NotesView)) throw new InvalidOperationException("NotesViewEntry.Parent is missing.");
 });
 Check("public API surface", () =>
 {

@@ -6,14 +6,15 @@ namespace DotNetToDomino;
 public sealed class NotesViewColumn : NotesObject
 {
     private readonly NotesViewColumnData _data;
+    private readonly NotesView _parent;
 
     internal NotesViewColumn(NotesSession session, NotesView parent, NotesViewColumnData data) : base(session)
     {
-        Parent = parent;
+        _parent = parent;
         _data = data;
     }
 
-    public NotesView Parent { get; }
+    public NotesView Parent { get { EnsureAlive(); return _parent; } }
     public int Position { get { EnsureAlive(); return _data.Position; } }
     public string ItemName { get { EnsureAlive(); return _data.ItemName; } }
     public string Title { get { EnsureAlive(); return _data.Title; } }

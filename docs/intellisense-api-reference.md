@@ -81,6 +81,7 @@ The required columns are `Member`, `Syntax`, `Parameters`, `Description`, and `E
 | `NotesColorObject` | linked rich-text color object | `NotesColor` 0–255. | Represents a Domino rich-text color value. | [TODO](../todo/xpscript-notes-runtime-parity.md) |
 | `NotesForm` | `form.Parent`, `form.Name`, `form.NoteID`, `form.NotesURL` | none | Represents a database form design element and its stable design-note identity. | [TODO](../todo/xpscript-notes-runtime-parity.md) |
 | `NotesDocumentCollection` / `NotesNoteCollection` | collection navigation and mutation methods | normalized Domino note IDs. | Collections normalize note IDs, enforce replica ownership, and expose modified-document/design metadata where applicable. | [TODO](../todo/xpscript-notes-runtime-parity.md) |
+| `NotesView` / `NotesViewColumn` / `NotesViewEntry` | view navigation and column/entry properties | linked C# view objects. | View parents and linked entries/columns enforce wrapper lifetime checks; navigation uses snapshot rows. | [TODO](../todo/xpscript-notes-runtime-parity.md) |
 | `NotesRichTextTable.RowCount` | `table.RowCount` | none | Gets the parsed table row count. | [TODO](../todo/xpscript-notes-runtime-parity.md) |
 | `NotesRichTextTable.ColumnCount` | `table.ColumnCount` | none | Gets the parsed table column count. | [TODO](../todo/xpscript-notes-runtime-parity.md) |
 | `NotesRichTextTable.RightToLeft` | `table.RightToLeft` | none | Gets the table direction flag. | [TODO](../todo/xpscript-notes-runtime-parity.md) |
