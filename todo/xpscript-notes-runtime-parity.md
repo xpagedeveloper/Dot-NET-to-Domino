@@ -542,6 +542,13 @@ For each object, add a sub-section to this TODO if differences are found.
 - [ ] Add fulltest coverage for MIME and attachment composition after that implementation exists.
 - [ ] Do not remove deliberate real constants that are part of the Notes contract without verifying the native/API meaning.
 
+### NotesDBDirectory audit
+
+- [x] Ported database type filtering and constants `REPLICA_CANDIDATE`, `TEMPLATE_CANDIDATE`, `DATABASE`, and `TEMPLATE` match XPScript values.
+- [x] Verified local/remote server path handling is delegated to the same native database search path.
+- [x] Verified enumerated database wrappers are unopened design references and `OpenDatabase` returns the opened wrapper, matching XPScript's lifecycle shape.
+- [x] Verified enumeration state is cleared on recycle; live HCL runtime validation remains environment-dependent.
+
 ## Native ABI and lifecycle audit
 
 For every newly ported native function:

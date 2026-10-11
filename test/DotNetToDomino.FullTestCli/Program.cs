@@ -31,6 +31,8 @@ Check("NuGet assembly loaded", () =>
     if (typeof(NotesRichTextItem).GetMethod(nameof(NotesRichTextItem.AppendParagraphStyle), new[] { typeof(NotesRichTextParagraphStyle) }) is null) throw new InvalidOperationException("NotesRichTextItem.AppendParagraphStyle is missing.");
     if (typeof(NotesDateTime).GetMethod(nameof(NotesDateTime.SetAnyDate), Type.EmptyTypes) is null || typeof(NotesDateTime).GetMethod(nameof(NotesDateTime.SetAnyTime), Type.EmptyTypes) is null) throw new InvalidOperationException("NotesDateTime wildcard methods are missing.");
     if (typeof(NotesMail).GetProperty(nameof(NotesMail.IsMIME))?.PropertyType != typeof(bool) || typeof(NotesMail).GetProperty(nameof(NotesMail.AttachmentCount))?.PropertyType != typeof(int)) throw new InvalidOperationException("NotesMail MIME/attachment state surface is missing.");
+    foreach (var name in new[] { nameof(NotesConst.REPLICA_CANDIDATE), nameof(NotesConst.TEMPLATE_CANDIDATE), nameof(NotesConst.DATABASE), nameof(NotesConst.TEMPLATE) })
+        if (typeof(NotesConst).GetField(name)?.FieldType != typeof(int)) throw new InvalidOperationException($"NotesConst.{name} is missing.");
 });
 Check("public API surface", () =>
 {
