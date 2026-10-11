@@ -50,6 +50,8 @@ The required columns are `Member`, `Syntax`, `Parameters`, `Description`, and `E
 | `NotesMIMEEntity.Preamble` | `entity.Preamble` | none | Reads or replaces the root multipart preamble. | [MIME parity](../todo/xpscript-notes-runtime-parity.md) |
 | `NotesMIMEEntity.GetChildren` | `entity.GetChildren()` | none | Enumerates direct child MIME entities using the native MIME directory. | [MIME parity](../todo/xpscript-notes-runtime-parity.md) |
 | `NotesView.GetFirstDocument` | `view.GetFirstDocument()` | none | Returns the first document in a view. | [README](../README.md) |
+| `NotesView.GetLastDocument` | `view.GetLastDocument()` | none | Returns the last document in a view. | [TODO](../todo/xpscript-notes-runtime-parity.md) |
+| `NotesView.GetPrevDocument` | `view.GetPrevDocument(document)` | `document`: current document. | Returns the preceding document in a view. | [TODO](../todo/xpscript-notes-runtime-parity.md) |
 | `NotesView.CreateViewNav` | `view.CreateViewNav()` | none | Creates a view navigator. | [README](../README.md) |
 | `NotesStream.Read` | `stream.Read(maxBytes)` | `maxBytes`: requested byte count. | Reads bytes from a Notes stream. | [README](../README.md) |
 | `NotesSession.CreateStream` | `session.CreateStream()` | none | Creates a Notes stream. | [README](../README.md) |

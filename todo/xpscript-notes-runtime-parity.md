@@ -419,6 +419,7 @@ Status markers:
 ## P1 — NotesView / NotesViewColumn / NotesViewEntry / navigator
 
 - [ ] Re-audit current `NotesView` implementation and docs.
+- [~] View document navigation includes first/next/last/previous snapshot traversal; broader view parity remains open.
 - [ ] Verify all recently added view properties and methods.
 - [ ] Re-audit `NotesViewColumn` physical `$VIEWFORMAT` parsing and formula decompile behavior.
 - [ ] Audit `NotesViewEntry` additions/changes.

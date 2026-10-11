@@ -35,12 +35,26 @@ public sealed class NotesView : NotesObject
         return ids.Count == 0 ? null : Parent.GetDocumentByID(ids[0]);
     }
 
+    public NotesDocument? GetLastDocument()
+    {
+        var ids = SnapshotIds();
+        return ids.Count == 0 ? null : Parent.GetDocumentByID(ids[^1]);
+    }
+
     public NotesDocument? GetNextDocument(NotesDocument document)
     {
         ArgumentNullException.ThrowIfNull(document);
         var ids = SnapshotIds();
         var index = Array.IndexOf(ids.ToArray(), document.NoteId);
         return index < 0 || index + 1 >= ids.Count ? null : Parent.GetDocumentByID(ids[index + 1]);
+    }
+
+    public NotesDocument? GetPrevDocument(NotesDocument document)
+    {
+        ArgumentNullException.ThrowIfNull(document);
+        var ids = SnapshotIds();
+        var index = Array.IndexOf(ids.ToArray(), document.NoteId);
+        return index <= 0 ? null : Parent.GetDocumentByID(ids[index - 1]);
     }
 
     public NotesDocument? GetDocumentByKey(string key, bool exactMatch = true) => GetFirstDocumentByKey(key, exactMatch);
