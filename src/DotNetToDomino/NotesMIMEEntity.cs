@@ -48,7 +48,11 @@ public sealed class NotesMIMEEntity : NotesObject
 
     public string ContentAsText { get { EnsureEntityAlive(); return ReadRootText(nameof(ContentAsText)); } }
     public string Headers { get { EnsureEntityAlive(); return ReadRootHeaders(null); } }
-    public string Preamble { get => throw Unsupported(nameof(Preamble)); set => throw Unsupported(nameof(Preamble)); }
+    public string Preamble
+    {
+        get => ReadPreamble();
+        set => WritePreamble(value);
+    }
     public int Encoding
     {
         get
@@ -147,6 +151,55 @@ public sealed class NotesMIMEEntity : NotesObject
         Buffer.BlockCopy(encoded, 0, rewritten, headerBytes.Length, encoded.Length);
         Session.Api.WriteMimeStream(_document.Handle, _itemName, rewritten);
         _document.InvalidateMimeDirectory();
+    }
+
+    private string ReadPreamble()
+    {
+        EnsureRootEntity(nameof(Preamble));
+        var raw = ReadRootEntity(nameof(Preamble));
+        var boundary = RequireMultipartBoundary(raw);
+        var bodyOffset = FindRootBodyOffset(raw);
+        var marker = FindBytes(raw, System.Text.Encoding.ASCII.GetBytes("--" + boundary), bodyOffset);
+        if (marker < 0) throw new NotesException(5, "MIME multipart boundary is missing.");
+        return System.Text.Encoding.UTF8.GetString(raw, bodyOffset, marker - bodyOffset).TrimEnd('\r', '\n');
+    }
+
+    private void WritePreamble(string? value)
+    {
+        EnsureRootEntity(nameof(Preamble));
+        var raw = ReadRootEntity(nameof(Preamble));
+        var boundary = RequireMultipartBoundary(raw);
+        var bodyOffset = FindRootBodyOffset(raw);
+        var marker = FindBytes(raw, System.Text.Encoding.ASCII.GetBytes("--" + boundary), bodyOffset);
+        if (marker < 0) throw new NotesException(5, "MIME multipart boundary is missing.");
+        var prefix = raw[..bodyOffset];
+        var suffix = raw[marker..];
+        var preamble = System.Text.Encoding.UTF8.GetBytes(value ?? string.Empty);
+        var rewritten = new byte[prefix.Length + preamble.Length + suffix.Length];
+        Buffer.BlockCopy(prefix, 0, rewritten, 0, prefix.Length);
+        Buffer.BlockCopy(preamble, 0, rewritten, prefix.Length, preamble.Length);
+        Buffer.BlockCopy(suffix, 0, rewritten, prefix.Length + preamble.Length, suffix.Length);
+        Session.Api.WriteMimeStream(_document.Handle, _itemName, rewritten);
+        _document.InvalidateMimeDirectory();
+    }
+
+    private string RequireMultipartBoundary(byte[] raw)
+    {
+        if (!IsMultipart) throw new NotesException(5, "NotesMIMEEntity.Preamble requires a multipart entity.");
+        var boundary = TypeParam(NotesConst.MIME_SYMBOL_BOUNDARY).Trim();
+        if (boundary.Length == 0) throw new NotesException(5, "MIME multipart boundary is missing.");
+        return boundary;
+    }
+
+    private static int FindBytes(byte[] source, byte[] value, int start)
+    {
+        for (var i = Math.Max(0, start); i <= source.Length - value.Length; i++)
+        {
+            var match = true;
+            for (var j = 0; j < value.Length; j++) if (source[i + j] != value[j]) { match = false; break; }
+            if (match) return i;
+        }
+        return -1;
     }
 
     private static string EncodingName(int encoding) => encoding switch

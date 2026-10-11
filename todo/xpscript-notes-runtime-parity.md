@@ -41,7 +41,7 @@ Status markers:
 - [ ] Port MIME entity parent/child/sibling traversal using the same native handles and ownership rules.
 - [ ] Port child enumeration and `AppendChildEntity` behavior.
 - [ ] Port entity removal and ensure handles become invalid safely after removal.
-- [~] Content type/subtype and charset are native-directory backed; root `Encoding` is now derived from `Content-Transfer-Encoding` like XPScript. `Preamble` mutation/access remains open.
+- [~] Content type/subtype and charset are native-directory backed; root `Encoding` is derived from `Content-Transfer-Encoding` like XPScript. Root multipart `Preamble` access/mutation is implemented; child-entity access remains open.
 - [~] Root `ContentAsText`, `GetContentAsBytes`, `GetContentAsText`, and `GetEntityAsText` are implemented from the MIME stream; child-entity data access remains open.
 - [~] Root content writers and `EncodeContent`/`DecodeContent` now support 7bit/8bit/binary, quoted-printable, and base64; child-entity mutation remains open.
 - [x] `ContentID` and `ContentLocation` are backed by native MIME entity access and match the current XPScript path.
