@@ -34,6 +34,7 @@ The required columns are `Member`, `Syntax`, `Parameters`, `Description`, and `E
 | `NotesMIMEEntity.ContentAsText` | `entity.ContentAsText` | none | Reads root MIME content as text. | [MIME parity](../todo/xpscript-notes-runtime-parity.md) |
 | `NotesMIMEEntity.GetContentAsBytes` | `entity.GetContentAsBytes(stream)` | `stream`: destination Notes stream. | Reads root MIME content as bytes. | [MIME parity](../todo/xpscript-notes-runtime-parity.md) |
 | `NotesMIMEEntity.GetNthHeader` | `entity.GetNthHeader(name, occurrence)` | `name`, `occurrence`: header lookup. | Looks up a MIME header; native header support remains incomplete. | [MIME parity](../todo/xpscript-notes-runtime-parity.md) |
+| `NotesMIMEEntity.GetHeaders` | `entity.GetHeaders(name)` | `name`: optional header-name filter. | Enumerates root MIME headers and preserves duplicate occurrence order. | [MIME parity](../todo/xpscript-notes-runtime-parity.md) |
 | `NotesMIMEHeader.HeaderName` | `header.HeaderName` | none | Gets the root MIME header name. | [MIME parity](../todo/xpscript-notes-runtime-parity.md) |
 | `NotesMIMEHeader.GetHeaderVal` | `header.GetHeaderVal()` | none | Gets the root MIME header value. | [MIME parity](../todo/xpscript-notes-runtime-parity.md) |
 | `NotesMIMEHeader.GetParamVal` | `header.GetParamVal(name)` | `name`: MIME parameter name. | Gets a root MIME header parameter. | [MIME parity](../todo/xpscript-notes-runtime-parity.md) |

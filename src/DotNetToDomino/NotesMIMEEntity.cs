@@ -93,6 +93,24 @@ public sealed class NotesMIMEEntity : NotesObject
         }
         return null;
     }
+    public IReadOnlyList<NotesMIMEHeader> GetHeaders(string? name = null)
+    {
+        EnsureRootEntity(nameof(GetHeaders));
+        if (name is not null && string.IsNullOrWhiteSpace(name))
+            throw new ArgumentException("'name' cannot be empty or whitespace when supplied.", nameof(name));
+        var wanted = name?.Trim();
+        var occurrences = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        var result = new List<NotesMIMEHeader>();
+        foreach (var header in ReadRootHeaderValues())
+        {
+            if (wanted is not null && !header.Name.Equals(wanted, StringComparison.OrdinalIgnoreCase)) continue;
+            occurrences.TryGetValue(header.Name, out var occurrence);
+            occurrence++;
+            occurrences[header.Name] = occurrence;
+            result.Add(new NotesMIMEHeader(Session, this, header.Name, occurrence));
+        }
+        return result;
+    }
     public NotesMIMEHeader CreateHeader(string name)
     {
         EnsureRootEntity(nameof(CreateHeader));

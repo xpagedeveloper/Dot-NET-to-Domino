@@ -57,7 +57,7 @@ Status markers:
 - [~] Port root header value setters/overloads implemented by XPScript; child-entity mutation remains.
 - [ ] Port header parameter access/mutation if implemented.
 - [~] Port root header removal and `RemoveHeaders`; child-entity mutation remains.
-- [ ] Verify header enumeration and duplicate-header semantics.
+- [~] Root header enumeration and duplicate-header semantics are implemented; child-entity headers remain open.
 - [ ] Verify header/entity handle lifetime and native memory ownership.
 
 ### NotesDBDirectory
