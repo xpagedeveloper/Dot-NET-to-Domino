@@ -61,7 +61,20 @@ public sealed class NotesMIMEEntity : NotesObject
                 : 1725;
         }
     }
-    public NotesMIMEHeader? GetNthHeader(string name, int occurrence = 1) => throw Unsupported(nameof(GetNthHeader));
+    public NotesMIMEHeader? GetNthHeader(string name, int occurrence = 1)
+    {
+        EnsureRootEntity(nameof(GetNthHeader));
+        ArgumentException.ThrowIfNullOrWhiteSpace(name);
+        if (occurrence < 1) throw new ArgumentOutOfRangeException(nameof(occurrence));
+        var wanted = name.Trim();
+        var found = 0;
+        foreach (var header in ReadRootHeaderValues())
+        {
+            if (!header.Name.Equals(wanted, StringComparison.OrdinalIgnoreCase)) continue;
+            if (++found == occurrence) return new NotesMIMEHeader(Session, this, wanted, occurrence);
+        }
+        return null;
+    }
     public NotesMIMEHeader CreateHeader(string name) => throw Unsupported(nameof(CreateHeader));
     public string GetSomeHeaders(string headerNames) { EnsureEntityAlive(); return ReadRootHeaders(headerNames); }
     public void GetContentAsBytes(NotesStream stream) { EnsureEntityAlive(); ArgumentNullException.ThrowIfNull(stream); stream.Write(ReadRootContent(nameof(GetContentAsBytes))); }
@@ -167,6 +180,47 @@ public sealed class NotesMIMEEntity : NotesObject
         return currentName.Equals(name, StringComparison.OrdinalIgnoreCase) ? currentValue.ToString() : string.Empty;
     }
 
+    internal string ReadHeader(string name, int occurrence)
+    {
+        EnsureRootEntity(nameof(ReadHeader));
+        var found = 0;
+        foreach (var header in ReadRootHeaderValues())
+        {
+            if (!header.Name.Equals(name, StringComparison.OrdinalIgnoreCase)) continue;
+            if (++found == occurrence) return header.Value;
+        }
+        throw new NotesException(5, "MIME header is no longer present on the entity.");
+    }
+
+    private List<(string Name, string Value)> ReadRootHeaderValues()
+    {
+        var raw = ReadRootEntity(nameof(ReadRootHeaderValues));
+        var bodyOffset = FindRootBodyOffset(raw);
+        var text = System.Text.Encoding.Latin1.GetString(raw, 0, Math.Max(0, Math.Min(raw.Length, bodyOffset)))
+            .Replace("\r\n", "\n", StringComparison.Ordinal).Replace('\r', '\n');
+        var result = new List<(string Name, string Value)>();
+        string? currentName = null;
+        var currentValue = new System.Text.StringBuilder();
+        void Flush()
+        {
+            if (currentName is not null) result.Add((currentName, currentValue.ToString()));
+            currentName = null;
+            currentValue.Clear();
+        }
+        foreach (var line in text.Split('\n'))
+        {
+            if ((line.StartsWith(' ') || line.StartsWith('\t')) && currentName is not null)
+            { currentValue.Append(' ').Append(line.Trim()); continue; }
+            Flush();
+            var colon = line.IndexOf(':');
+            if (colon <= 0) continue;
+            currentName = line[..colon].Trim();
+            currentValue.Append(line[(colon + 1)..].Trim());
+        }
+        Flush();
+        return result;
+    }
+
     private static int FindRootBodyOffset(byte[] raw)
     {
         for (var i = 0; i + 3 < raw.Length; i++)
@@ -214,9 +268,36 @@ public sealed class NotesMIMEEntity : NotesObject
     };
 }
 
-/// <summary>MIME header surface reserved until native Domino header access is verified.</summary>
+/// <summary>Represents a root MIME header backed by the entity's serialized native MIME stream.</summary>
 public sealed class NotesMIMEHeader : NotesObject
 {
-    internal NotesMIMEHeader(NotesSession session) : base(session) { }
+    private readonly NotesMIMEEntity _entity;
+    private readonly string _name;
+    private readonly int _occurrence;
+
+    internal NotesMIMEHeader(NotesSession session, NotesMIMEEntity entity, string name, int occurrence) : base(session)
+    { _entity = entity ?? throw new ArgumentNullException(nameof(entity)); _name = name; _occurrence = occurrence; }
+
+    /// <summary>Gets the MIME header name.</summary>
+    public string HeaderName { get { EnsureAlive(); _ = _entity.ReadHeader(_name, _occurrence); return _name; } }
+    /// <summary>Gets the MIME header value.</summary>
+    public string GetHeaderVal() { EnsureAlive(); return _entity.ReadHeader(_name, _occurrence); }
+    /// <summary>Gets the MIME header value including parameters.</summary>
+    public string GetHeaderValAndParams() => GetHeaderVal();
+    /// <summary>Gets a semicolon-delimited MIME parameter value.</summary>
+    public string GetParamVal(string parameterName)
+    {
+        EnsureAlive();
+        ArgumentException.ThrowIfNullOrWhiteSpace(parameterName);
+        var wanted = parameterName.Trim();
+        foreach (var part in GetHeaderVal().Split(';').Skip(1))
+        {
+            var equals = part.IndexOf('=');
+            if (equals <= 0 || !part[..equals].Trim().Equals(wanted, StringComparison.OrdinalIgnoreCase)) continue;
+            return part[(equals + 1)..].Trim().Trim('"');
+        }
+        return string.Empty;
+    }
+
     protected override void ReleaseNative() { }
 }
