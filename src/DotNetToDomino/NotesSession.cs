@@ -63,6 +63,7 @@ public sealed class NotesSession : IDisposable
     public NotesDateTime CreateDateTime(string value) { EnsureAlive(); return new NotesDateTime(this, value ?? string.Empty); }
     public NotesDateTime CreateDateTimeNow() { EnsureAlive(); return NotesDateTime.FromNative(this, _api.CurrentTimeDate()); }
     public NotesStream CreateStream() { EnsureAlive(); return new NotesStream(this); }
+    public NotesMail CreateMail() { EnsureAlive(); return new NotesMail(this); }
     public NotesDXLImporter CreateDXLImporter() { EnsureAlive(); return new NotesDXLImporter(this); }
     public NotesDXLExporter CreateDXLExporter() { EnsureAlive(); return new NotesDXLExporter(this); }
     public NotesRichTextStyle CreateRichTextStyle() { EnsureAlive(); return new NotesRichTextStyle(this); }

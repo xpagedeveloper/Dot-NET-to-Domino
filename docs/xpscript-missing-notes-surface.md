@@ -38,7 +38,7 @@ These areas have public C# coverage, but XPScript contains additional postproces
 | `NotesNoteCollection` | `NotesNoteCollection` | Present; selection and set operations exist. XPScript provenance and `StampAllMulti` require focused review. |
 | `NotesItem` / `NotesRichTextItem` | Same | Present; item and rich-text entrypoints exist, but native mutation/attachment/HTML coverage is incomplete. |
 | `NotesMIMEEntity` / `NotesMIMEHeader` | Same | Entity is partial; header is a placeholder and child/header/mutation APIs are not implemented. |
-| `NotesMail` | **Missing** | XPScript has a complete mail object and `NotesSession.CreateMail()` factory; no equivalent C# type/factory exists. |
+| `NotesMail` | `NotesMail` | Initial text-mail surface is implemented, including `NotesSession.CreateMail()`, recipients, headers, delivery options, and native document send. MIME, rich-text, and attachments remain open. |
 | `NotesView` / `NotesViewColumn` | Same | Present; navigation and column surfaces exist. Cache/history/max-level and column edge semantics need comparison. |
 | `NotesViewEntry` / collections / navigator | Same | Present; broad surface exists. XPScript-specific navigation/cache behavior needs validation. |
 | `NotesAgent` / result | Same | Present; runtime parity branch was merged. Live native verification remains. |

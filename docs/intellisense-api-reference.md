@@ -13,6 +13,11 @@ The required columns are `Member`, `Syntax`, `Parameters`, `Description`, and `E
 | `NotesSession.GetEnvironmentString` | `session.GetEnvironmentString(name)` | `name`: Notes environment variable. | Reads a Notes environment string. | [session parity](notes-session-environment-api.md) |
 | `NotesSession.GetEnvironmentValue` | `session.GetEnvironmentValue(name)` | `name`: Notes environment variable. | Reads an invariant 32-bit integer environment value. | [environment sample](../samples/notes-session-environment-parity.cs) |
 | `NotesSession.SetEnvironmentVar` | `session.SetEnvironmentVar(name, value)` | `name`, `value`: variable name and supported value. | Writes a Notes environment variable. | [environment sample](../samples/notes-session-environment-parity.cs) |
+| `NotesSession.CreateMail` | `session.CreateMail()` | none | Creates a mail memo builder. | [mail parity](xpscript-missing-notes-surface.md) |
+| `NotesMail.SendTo` | `mail.SendTo = recipients` | recipients: primary recipients. | Sets primary mail recipients. | [mail parity](xpscript-missing-notes-surface.md) |
+| `NotesMail.Subject` | `mail.Subject = subject` | subject: message subject. | Sets the mail subject. | [mail parity](xpscript-missing-notes-surface.md) |
+| `NotesMail.Body` | `mail.Body = body` | body: plain-text message body. | Sets the plain-text body. | [mail parity](xpscript-missing-notes-surface.md) |
+| `NotesMail.Send` | `mail.Send()` | none | Builds and sends a memo through the configured Notes mail database. | [mail parity](xpscript-missing-notes-surface.md) |
 | `NotesDatabase` | `session.OpenDatabase(server, filePath)` | `server`, `filePath`: database location. | Represents an NSF database. | [README](../README.md) |
 | `NotesDatabase.QueryAccess` | `database.QueryAccess()` | none | Returns a managed snapshot of effective ACL access. | [ACL parity](notes-database-access-parity.md) |
 | `NotesDatabase.GetDocumentByID` | `database.GetDocumentByID(noteId)` | `noteId`: hexadecimal or numeric note ID. | Opens a document by note ID. | [README](../README.md) |
