@@ -103,7 +103,10 @@ Check("NuGet assembly loaded", () =>
         ("NotesViewEntryCollection.GetLastEntry", typeof(NotesViewEntryCollection).GetMethod(nameof(NotesViewEntryCollection.GetLastEntry), Type.EmptyTypes)),
         ("NotesDocumentCollection.GetLastDocument", typeof(NotesDocumentCollection).GetMethod(nameof(NotesDocumentCollection.GetLastDocument), Type.EmptyTypes)),
         ("NotesDocumentCollection.GetNthDocument", typeof(NotesDocumentCollection).GetMethod(nameof(NotesDocumentCollection.GetNthDocument), new[] { typeof(int) })),
-        ("NotesDocumentCollection.GetDocument", typeof(NotesDocumentCollection).GetMethod(nameof(NotesDocumentCollection.GetDocument), new[] { typeof(uint) }))
+        ("NotesDocumentCollection.GetDocument", typeof(NotesDocumentCollection).GetMethod(nameof(NotesDocumentCollection.GetDocument), new[] { typeof(uint) })),
+        ("NotesDocumentCollection.GetPrevDocument", typeof(NotesDocumentCollection).GetMethod(nameof(NotesDocumentCollection.GetPrevDocument), new[] { typeof(NotesDocument) })),
+        ("NotesDocumentCollection.GetNextDocument", typeof(NotesDocumentCollection).GetMethod(nameof(NotesDocumentCollection.GetNextDocument), new[] { typeof(NotesDocument) })),
+        ("NotesDocumentCollection.GetDocumentByObject", typeof(NotesDocumentCollection).GetMethod(nameof(NotesDocumentCollection.GetDocument), new[] { typeof(NotesDocument) }))
     };
     foreach (var (name, method) in nullableObjectLookups)
         if (method is null || new NullabilityInfoContext().Create(method.ReturnParameter).ReadState != NullabilityState.Nullable) throw new InvalidOperationException($"{name} must be annotated as nullable.");
