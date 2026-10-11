@@ -108,15 +108,17 @@ public sealed class NotesDocumentCollection : NotesObject, IReadOnlyCollection<u
         RemoveIds(collection._noteIds);
     }
 
-    /// <summary>Sets an item on every document in the collection and saves the documents.</summary>
-    public void StampAllMulti(string itemName, object? value)
+    /// <summary>Copies all items from a source document to every document in the collection and saves them.</summary>
+    public void StampAllMulti(NotesDocument sourceDocument)
     {
         EnsureAlive();
-        ArgumentException.ThrowIfNullOrWhiteSpace(itemName);
+        ArgumentNullException.ThrowIfNull(sourceDocument);
+        EnsureSameReplica(sourceDocument.ParentDatabase);
         foreach (var noteId in _noteIds.ToArray())
         {
-            using var document = Parent.GetDocumentByID(noteId) ?? throw new NotesException(4091, $"NotesDocument {noteId:X8} could not be opened while stamping '{itemName}'.");
-            document.SetValue(itemName.Trim(), value);
+            if (sourceDocument.NoteId != 0 && (sourceDocument.NoteId & 0x7fffffffu) == noteId) continue;
+            using var document = Parent.GetDocumentByID(noteId) ?? throw new NotesException(4091, $"NotesDocument {noteId:X8} could not be opened while stamping.");
+            sourceDocument.CopyAllItems(document, true);
             document.Save();
         }
     }
@@ -245,16 +247,18 @@ public sealed class NotesNoteCollection : NotesObject, IReadOnlyCollection<uint>
     public void Intersect(NotesDocumentCollection collection) { ArgumentNullException.ThrowIfNull(collection); EnsureSameReplica(collection.Parent); Mutate(collection.NoteIds, 2); }
     public void Intersect(NotesNoteCollection collection) { ArgumentNullException.ThrowIfNull(collection); EnsureSameReplica(collection.Parent); Mutate(collection.NoteIds, 2); }
 
-    /// <summary>Sets an item on every selected note and saves the notes.</summary>
-    public void StampAllMulti(string itemName, object? value)
+    /// <summary>Copies all items from a source document to every selected note and saves them.</summary>
+    public void StampAllMulti(NotesDocument sourceDocument)
     {
         EnsureAlive();
         RequireBuilt();
-        ArgumentException.ThrowIfNullOrWhiteSpace(itemName);
+        ArgumentNullException.ThrowIfNull(sourceDocument);
+        EnsureSameReplica(sourceDocument.ParentDatabase);
         foreach (var noteId in _noteIds.ToArray())
         {
-            using var document = Parent.GetDocumentByID(noteId) ?? throw new NotesException(4091, $"NotesDocument {noteId:X8} could not be opened while stamping '{itemName}'.");
-            document.SetValue(itemName.Trim(), value);
+            if (sourceDocument.NoteId != 0 && (sourceDocument.NoteId & 0x7fffffffu) == noteId) continue;
+            using var document = Parent.GetDocumentByID(noteId) ?? throw new NotesException(4091, $"NotesDocument {noteId:X8} could not be opened while stamping.");
+            sourceDocument.CopyAllItems(document, true);
             document.Save();
         }
     }

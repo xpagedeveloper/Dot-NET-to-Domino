@@ -35,7 +35,7 @@ Check("NuGet assembly loaded", () =>
     if (typeof(NotesMail).GetProperty(nameof(NotesMail.IsMIME))?.PropertyType != typeof(bool) || typeof(NotesMail).GetProperty(nameof(NotesMail.AttachmentCount))?.PropertyType != typeof(int) || typeof(NotesMail).GetMethod("AddAttachment") is null) throw new InvalidOperationException("NotesMail MIME/attachment state surface is missing.");
     if (typeof(NotesRichTextItem).GetMethod("AttachFile") is null) throw new InvalidOperationException("NotesRichTextItem.AttachFile surface is missing.");
     if (typeof(NotesRichTextTable).GetMethod("Remove") is null || typeof(NotesRichTextDocLink).GetMethod("Remove") is null) throw new InvalidOperationException("Rich-text linked-object removal surface is missing.");
-    if (typeof(NotesDocumentCollection).GetMethod("StampAllMulti") is null || typeof(NotesNoteCollection).GetMethod("StampAllMulti") is null) throw new InvalidOperationException("Collection StampAllMulti surface is missing.");
+    if (typeof(NotesDocumentCollection).GetMethod("StampAllMulti", new[] { typeof(NotesDocument) }) is null || typeof(NotesNoteCollection).GetMethod("StampAllMulti", new[] { typeof(NotesDocument) }) is null) throw new InvalidOperationException("Collection StampAllMulti source-document surface is missing.");
     if (typeof(NotesMail).GetMethod("SetBodyRichText") is null) throw new InvalidOperationException("NotesMail.SetBodyRichText surface is missing.");
     if (typeof(NotesMail).GetMethod("SetBodyMIME") is null) throw new InvalidOperationException("NotesMail.SetBodyMIME surface is missing.");
     if (typeof(NotesMail).GetMethod("AddMimeAttachment") is null) throw new InvalidOperationException("NotesMail.AddMimeAttachment surface is missing.");
