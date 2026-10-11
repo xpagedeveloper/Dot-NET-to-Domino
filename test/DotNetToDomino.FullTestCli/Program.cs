@@ -78,7 +78,9 @@ Check("NuGet assembly loaded", () =>
         ("OpenDocumentByNoteId", typeof(NotesDatabase).GetMethod(nameof(NotesDatabase.OpenDocumentByNoteId), new[] { typeof(uint) })),
         ("OpenDocumentByNoteIdString", typeof(NotesDatabase).GetMethod(nameof(NotesDatabase.OpenDocumentByNoteId), new[] { typeof(string) })),
         ("GetDocumentByNoteId", typeof(NotesDatabase).GetMethod(nameof(NotesDatabase.GetDocumentByNoteId), new[] { typeof(uint) })),
-        ("GetDocumentByNoteIdString", typeof(NotesDatabase).GetMethod(nameof(NotesDatabase.GetDocumentByNoteId), new[] { typeof(string) }))
+        ("GetDocumentByNoteIdString", typeof(NotesDatabase).GetMethod(nameof(NotesDatabase.GetDocumentByNoteId), new[] { typeof(string) })),
+        ("GetDocumentByIDString", typeof(NotesDatabase).GetMethod(nameof(NotesDatabase.GetDocumentByID), new[] { typeof(string) })),
+        ("OpenDocumentByUNID", typeof(NotesDatabase).GetMethod(nameof(NotesDatabase.OpenDocumentByUNID), new[] { typeof(string) }))
     };
     foreach (var (name, method) in nullableLookups)
         if (method is null || new NullabilityInfoContext().Create(method.ReturnParameter).ReadState != NullabilityState.Nullable) throw new InvalidOperationException($"NotesDatabase.{name} must be annotated as nullable.");
