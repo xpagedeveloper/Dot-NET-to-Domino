@@ -33,7 +33,7 @@ This is the current implementation queue. Older repeated sections in this file a
 
 ### Remaining object parity audits
 
-- [ ] Complete `NotesDocumentCollection`/`NotesNoteCollection` provenance and `StampAllMulti` parity.
+- [~] Complete `NotesDocumentCollection`/`NotesNoteCollection` provenance and `StampAllMulti` parity; managed/native stamping is implemented, while exact live Domino provenance semantics remain to be verified.
 - [ ] Complete the remaining `NotesDatabase` full-text, design, metadata, and alias edge-case sweep.
 - [ ] Complete `NotesView`/`NotesViewNavigator` cache, history, max-level, and column edge-case parity.
 - [ ] Complete the remaining Notes object/member inventory against the current XPScript surface.

@@ -108,6 +108,19 @@ public sealed class NotesDocumentCollection : NotesObject, IReadOnlyCollection<u
         RemoveIds(collection._noteIds);
     }
 
+    /// <summary>Sets an item on every document in the collection and saves the documents.</summary>
+    public void StampAllMulti(string itemName, object? value)
+    {
+        EnsureAlive();
+        ArgumentException.ThrowIfNullOrWhiteSpace(itemName);
+        foreach (var noteId in _noteIds.ToArray())
+        {
+            using var document = Parent.GetDocumentByID(noteId) ?? throw new NotesException(4091, $"NotesDocument {noteId:X8} could not be opened while stamping '{itemName}'.");
+            document.SetValue(itemName.Trim(), value);
+            document.Save();
+        }
+    }
+
     public IEnumerator<uint> GetEnumerator() { EnsureAlive(); return ((IEnumerable<uint>)_noteIds).GetEnumerator(); }
     System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => GetEnumerator();
 
@@ -231,6 +244,20 @@ public sealed class NotesNoteCollection : NotesObject, IReadOnlyCollection<uint>
     public void Remove(NotesNoteCollection collection) { ArgumentNullException.ThrowIfNull(collection); EnsureSameReplica(collection.Parent); Mutate(collection.NoteIds, 1); }
     public void Intersect(NotesDocumentCollection collection) { ArgumentNullException.ThrowIfNull(collection); EnsureSameReplica(collection.Parent); Mutate(collection.NoteIds, 2); }
     public void Intersect(NotesNoteCollection collection) { ArgumentNullException.ThrowIfNull(collection); EnsureSameReplica(collection.Parent); Mutate(collection.NoteIds, 2); }
+
+    /// <summary>Sets an item on every selected note and saves the notes.</summary>
+    public void StampAllMulti(string itemName, object? value)
+    {
+        EnsureAlive();
+        RequireBuilt();
+        ArgumentException.ThrowIfNullOrWhiteSpace(itemName);
+        foreach (var noteId in _noteIds.ToArray())
+        {
+            using var document = Parent.GetDocumentByID(noteId) ?? throw new NotesException(4091, $"NotesDocument {noteId:X8} could not be opened while stamping '{itemName}'.");
+            document.SetValue(itemName.Trim(), value);
+            document.Save();
+        }
+    }
 
     public void SelectAllAdminNotes(bool value) { SelectACL = value; SelectReplicationFormulas = value; }
     public void SelectAllCodeElements(bool value) { SelectAgents = value; SelectDatabaseScript = value; SelectDataConnections = value; SelectMiscCodeElements = value; SelectOutlines = value; SelectScriptLibraries = value; }
