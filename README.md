@@ -76,6 +76,7 @@ Runtime parity notes:
 - [Machine-readable IntelliSense API reference](docs/intellisense-api-reference.md)
 - [Third-party reference notices and licenses](THIRD-PARTY-NOTICES.md)
 - [Project NOTICE](NOTICE)
+- [Licensing](docs/licensing.md)
 - `NotesStream`
 - `NotesDXLImporter`
 - `NotesDXLExporter`
