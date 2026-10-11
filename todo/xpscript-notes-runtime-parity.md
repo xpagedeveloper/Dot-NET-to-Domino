@@ -534,6 +534,12 @@ For each object, add a sub-section to this TODO if differences are found.
 - [ ] Compare every hit with current XPScript physical implementation.
 - [ ] Remove public members that are only unsupported/static placeholders in both implementations.
 - [ ] Replace placeholders where XPScript has since gained real native behavior.
+
+### NotesMail gap found during cleanup
+
+- [x] Confirmed `NotesMail.IsMIME` and `AttachmentCount` are deliberate C# placeholders, not accidental constants: the C# implementation has no MIME body or attachment state yet.
+- [ ] Port XPScript MIME body state (`SetBodyHTML`/MIME bytes) and attachment collection before changing these properties to dynamic values.
+- [ ] Add fulltest coverage for MIME and attachment composition after that implementation exists.
 - [ ] Do not remove deliberate real constants that are part of the Notes contract without verifying the native/API meaning.
 
 ## Native ABI and lifecycle audit
