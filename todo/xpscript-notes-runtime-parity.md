@@ -512,9 +512,9 @@ Audit every current public Notes object found in XPScript `docs`, `samples`, and
 - [x] `NotesStream` — aligned `Position` with XPScript's integer surface and added typed binary/text `Write` overloads; open/read/write/truncate/charset behavior matches the physical XPScript runtime.
 - [x] `NotesDXLImporter` — audited against the physical XPScript runtime; C# retains the verified option validation and additionally offers a typed `NotesStream` import overload.
 - [x] `NotesDXLExporter` — audited against the physical XPScript runtime; export methods, option properties, cleaned DXL, and design-folder export are present. C# additionally offers typed stream-returning overloads and `NotesNoteCollection` support.
-- [ ] `NotesRichTextStyle`
-- [ ] `NotesRichTextParagraphStyle`
-- [ ] `NotesColorObject`
+- [x] `NotesRichTextStyle` — verified style fields, `StyleNoChange`, boolean-style values, and range validation against XPScript.
+- [x] `NotesRichTextParagraphStyle` — verified alignment, spacing, margins, pagination, tab limits/types, and C# array/list mapping for `Tabs`.
+- [x] `NotesColorObject` — verified `NotesColor` range 0–255 and linked-object lifetime behavior.
 - [ ] `NotesForm`
 - [ ] `NotesView`
 - [ ] `NotesViewColumn`

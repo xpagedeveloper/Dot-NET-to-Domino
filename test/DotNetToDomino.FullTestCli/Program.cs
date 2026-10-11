@@ -18,6 +18,8 @@ Check("NuGet assembly loaded", () =>
     if (typeof(NotesStream).GetMethod(nameof(NotesStream.Write), new[] { typeof(string) }) is null) throw new InvalidOperationException("NotesStream.Write(string) is missing.");
     if (typeof(NotesDXLImporter).GetMethod(nameof(NotesDXLImporter.Import), new[] { typeof(string), typeof(NotesDatabase) }) is null) throw new InvalidOperationException("NotesDXLImporter.Import is missing.");
     if (typeof(NotesDXLExporter).GetProperty(nameof(NotesDXLExporter.CleanedDXL))?.PropertyType != typeof(bool)) throw new InvalidOperationException("NotesDXLExporter.CleanedDXL is missing.");
+    if (typeof(NotesRichTextStyle).GetField(nameof(NotesRichTextStyle.StyleNoChange))?.GetValue(null) is not int styleNoChange || styleNoChange != 255) throw new InvalidOperationException("NotesRichTextStyle.StyleNoChange must be 255.");
+    if (typeof(NotesColorObject).GetProperty(nameof(NotesColorObject.NotesColor))?.PropertyType != typeof(int)) throw new InvalidOperationException("NotesColorObject.NotesColor must be int.");
 });
 Check("public API surface", () =>
 {
