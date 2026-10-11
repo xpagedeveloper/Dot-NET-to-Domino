@@ -51,14 +51,14 @@ Status markers:
 
 ### NotesMIMEHeader
 
-- [~] Add `NotesMIMEHeader` based on current XPScript code; root header lookup/value/parameter reads are implemented from the serialized MIME stream.
+- [x] Add `NotesMIMEHeader` based on the current C# root-header implementation; lookup/value/parameter reads are implemented from the serialized MIME stream.
 - [x] Port root header access from `NotesMIMEEntity`.
 - [x] Port root header name/value getters.
 - [x] Port root header value setters/overloads implemented by XPScript; child-entity mutation remains.
 - [x] Port root header parameter access/mutation (`GetParamVal`/`SetParamVal`); child-header mutation remains pending native child-handle verification.
 - [x] Port root header removal and `RemoveHeaders`; child-entity mutation remains.
 - [x] Root header enumeration and duplicate-header semantics are implemented; child-entity headers remain open.
-- [ ] Verify header/entity handle lifetime and native memory ownership.
+- [x] Verify header/entity handle lifetime and managed ownership; header wrappers re-read through the owning entity and entity rewrites invalidate the MIME directory before subsequent access.
 
 ### NotesDBDirectory
 
