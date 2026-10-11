@@ -15,7 +15,7 @@ This is the current implementation queue. Older repeated sections in this file a
 
 - [~] Add root MIME mail composition and MIME file attachments through `SetBodyMIME`, `SetBodyHTML`, `SetMIME`, and attachment overloads; sender aliases, attachment clearing, custom MIME metadata, and binary `SetMIME` overloads are implemented. Only child-entity mutation and live delivery verification remain open.
 - [x] Add rich-text mail bodies through `NotesMail.SetBodyRichText`; live Domino send parity remains to be verified.
-- [x] Add rich-text file attachments through `NotesRichTextItem.AttachFile` and `NotesMail.AddAttachment`; MIME attachments remain open.
+- [x] Add rich-text and MIME file attachments through `NotesRichTextItem.AttachFile`, `NotesMail.AddAttachment`, and MIME attachment overloads; live delivery verification remains open.
 - [ ] Verify all mail delivery options and send error paths against the native mail runtime.
 
 ### MIME child entities and headers
@@ -28,8 +28,8 @@ This is the current implementation queue. Older repeated sections in this file a
 
 ### Rich-text structural mutation
 
-- [~] Complete rich-text linked-object `Remove()` operations for sections, tables, and doclinks; embedded-object removal remains open.
-- [~] Complete native-backed rich-text HTML and linked-object mutation coverage; embedded-object removal now deletes the hotspot and matching `$FILE` block, while broader attachment edge cases remain to be verified.
+- [x] Complete rich-text linked-object `Remove()` operations for sections, tables, doclinks, and embedded objects; broader attachment edge cases remain to be verified.
+- [~] Complete native-backed rich-text HTML and linked-object mutation coverage; embedded-object removal deletes the hotspot and matching `$FILE` block, while broader attachment edge cases remain to be verified.
 
 ### Remaining object parity audits
 
