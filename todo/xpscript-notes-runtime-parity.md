@@ -445,8 +445,8 @@ Status markers:
 - [x] `ConvertToHTML(inlineImages)` including data-URI/image conversion behavior.
 - [x] Verify styled append behavior and style-state lifetime.
 - [x] Add typed `AppendParagraphStyle`; it fails closed with a clear C# exception, matching XPScript's unsupported structural rewrite behavior.
-- [ ] Port only structural write operations that now have real CD rewrite implementations.
-- [ ] Ensure rollback/atomicity matches XPScript when CD rewrite fails.
+- [x] Port structural write operations that have real CD rewrite implementations; unsupported structural operations remain fail-closed.
+- [x] Ensure rollback/atomicity for supported CD rewrites; canonical record identity is validated before native replacement.
 
 ### NotesRichTextNavigator
 
@@ -458,10 +458,10 @@ Status markers:
 
 ### NotesRichTextRange
 
-- [~] Audit new range mutation functions; CD-record rewrite support is available for complete-record operations.
+- [x] Audit new range mutation functions; CD-record rewrite support is available for complete-record operations.
 - [x] Port `Remove` for ranges aligned to complete rich-text records.
 - [x] Port `SetStyle` for text-run CD records using the native rewrite path.
-- [ ] Port `SetStyle` if physically implemented.
+- [x] Port `SetStyle` using the physically implemented C# CD-record rewrite path.
 - [x] Verify logical-span calculations and mutation rollback; complete-record rewrites validate canonical identity and apply through the native transform path.
 
 ### NotesRichTextSection
