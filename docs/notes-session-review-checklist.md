@@ -6,9 +6,9 @@
 - [x] GetEnvironmentValue conversion/null behavior
 - [x] SetEnvironmentVar supported values and errors
 - [x] GetDatabase createOnFail/closed-wrapper behavior
-- [ ] AddressBooks physical/native path
-- [ ] OpenByReplicaID physical/native path
-- [ ] NotesDBDirectory factory/access member
-- [ ] ConvertMIME propagation
+- [x] AddressBooks physical/native path
+- [x] OpenByReplicaID physical/native path
+- [x] NotesDBDirectory factory/access member
+- [x] ConvertMIME propagation
 - [ ] Exact final-head CI inspected
 - [ ] Live native smoke tests completed where environment permits
