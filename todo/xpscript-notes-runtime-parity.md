@@ -15,7 +15,7 @@ This is the current implementation queue. Older repeated sections in this file a
 
 - [ ] Add MIME mail composition and make `IsMIME`/`AttachmentCount` reflect the actual message state.
 - [ ] Add rich-text mail bodies with the same validation and send behavior as XPScript.
-- [~] Add rich-text file attachments and verify native item/attachment ownership; MIME attachments remain open.
+- [x] Add rich-text file attachments through `NotesRichTextItem.AttachFile` and `NotesMail.AddAttachment`; MIME attachments remain open.
 - [ ] Verify all mail delivery options and send error paths against the native mail runtime.
 
 ### MIME child entities and headers
