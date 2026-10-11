@@ -68,6 +68,14 @@ Check("NuGet assembly loaded", () =>
     if (typeof(NotesSession).GetProperty(nameof(NotesSession.ConvertMIME))?.PropertyType != typeof(bool)) throw new InvalidOperationException("NotesSession.ConvertMIME is missing.");
     var getDocumentById = typeof(NotesDatabase).GetMethod(nameof(NotesDatabase.GetDocumentByID), new[] { typeof(uint) }) ?? throw new InvalidOperationException("NotesDatabase.GetDocumentByID(uint) is missing.");
     if (new NullabilityInfoContext().Create(getDocumentById.ReturnParameter).ReadState != NullabilityState.Nullable) throw new InvalidOperationException("NotesDatabase.GetDocumentByID(uint) must be annotated as nullable.");
+    var nullableLookups = new[]
+    {
+        ("GetView", typeof(NotesDatabase).GetMethod(nameof(NotesDatabase.GetView), new[] { typeof(string) })),
+        ("GetAgent", typeof(NotesDatabase).GetMethod(nameof(NotesDatabase.GetAgent), new[] { typeof(string) })),
+        ("GetDocumentByUNID", typeof(NotesDatabase).GetMethod(nameof(NotesDatabase.GetDocumentByUNID), new[] { typeof(string) }))
+    };
+    foreach (var (name, method) in nullableLookups)
+        if (method is null || new NullabilityInfoContext().Create(method.ReturnParameter).ReadState != NullabilityState.Nullable) throw new InvalidOperationException($"NotesDatabase.{name} must be annotated as nullable.");
     if (typeof(NotesAgentResult).GetProperty(nameof(NotesAgentResult.Success))?.PropertyType != typeof(bool) || typeof(NotesAgentResult).GetProperty(nameof(NotesAgentResult.Status))?.PropertyType != typeof(int)) throw new InvalidOperationException("NotesAgentResult.Success/Status are missing.");
     if (typeof(NotesMIMEHeader).GetMethod(nameof(NotesMIMEHeader.SetParamVal), new[] { typeof(string), typeof(string) }) is null) throw new InvalidOperationException("NotesMIMEHeader.SetParamVal is missing.");
     if (typeof(NotesMIMEEntity).GetMethod(nameof(NotesMIMEEntity.GetChildren), Type.EmptyTypes) is null) throw new InvalidOperationException("NotesMIMEEntity.GetChildren is missing.");
