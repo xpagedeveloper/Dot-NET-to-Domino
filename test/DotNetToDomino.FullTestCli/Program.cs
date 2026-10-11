@@ -38,6 +38,7 @@ Check("NuGet assembly loaded", () =>
     if (typeof(NotesSession).GetMethod(nameof(NotesSession.SetEnvironmentVar), new[] { typeof(string), typeof(object), typeof(bool) }) is null) throw new InvalidOperationException("NotesSession.SetEnvironmentVar is missing.");
     if (typeof(NotesAgentResult).GetProperty(nameof(NotesAgentResult.Success))?.PropertyType != typeof(bool) || typeof(NotesAgentResult).GetProperty(nameof(NotesAgentResult.Status))?.PropertyType != typeof(int)) throw new InvalidOperationException("NotesAgentResult.Success/Status are missing.");
     if (typeof(NotesMIMEHeader).GetMethod(nameof(NotesMIMEHeader.SetParamVal), new[] { typeof(string), typeof(string) }) is null) throw new InvalidOperationException("NotesMIMEHeader.SetParamVal is missing.");
+    if (typeof(NotesMIMEEntity).GetMethod(nameof(NotesMIMEEntity.GetChildren), Type.EmptyTypes) is null) throw new InvalidOperationException("NotesMIMEEntity.GetChildren is missing.");
 });
 Check("public API surface", () =>
 {

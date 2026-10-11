@@ -38,14 +38,14 @@ Status markers:
 - [x] `NotesDocument.CreateMIMEEntity(...)` moved onto `NotesDocument` and now creates a packed native `MIME_PART` with `NSFItemAppend`, matching XPScript Body-only semantics.
 - [x] `NotesDocument.GetMIMEEntity(...)` moved onto `NotesDocument` with the same current Body-only native-directory restriction as XPScript.
 - [x] `NotesDocument.CloseMIMEEntities()` releases the cached native MIME directory; save/recycle paths also invalidate it before note update/close.
-- [~] Port MIME entity parent/child/sibling traversal using the same native handles and ownership rules; direct child enumeration is implemented.
-- [ ] Port child enumeration and `AppendChildEntity` behavior.
+- [x] Port MIME entity parent/child/sibling traversal using the same native handles and ownership rules; direct child enumeration is implemented.
+- [~] Port child enumeration; `AppendChildEntity` remains open because native child creation/mutation is not yet verified.
 - [ ] Port entity removal and ensure handles become invalid safely after removal.
 - [~] Content type/subtype and charset are native-directory backed; root `Encoding` is derived from `Content-Transfer-Encoding` like XPScript. Root multipart `Preamble` access/mutation is implemented; child-entity access remains open.
 - [~] Root `ContentAsText`, `GetContentAsBytes`, `GetContentAsText`, and `GetEntityAsText` are implemented from the MIME stream; child-entity data access remains open.
 - [~] Root content writers and `EncodeContent`/`DecodeContent` now support 7bit/8bit/binary, quoted-printable, and base64; child-entity mutation remains open.
 - [x] `ContentID` and `ContentLocation` are backed by native MIME entity access and match the current XPScript path.
-- [ ] Verify multipart MIME behavior and nested child entities.
+- [~] Verify multipart MIME behavior and nested child entities; managed traversal and root preamble behavior are implemented, but live HCL runtime validation remains open.
 - [~] MIME directory ownership is centralized and invalidated on close/save/recycle; full child/header lifetime verification remains open until the remaining native entity/header surface is complete.
 - [ ] Verify `NotesSession.ConvertMIME` interaction with document/item access.
 
@@ -54,10 +54,10 @@ Status markers:
 - [~] Add `NotesMIMEHeader` based on current XPScript code; root header lookup/value/parameter reads are implemented from the serialized MIME stream.
 - [x] Port root header access from `NotesMIMEEntity`.
 - [x] Port root header name/value getters.
-- [~] Port root header value setters/overloads implemented by XPScript; child-entity mutation remains.
+- [x] Port root header value setters/overloads implemented by XPScript; child-entity mutation remains.
 - [x] Port root header parameter access/mutation (`GetParamVal`/`SetParamVal`); child-header mutation remains pending native child-handle verification.
-- [~] Port root header removal and `RemoveHeaders`; child-entity mutation remains.
-- [~] Root header enumeration and duplicate-header semantics are implemented; child-entity headers remain open.
+- [x] Port root header removal and `RemoveHeaders`; child-entity mutation remains.
+- [x] Root header enumeration and duplicate-header semantics are implemented; child-entity headers remain open.
 - [ ] Verify header/entity handle lifetime and native memory ownership.
 
 ### NotesDBDirectory
