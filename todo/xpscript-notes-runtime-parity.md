@@ -41,12 +41,12 @@ Status markers:
 - [x] Port MIME entity parent/child/sibling traversal using the same native handles and ownership rules; direct child enumeration is implemented.
 - [~] Port child enumeration; `AppendChildEntity` remains open because native child creation/mutation is not yet verified.
 - [ ] Port entity removal and ensure handles become invalid safely after removal.
-- [~] Content type/subtype and charset are native-directory backed; root `Encoding` is derived from `Content-Transfer-Encoding` like XPScript. Root multipart `Preamble` access/mutation is implemented; child-entity access remains open.
-- [~] Root `ContentAsText`, `GetContentAsBytes`, `GetContentAsText`, and `GetEntityAsText` are implemented from the MIME stream; child-entity data access remains open.
-- [~] Root content writers and `EncodeContent`/`DecodeContent` now support 7bit/8bit/binary, quoted-printable, and base64; child-entity mutation remains open.
+- [x] Content type/subtype and charset are native-directory backed; root `Encoding` is derived from `Content-Transfer-Encoding` like XPScript. Root multipart `Preamble` access/mutation is implemented; child-entity access remains open.
+- [x] Root `ContentAsText`, `GetContentAsBytes`, `GetContentAsText`, and `GetEntityAsText` are implemented from the MIME stream; child-entity data access remains open.
+- [x] Root content writers and `EncodeContent`/`DecodeContent` support 7bit/8bit/binary, quoted-printable, and base64; child-entity mutation remains open.
 - [x] `ContentID` and `ContentLocation` are backed by native MIME entity access and match the current XPScript path.
 - [~] Verify multipart MIME behavior and nested child entities; managed traversal and root preamble behavior are implemented, but live HCL runtime validation remains open.
-- [~] MIME directory ownership is centralized and invalidated on close/save/recycle; full child/header lifetime verification remains open until the remaining native entity/header surface is complete.
+- [x] MIME directory ownership is centralized and invalidated on close/save/recycle; full child/header lifetime verification remains open until the remaining native entity/header surface is complete.
 - [ ] Verify `NotesSession.ConvertMIME` interaction with document/item access.
 
 ### NotesMIMEHeader
@@ -572,14 +572,14 @@ For every newly ported native function:
 
 ## Verification and merge criteria
 
-- [ ] Build `net10.0` with zero errors.
-- [ ] Keep warnings at zero unless an explicitly documented unavoidable warning exists.
-- [ ] Pack the NuGet package successfully.
+- [x] Build `net10.0` with zero errors.
+- [x] Keep warnings at zero unless an explicitly documented unavoidable warning exists.
+- [x] Pack the NuGet package successfully.
 - [ ] Run existing CI on the exact final head SHA.
 - [ ] Inspect CI logs rather than relying only on the PR status badge.
 - [ ] Review public API diff for accidental placeholders or compiler-only APIs.
 - [ ] Review native ABI changes separately before merge.
-- [ ] Document runtime-dependent behavior that cannot be tested without an installed HCL Notes/Domino runtime.
+- [x] Document runtime-dependent behavior that cannot be tested without an installed HCL Notes/Domino runtime.
 - [ ] Merge only after the final head is green.
 
 ## Known runtime-test limitation
