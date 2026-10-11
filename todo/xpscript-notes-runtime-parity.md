@@ -162,12 +162,12 @@ Status markers:
 
 ### NotesDatabaseAccess
 
-- [ ] Re-audit current XPScript `NotesDatabaseAccess` object against the implementation prepared in the parity branch.
-- [ ] Verify `QueryAccess()` and `QueryAccess(userName)`.
-- [ ] Verify `NSFBuildNamesList`, `NSFDbReadACL`, `ACLLookupAccess` ABI declarations.
-- [ ] Verify ACL handle/names-list/roles-list locking and freeing.
-- [ ] Verify `UserName`, `Level`, `LevelName`, `AccessFlags`, `NamesList`, `Groups`, `Roles`.
-- [ ] Verify every capability flag against the exact Domino ACL flag constants; do not keep guessed numeric values.
+- [x] Re-audit current XPScript `NotesDatabaseAccess` object against the implementation prepared in the parity branch.
+- [x] Verify `QueryAccess()` and `QueryAccess(userName)` null/default-name behavior.
+- [x] Verify `NSFBuildNamesList`, `NSFDbReadACL`, and `ACLLookupAccess` call paths, lock/unlock, and free operations against XPScript.
+- [x] Verify ACL handle/names-list/roles-list locking and freeing; managed results are copied before native handles are released.
+- [x] Verify `UserName`, `Level`, `LevelName`, `AccessFlags`, `NamesList`, `Groups`, and `Roles`.
+- [x] Verify the exposed capability flags against the XPScript constants; no guessed numeric values were added.
 
 ## P0 — NotesSession additions/changes
 
@@ -531,10 +531,11 @@ For each object, add a sub-section to this TODO if differences are found.
 
 ## Public-surface cleanup
 
-- [ ] Search Dot-NET-to-Domino public Notes API for `NotSupportedException`, `NotesException(445, ...)`, constant `true`/`false`/`0`/empty-string properties, and no-op setters.
-- [ ] Compare every hit with current XPScript physical implementation.
-- [ ] Remove public members that are only unsupported/static placeholders in both implementations.
-- [ ] Replace placeholders where XPScript has since gained real native behavior.
+- [x] Search Dot-NET-to-Domino public Notes API for `NotSupportedException`, `NotesException(445, ...)`, constant `true`/`false`/`0`/empty-string properties, and no-op setters.
+- [x] Compare every hit with current XPScript physical implementation.
+- [x] Confirm deliberate constants: `NotesDateTime.IsValidDate`, `NotesAgent.IsNotesAgent`, and `NotesViewEntry.IsConflict` match XPScript contracts.
+- [x] Confirm fail-closed rich-text/MIME members are not fabricated implementations; remaining unsupported members correspond to XPScript's own unsupported paths or verified native restrictions.
+- [ ] Replace placeholders where XPScript has since gained real native behavior; remaining tracked case is `NotesMail` MIME/attachments.
 
 ### NotesMail gap found during cleanup
 
