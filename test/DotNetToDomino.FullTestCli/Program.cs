@@ -153,11 +153,17 @@ else
     });
     Check("argument validation", () =>
     {
+        try { _ = session.HashPassword(null!); throw new InvalidOperationException("Null password was accepted."); }
+        catch (ArgumentNullException ex) when (ex.ParamName == "password") { }
+        try { _ = session.VerifyPassword("password", null!); throw new InvalidOperationException("Null password hash was accepted."); }
+        catch (ArgumentNullException ex) when (ex.ParamName == "hashedPassword") { }
         using var directory = session.GetDbDirectory(server);
         try { _ = directory.GetFirstDatabase(11); throw new InvalidOperationException("Invalid database type was accepted."); }
         catch (ArgumentOutOfRangeException ex) when (ex.ParamName == "type") { }
         try { _ = directory.OpenDatabase(null!); throw new InvalidOperationException("Null database path was accepted."); }
         catch (ArgumentException ex) when (ex.ParamName == "filePath") { }
+        try { _ = session.OpenByReplicaID(server, null!); throw new InvalidOperationException("Null replica ID was accepted."); }
+        catch (ArgumentNullException ex) when (ex.ParamName == "replicaId") { }
         if (!string.IsNullOrWhiteSpace(databasePath))
         {
             using var database = session.GetDatabase(server, databasePath, false) ?? throw new InvalidOperationException("Database not found.");
