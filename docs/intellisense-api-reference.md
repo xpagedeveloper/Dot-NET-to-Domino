@@ -66,4 +66,7 @@ The required columns are `Member`, `Syntax`, `Parameters`, `Description`, and `E
 | `NotesRichTextNavigator.SetPositionAtEnd` | `navigator.SetPositionAtEnd(element)` | `element`: linked rich-text element. | Positions at the end of a rich-text element. | [TODO](../todo/xpscript-notes-runtime-parity.md) |
 | `NotesRichTextRange.Remove` | `range.Remove()` | none | Removes a range covering complete rich-text records. | [TODO](../todo/xpscript-notes-runtime-parity.md) |
 | `NotesRichTextRange.SetStyle` | `range.SetStyle(style)` | `style`: NotesRichTextStyle. | Applies character styling to text-run CD records in the range. | [TODO](../todo/xpscript-notes-runtime-parity.md) |
+| `NotesRichTextSection.Remove` | `section.Remove()` | none | Removes the complete nested section span. | [TODO](../todo/xpscript-notes-runtime-parity.md) |
+| `NotesRichTextSection.SetBarColor` | `section.SetBarColor(color)` | `color`: NotesColorObject. | Updates the section bar color through CD rewrite. | [TODO](../todo/xpscript-notes-runtime-parity.md) |
+| `NotesRichTextSection.SetTitleStyle` | `section.SetTitleStyle(style)` | `style`: NotesRichTextStyle. | Updates section title styling through CD rewrite. | [TODO](../todo/xpscript-notes-runtime-parity.md) |
 

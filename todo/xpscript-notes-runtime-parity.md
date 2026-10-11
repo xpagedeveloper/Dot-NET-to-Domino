@@ -464,10 +464,10 @@ Status markers:
 
 ### NotesRichTextSection
 
-- [ ] Verify real CD-rewrite `Remove()` implementation.
-- [ ] Verify `SetBarColor()`.
-- [ ] Verify `SetTitleStyle()`.
-- [ ] Verify nested section-span handling.
+- [x] Verify real CD-rewrite `Remove()` implementation.
+- [x] Verify `SetBarColor()`.
+- [x] Verify `SetTitleStyle()`.
+- [x] Verify nested section-span handling with depth tracking.
 
 ### NotesRichTextTable
 
