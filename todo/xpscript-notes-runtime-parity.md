@@ -88,7 +88,7 @@ Status markers:
 - [x] `HashPassword` — uses Domino `SECHashPassword`; buffer sizing and secret-memory clearing audited against XPScript.
 - [x] `VerifyPassword` — uses Domino `SECVerifyPassword`; status and malformed/oversize input semantics audited against XPScript.
 - [x] `AddressBooks` — `NAMEGetAddressBooks`/`OSPathNetParse` path and closed returned database wrappers audited against XPScript.
-- [x] `SetEnvironmentVar` — name normalization, system scope, value types, and native setter path match XPScript; live HCL runtime verification remains outstanding.
+- [x] `SetEnvironmentVar` — C#-implementationens namnnormalisering, system scope, värdetyper och native setter-path är verifierade; XPScript används som referens och live HCL-runtime-verifiering återstår.
 
 Reference project: `xpagedeveloper/XPscript`
 Target project: `xpagedeveloper/Dot-NET-to-Domino`
