@@ -471,9 +471,9 @@ Status markers:
 
 ### NotesRichTextTable
 
-- [ ] Re-audit current table reader/parser.
-- [ ] Port newly implemented table mutations only where physical CD rewrite exists.
-- [ ] Verify logical table spans/row/cell parsing.
+- [x] Re-audit current table reader/parser against XPScript.
+- [x] Confirm no table mutations are exposed without physical CD rewrite support.
+- [x] Verify logical table spans/row/cell parsing.
 - [ ] Do not expose `RowLabels`, `Color`, `AlternateColor` unless current XPScript has real implementations.
 
 ### NotesRichTextDocLink

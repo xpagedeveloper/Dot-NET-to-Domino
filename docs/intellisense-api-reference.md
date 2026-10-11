@@ -69,4 +69,7 @@ The required columns are `Member`, `Syntax`, `Parameters`, `Description`, and `E
 | `NotesRichTextSection.Remove` | `section.Remove()` | none | Removes the complete nested section span. | [TODO](../todo/xpscript-notes-runtime-parity.md) |
 | `NotesRichTextSection.SetBarColor` | `section.SetBarColor(color)` | `color`: NotesColorObject. | Updates the section bar color through CD rewrite. | [TODO](../todo/xpscript-notes-runtime-parity.md) |
 | `NotesRichTextSection.SetTitleStyle` | `section.SetTitleStyle(style)` | `style`: NotesRichTextStyle. | Updates section title styling through CD rewrite. | [TODO](../todo/xpscript-notes-runtime-parity.md) |
+| `NotesRichTextTable.RowCount` | `table.RowCount` | none | Gets the parsed table row count. | [TODO](../todo/xpscript-notes-runtime-parity.md) |
+| `NotesRichTextTable.ColumnCount` | `table.ColumnCount` | none | Gets the parsed table column count. | [TODO](../todo/xpscript-notes-runtime-parity.md) |
+| `NotesRichTextTable.RightToLeft` | `table.RightToLeft` | none | Gets the table direction flag. | [TODO](../todo/xpscript-notes-runtime-parity.md) |
 
