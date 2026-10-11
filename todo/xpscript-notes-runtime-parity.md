@@ -62,11 +62,11 @@ Status markers:
 
 ### NotesDBDirectory
 
-- [ ] Add `NotesDBDirectory` using the current XPScript native implementation.
-- [ ] Add the corresponding `NotesSession` factory/access member.
-- [ ] Port directory server/name properties.
-- [ ] Port database enumeration/open behavior.
-- [ ] Port first/next database iteration semantics if present in the current public surface.
+- [x] Add `NotesDBDirectory` using the current XPScript native implementation.
+- [x] Add the corresponding `NotesSession` factory/access member.
+- [x] Port directory server/name properties.
+- [x] Port database enumeration/open behavior.
+- [x] Port first/next database iteration semantics if present in the current public surface.
 - [ ] Port database type filtering and constants used by XPScript.
 - [ ] Verify remote vs local server path behavior.
 - [ ] Verify returned `NotesDatabase` objects are open/closed exactly as XPScript specifies.

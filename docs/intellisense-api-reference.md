@@ -14,6 +14,11 @@ The required columns are `Member`, `Syntax`, `Parameters`, `Description`, and `E
 | `NotesSession.GetEnvironmentValue` | `session.GetEnvironmentValue(name)` | `name`: Notes environment variable. | Reads an invariant 32-bit integer environment value. | [environment sample](../samples/notes-session-environment-parity.cs) |
 | `NotesSession.SetEnvironmentVar` | `session.SetEnvironmentVar(name, value)` | `name`, `value`: variable name and supported value. | Writes a Notes environment variable. | [environment sample](../samples/notes-session-environment-parity.cs) |
 | `NotesSession.CreateMail` | `session.CreateMail()` | none | Creates a mail memo builder. | [mail parity](xpscript-missing-notes-surface.md) |
+| `NotesSession.GetDbDirectory` | `session.GetDbDirectory(server)` | `server`: optional Domino server. | Opens a database directory enumerator. | [TODO](../todo/xpscript-notes-runtime-parity.md) |
+| `NotesDBDirectory.Name` | `directory.Name` | none | Gets the directory server name. | [TODO](../todo/xpscript-notes-runtime-parity.md) |
+| `NotesDBDirectory.GetFirstDatabase` | `directory.GetFirstDatabase(type)` | `type`: database filter constant. | Starts database enumeration. | [TODO](../todo/xpscript-notes-runtime-parity.md) |
+| `NotesDBDirectory.GetNextDatabase` | `directory.GetNextDatabase()` | none | Gets the next database in the enumeration. | [TODO](../todo/xpscript-notes-runtime-parity.md) |
+| `NotesDBDirectory.OpenDatabase` | `directory.OpenDatabase(filePath)` | `filePath`: database path. | Opens a database from the directory server. | [TODO](../todo/xpscript-notes-runtime-parity.md) |
 | `NotesMail.SendTo` | `mail.SendTo = recipients` | recipients: primary recipients. | Sets primary mail recipients. | [mail parity](xpscript-missing-notes-surface.md) |
 | `NotesMail.Subject` | `mail.Subject = subject` | subject: message subject. | Sets the mail subject. | [mail parity](xpscript-missing-notes-surface.md) |
 | `NotesMail.Body` | `mail.Body = body` | body: plain-text message body. | Sets the plain-text body. | [mail parity](xpscript-missing-notes-surface.md) |
