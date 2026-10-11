@@ -124,6 +124,13 @@ Check("NuGet assembly loaded", () =>
     };
     foreach (var (name, method) in nullableObjectLookups)
         if (method is null || new NullabilityInfoContext().Create(method.ReturnParameter).ReadState != NullabilityState.Nullable) throw new InvalidOperationException($"{name} must be annotated as nullable.");
+    var nullableProperties = new[]
+    {
+        ("NotesViewEntry.Document", typeof(NotesViewEntry).GetProperty(nameof(NotesViewEntry.Document))),
+        ("NotesDocumentCollection.FirstNoteId", typeof(NotesDocumentCollection).GetProperty(nameof(NotesDocumentCollection.FirstNoteId)))
+    };
+    foreach (var (name, property) in nullableProperties)
+        if (property is null || new NullabilityInfoContext().Create(property).ReadState != NullabilityState.Nullable) throw new InvalidOperationException($"{name} must be annotated as nullable.");
     if (typeof(NotesAgentResult).GetProperty(nameof(NotesAgentResult.Success))?.PropertyType != typeof(bool) || typeof(NotesAgentResult).GetProperty(nameof(NotesAgentResult.Status))?.PropertyType != typeof(int)) throw new InvalidOperationException("NotesAgentResult.Success/Status are missing.");
     if (typeof(NotesMIMEHeader).GetMethod(nameof(NotesMIMEHeader.SetParamVal), new[] { typeof(string), typeof(string) }) is null) throw new InvalidOperationException("NotesMIMEHeader.SetParamVal is missing.");
     if (typeof(NotesMIMEEntity).GetMethod(nameof(NotesMIMEEntity.GetChildren), Type.EmptyTypes) is null) throw new InvalidOperationException("NotesMIMEEntity.GetChildren is missing.");
