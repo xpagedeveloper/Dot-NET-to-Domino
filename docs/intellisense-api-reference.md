@@ -60,6 +60,10 @@ The required columns are `Member`, `Syntax`, `Parameters`, `Description`, and `E
 | `NotesStream.Position` | `stream.Position` | `int` byte position. | Gets or sets the current stream position, clamped to the stream length. | [TODO](../todo/xpscript-notes-runtime-parity.md) |
 | `NotesStream.Write` | `stream.Write(bytes)` / `stream.Write(text)` | `byte[]` or text. | Writes binary or encoded text data to a writable stream. | [TODO](../todo/xpscript-notes-runtime-parity.md) |
 | `NotesStream.ReadText` | `stream.ReadText(maxBytes)` | optional byte count. | Reads and decodes stream data using `Charset`. | [TODO](../todo/xpscript-notes-runtime-parity.md) |
+| `NotesDXLImporter.Import` | `importer.Import(filePath, database)` | DXL path and open database. | Imports DXL into a database; option properties validate their documented ranges. | [TODO](../todo/xpscript-notes-runtime-parity.md) |
+| `NotesDXLExporter.ExportDocument` | `exporter.ExportDocument(document, filePath)` | document and output path. | Exports a document to DXL. | [TODO](../todo/xpscript-notes-runtime-parity.md) |
+| `NotesDXLExporter.ExportDatabaseDesign` | `exporter.ExportDatabaseDesign(database, filePath)` | database and output path. | Exports database design, optionally into design folders. | [TODO](../todo/xpscript-notes-runtime-parity.md) |
+| `NotesDXLExporter.CleanedDXL` | `exporter.CleanedDXL` | Boolean. | Removes volatile DXL metadata before export. | [TODO](../todo/xpscript-notes-runtime-parity.md) |
 | `NotesSession.CreateStream` | `session.CreateStream()` | none | Creates a Notes stream. | [README](../README.md) |
 | `NotesDateTime.SetNow` | `dateTime.SetNow()` | none | Replaces the value with the current Domino time/date. | [TODO](../todo/xpscript-notes-runtime-parity.md) |
 | `NotesDateTime.TimeDifference` | `dateTime.TimeDifference(other)` | `other`: another NotesDateTime. | Returns the GMT difference in seconds. | [TODO](../todo/xpscript-notes-runtime-parity.md) |

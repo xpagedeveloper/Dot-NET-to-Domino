@@ -16,6 +16,8 @@ Check("NuGet assembly loaded", () =>
     if (toByteArray.ReturnType != typeof(byte[])) throw new InvalidOperationException($"NotesEmbeddedObject.ToByteArray must return byte[], not {toByteArray.ReturnType.FullName}.");
     if (typeof(NotesStream).GetProperty(nameof(NotesStream.Position))?.PropertyType != typeof(int)) throw new InvalidOperationException("NotesStream.Position must be int.");
     if (typeof(NotesStream).GetMethod(nameof(NotesStream.Write), new[] { typeof(string) }) is null) throw new InvalidOperationException("NotesStream.Write(string) is missing.");
+    if (typeof(NotesDXLImporter).GetMethod(nameof(NotesDXLImporter.Import), new[] { typeof(string), typeof(NotesDatabase) }) is null) throw new InvalidOperationException("NotesDXLImporter.Import is missing.");
+    if (typeof(NotesDXLExporter).GetProperty(nameof(NotesDXLExporter.CleanedDXL))?.PropertyType != typeof(bool)) throw new InvalidOperationException("NotesDXLExporter.CleanedDXL is missing.");
 });
 Check("public API surface", () =>
 {
