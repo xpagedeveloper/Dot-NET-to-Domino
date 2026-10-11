@@ -103,6 +103,7 @@ The required columns are `Member`, `Syntax`, `Parameters`, `Description`, and `E
 | `NotesMail.IsMIME` / `AttachmentCount` | `mail.IsMIME` / `mail.AttachmentCount` | read-only. | `IsMIME` is false until MIME composition exists; `AttachmentCount` reports configured rich-text file attachments. | [TODO](../todo/xpscript-notes-runtime-parity.md) |
 | `NotesMail.AddAttachment` | `mail.AddAttachment(path)` | existing file path. | Adds a file to the rich-text mail body and validates the path. | [TODO](../todo/xpscript-notes-runtime-parity.md) |
 | `NotesMail.SetBodyRichText` | `mail.SetBodyRichText(compose)` | rich-text composer callback. | Creates a rich-text Body item and invokes the callback during send. | [TODO](../todo/xpscript-notes-runtime-parity.md) |
+| `NotesMail.SetBodyMIME` | `mail.SetBodyMIME(compose)` | root MIME composer callback. | Creates a root MIME Body entity and invokes the callback during send. | [TODO](../todo/xpscript-notes-runtime-parity.md) |
 | `NotesRichTextTable.RowCount` | `table.RowCount` | none | Gets the parsed table row count. | [TODO](../todo/xpscript-notes-runtime-parity.md) |
 | `NotesRichTextTable.ColumnCount` | `table.ColumnCount` | none | Gets the parsed table column count. | [TODO](../todo/xpscript-notes-runtime-parity.md) |
 | `NotesRichTextTable.RightToLeft` | `table.RightToLeft` | none | Gets the table direction flag. | [TODO](../todo/xpscript-notes-runtime-parity.md) |

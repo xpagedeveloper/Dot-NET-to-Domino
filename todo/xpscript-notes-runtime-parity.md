@@ -13,7 +13,7 @@ This is the current implementation queue. Older repeated sections in this file a
 
 ### NotesMail
 
-- [ ] Add MIME mail composition and make `IsMIME`/`AttachmentCount` reflect the actual message state.
+- [~] Add root MIME mail composition through `NotesMail.SetBodyMIME`; child entities and MIME attachments remain open.
 - [x] Add rich-text mail bodies through `NotesMail.SetBodyRichText`; live Domino send parity remains to be verified.
 - [x] Add rich-text file attachments through `NotesRichTextItem.AttachFile` and `NotesMail.AddAttachment`; MIME attachments remain open.
 - [ ] Verify all mail delivery options and send error paths against the native mail runtime.
