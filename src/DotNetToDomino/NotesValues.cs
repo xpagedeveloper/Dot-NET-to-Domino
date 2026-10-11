@@ -14,7 +14,7 @@ public sealed class NotesName : NotesObject
         ParseCanonical(Canonical);
         ParseInternet(Source);
     }
-    public NotesSession Parent => Session;
+    public NotesSession Parent { get { EnsureAlive(); return Session; } }
     public string Original => Source;
     public string Source { get; }
     public string Canonical { get; }
@@ -90,8 +90,7 @@ public sealed class NotesDateTime : NotesObject
     private NotesTimeDate _value;
     internal NotesDateTime(NotesSession session, string value) : base(session)
     {
-        if (string.IsNullOrWhiteSpace(value)) throw new ArgumentException("NotesDateTime requires a date/time value.", nameof(value));
-        _value = session.Api.ParseTimeDate(value);
+        _value = string.IsNullOrWhiteSpace(value) ? session.Api.TimeDateWildcard() : session.Api.ParseTimeDate(value);
     }
     internal NotesDateTime(NotesSession session, DateTimeOffset value) : base(session) =>
         _value = session.Api.ParseTimeDate(value.LocalDateTime.ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture));
@@ -104,10 +103,10 @@ public sealed class NotesDateTime : NotesObject
     public int TimeZone { get { EnsureAlive(); return Session.Api.ExpandTimeDate(_value).Zone; } }
     public string Text => LocalTime;
     public string LocalTime { get { EnsureAlive(); return Session.Api.FormatTimeDate(_value); } }
-    public string GMTTime { get { EnsureAlive(); return FormatExpanded(Session.Api.ExpandTimeDateGmt(_value)); } }
-    public string ZoneTime { get { EnsureAlive(); return FormatExpanded(Session.Api.ExpandTimeDate(_value)); } }
-    public string DateOnly { get { var v = Session.Api.ExpandTimeDate(_value); return $"{v.Year:D4}-{v.Month:D2}-{v.Day:D2}"; } }
-    public string TimeOnly { get { var v = Session.Api.ExpandTimeDate(_value); return $"{v.Hour:D2}:{v.Minute:D2}:{v.Second:D2}"; } }
+    public string GMTTime { get { EnsureAlive(); return IsWildcard() ? "AnyDay AllDay" : FormatExpanded(Session.Api.ExpandTimeDateGmt(_value)); } }
+    public string ZoneTime { get { EnsureAlive(); return IsWildcard() ? "AnyDay AllDay" : FormatExpanded(Session.Api.ExpandTimeDate(_value)); } }
+    public string DateOnly { get { EnsureAlive(); var v = Session.Api.ExpandTimeDate(_value); return IsAnyDate() ? "AnyDay" : $"{v.Year:D4}-{v.Month:D2}-{v.Day:D2}"; } }
+    public string TimeOnly { get { EnsureAlive(); var v = Session.Api.ExpandTimeDate(_value); return IsAnyTime() ? "AllDay" : $"{v.Hour:D2}:{v.Minute:D2}:{v.Second:D2}"; } }
     public DateTimeOffset? Value
     {
         get
@@ -121,6 +120,17 @@ public sealed class NotesDateTime : NotesObject
     {
         EnsureAlive();
         _value = Session.Api.CurrentTimeDate();
+    }
+    public void SetAnyDate()
+    {
+        EnsureAlive();
+        var wildcard = Session.Api.TimeDateWildcard();
+        _value.Innards1 = (_value.Innards1 & 0xFF000000u) | (wildcard.Innards1 & 0x00FFFFFFu);
+    }
+    public void SetAnyTime()
+    {
+        EnsureAlive();
+        _value.Innards0 = Session.Api.TimeDateWildcard().Innards0;
     }
     public double TimeDifference(NotesDateTime other)
     {
@@ -153,5 +163,8 @@ public sealed class NotesDateTime : NotesObject
         Session.Api.AdjustTimeDate(ref _value, seconds, minutes, hours, days, months, years);
     }
     private static string FormatExpanded(NotesExpandedTime v) => $"{v.Year:D4}-{v.Month:D2}-{v.Day:D2} {v.Hour:D2}:{v.Minute:D2}:{v.Second:D2}";
+    private bool IsAnyDate() { var wildcard = Session.Api.TimeDateWildcard(); return (_value.Innards1 & 0x00FFFFFFu) == (wildcard.Innards1 & 0x00FFFFFFu); }
+    private bool IsAnyTime() => _value.Innards0 == Session.Api.TimeDateWildcard().Innards0;
+    private bool IsWildcard() => IsAnyDate() && IsAnyTime();
     protected override void ReleaseNative() => _value = default;
 }

@@ -84,6 +84,7 @@ The required columns are `Member`, `Syntax`, `Parameters`, `Description`, and `E
 | `NotesView` / `NotesViewColumn` / `NotesViewEntry` | view navigation and column/entry properties | linked C# view objects. | View parents and linked entries/columns enforce wrapper lifetime checks; navigation uses snapshot rows. | [TODO](../todo/xpscript-notes-runtime-parity.md) |
 | `NotesRichTextItem.ConvertToHTML` | `item.ConvertToHTML(inlineImages)` | optional `bool` inline-images flag. | Converts rich text through Domino HTML conversion, optionally inlining images. | [TODO](../todo/xpscript-notes-runtime-parity.md) |
 | `NotesRichTextItem.AppendParagraphStyle` | `item.AppendParagraphStyle(style)` | `NotesRichTextParagraphStyle`. | Explicitly fails closed until atomic composite-data rewrite support exists. | [TODO](../todo/xpscript-notes-runtime-parity.md) |
+| `NotesDateTime.SetAnyDate/SetAnyTime` | `dateTime.SetAnyDate()` / `dateTime.SetAnyTime()` | none | Sets Domino wildcard date/time components; `DateOnly`/`TimeOnly` report `AnyDay`/`AllDay`. | [TODO](../todo/xpscript-notes-runtime-parity.md) |
 | `NotesRichTextTable.RowCount` | `table.RowCount` | none | Gets the parsed table row count. | [TODO](../todo/xpscript-notes-runtime-parity.md) |
 | `NotesRichTextTable.ColumnCount` | `table.ColumnCount` | none | Gets the parsed table column count. | [TODO](../todo/xpscript-notes-runtime-parity.md) |
 | `NotesRichTextTable.RightToLeft` | `table.RightToLeft` | none | Gets the table direction flag. | [TODO](../todo/xpscript-notes-runtime-parity.md) |

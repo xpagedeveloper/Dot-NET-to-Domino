@@ -47,6 +47,14 @@ internal sealed partial class NotesNativeApi
         return value;
     }
 
+    internal NotesTimeDate TimeDateWildcard()
+    {
+        EnsureInitialized();
+        using var thread = EnterThread();
+        Resolve<TimeConstantDelegate>("TimeConstant")(2, out var value);
+        return value;
+    }
+
     internal string FormatTimeDate(NotesTimeDate value)
     {
         EnsureInitialized();
@@ -124,6 +132,7 @@ internal sealed partial class NotesNativeApi
     [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate ushort ConvertTextToTimeDateDelegate(nint intlFormat, nint textFormat, ref nint text, ushort maxLength, out NotesTimeDate output);
     [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate ushort ConvertTimeDateToTextDelegate(nint intlFormat, nint textFormat, ref NotesTimeDate value, nint output, ushort outputLength, out ushort textLength);
     [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate void OSCurrentTimeDateDelegate(out NotesTimeDate value);
+    [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate void TimeConstantDelegate(ushort constantType, out NotesTimeDate value);
     [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate int TimeDateAdjustDelegate(ref NotesTimeDate value, int seconds, int minutes, int hours, int days, int months, int years);
     [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate int TimeGMToLocalDelegate(ref NotesExpandedTime value);
     [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate int TimeGMToLocalZoneDelegate(ref NotesExpandedTime value);

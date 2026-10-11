@@ -413,8 +413,8 @@ Status markers:
 - [x] Port current `TimeDifference` behavior.
 - [x] Port current `TimeDifferenceDouble` variant.
 - [x] Port `ConvertToZone` using Domino `TimeLocalToGM` semantics.
-- [ ] Verify timezone/zone/DST handling uses Notes `TIMEDATE` semantics rather than .NET approximations.
-- [ ] Verify wildcard date/time behavior if exposed.
+- [x] Verify timezone/zone/DST handling uses Notes `TIMEDATE` expansion and `TimeLocalToGM` semantics rather than .NET approximations.
+- [x] Port wildcard date/time behavior: empty construction, `SetAnyDate`, `SetAnyTime`, and `AnyDay`/`AllDay` formatting.
 
 ## P1 — NotesView / NotesViewColumn / NotesViewEntry / navigator
 
