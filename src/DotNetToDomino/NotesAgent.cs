@@ -83,6 +83,7 @@ public sealed class NotesAgent : NotesObject
     {
         EnsureAlive();
         ArgumentNullException.ThrowIfNull(document);
+        EnsureSameDatabase(document);
         _parameterDocId = string.Empty;
         return Execute(document.Handle, 0);
     }
@@ -91,6 +92,7 @@ public sealed class NotesAgent : NotesObject
     {
         EnsureAlive();
         ArgumentNullException.ThrowIfNull(document);
+        EnsureSameDatabase(document);
         ValidateParameterNoteId(noteId);
         _parameterDocId = noteId.ToString("X", System.Globalization.CultureInfo.InvariantCulture);
         return Execute(document.Handle, noteId);
@@ -98,6 +100,12 @@ public sealed class NotesAgent : NotesObject
 
     public NotesAgentResult RunWithDocumentContext(NotesDocument document, string noteId) =>
         RunWithDocumentContext(document, ParseParameterNoteId(noteId));
+
+    private void EnsureSameDatabase(NotesDocument document)
+    {
+        if (!string.Equals(Parent.ReplicaID, document.ParentDatabase.ReplicaID, StringComparison.OrdinalIgnoreCase))
+            throw new ArgumentException("The parameter document must belong to the same database replica as the agent.", nameof(document));
+    }
 
     public NotesAgentResult RunOnServer() => Run();
     public NotesAgentResult RunOnServer(uint noteId) => Run(noteId);
