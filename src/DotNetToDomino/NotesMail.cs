@@ -21,6 +21,7 @@ public sealed class NotesMail : NotesObject
     private Action<NotesMIMEEntity>? _mimeComposer;
     private string? _mimeBodyContent;
     private string? _mimeBodyContentType;
+    private byte[]? _mimeBodyBytes;
 
     internal NotesMail(NotesSession session) : base(session) => _from = session.UserName;
 
@@ -96,7 +97,7 @@ public sealed class NotesMail : NotesObject
     }
 
     /// <summary>Sets the plain-text body and clears other body modes.</summary>
-    public void SetBodyText(string? text) { EnsureAlive(); _richTextComposer = null; _mimeComposer = null; _mimeBodyContent = null; _mimeBodyContentType = null; _body = text ?? string.Empty; }
+    public void SetBodyText(string? text) { EnsureAlive(); _richTextComposer = null; _mimeComposer = null; _mimeBodyContent = null; _mimeBodyBytes = null; _mimeBodyContentType = null; _body = text ?? string.Empty; }
 
     /// <summary>Sets an HTML MIME body.</summary>
     public void SetBodyHTML(string? html) => SetMIMEBody(html, "text/html; charset=UTF-8");
@@ -107,6 +108,7 @@ public sealed class NotesMail : NotesObject
         EnsureAlive();
         ArgumentException.ThrowIfNullOrWhiteSpace(contentType);
         _mimeBodyContent = content ?? string.Empty;
+        _mimeBodyBytes = null;
         _mimeBodyContentType = contentType.Trim();
         _mimeComposer = null;
         _richTextComposer = null;
@@ -115,6 +117,30 @@ public sealed class NotesMail : NotesObject
 
     /// <summary>Alias for SetMIMEBody.</summary>
     public void SetMIME(string? content, string contentType) => SetMIMEBody(content, contentType);
+
+    public void SetMIME(byte[] content, string contentType)
+    {
+        ArgumentNullException.ThrowIfNull(content);
+        SetMIMEBytes(content, contentType);
+    }
+
+    public void SetMIME(NotesStream stream, string contentType)
+    {
+        ArgumentNullException.ThrowIfNull(stream);
+        SetMIMEBytes(stream.Read(), contentType);
+    }
+
+    private void SetMIMEBytes(byte[] content, string contentType)
+    {
+        EnsureAlive();
+        ArgumentException.ThrowIfNullOrWhiteSpace(contentType);
+        _mimeBodyBytes = content.ToArray();
+        _mimeBodyContent = null;
+        _mimeBodyContentType = contentType.Trim();
+        _mimeComposer = null;
+        _richTextComposer = null;
+        _body = string.Empty;
+    }
 
     /// <summary>Configures a rich-text body. The callback runs against the new Body item during Send.</summary>
     public void SetBodyRichText(Action<NotesRichTextItem> compose)
@@ -125,6 +151,7 @@ public sealed class NotesMail : NotesObject
         _body = string.Empty;
         _mimeComposer = null;
         _mimeBodyContent = null;
+        _mimeBodyBytes = null;
         _mimeBodyContentType = null;
     }
 
@@ -136,6 +163,7 @@ public sealed class NotesMail : NotesObject
         _mimeComposer = compose;
         _richTextComposer = null;
         _mimeBodyContent = null;
+        _mimeBodyBytes = null;
         _mimeBodyContentType = null;
         _body = string.Empty;
     }
@@ -159,10 +187,16 @@ public sealed class NotesMail : NotesObject
         if (_replyTo.Length > 0) document.ReplaceItemValue("ReplyTo", _replyTo);
         if (_principal.Length > 0) document.ReplaceItemValue("Principal", _principal);
         if (_subject.Length > 0) document.ReplaceItemValue("Subject", _subject);
-        if (_mimeComposer is not null || _mimeBodyContent is not null)
+        if (_mimeComposer is not null || _mimeBodyContent is not null || _mimeBodyBytes is not null)
         {
             using var mime = document.CreateMIMEEntity("Body");
-            if (_mimeBodyContent is not null)
+            if (_mimeBodyBytes is not null)
+            {
+                using var stream = Session.CreateStream();
+                stream.Write(_mimeBodyBytes);
+                mime.SetContentFromBytes(stream, _mimeBodyContentType!, 1725);
+            }
+            else if (_mimeBodyContent is not null)
             {
                 using var stream = Session.CreateStream();
                 stream.WriteText(_mimeBodyContent);
