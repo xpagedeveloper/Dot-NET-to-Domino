@@ -103,20 +103,21 @@ public sealed class NotesMail : NotesObject
 
     private static string[] NormalizeRecipients(IEnumerable<string>? values, string property, bool allowEmpty)
     {
-        var result = (values ?? []).Select(value => (value ?? string.Empty).Trim()).Where(value => value.Length > 0).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
-        if (!allowEmpty && result.Length == 0) throw new NotesException(5, "NotesMail." + property + " cannot be empty.");
+        if (values is null && !allowEmpty) throw new ArgumentNullException(property, $"NotesMail.{property} cannot be null.");
+        var result = (values ?? []).Select(value => value is null ? throw new ArgumentNullException(property, $"NotesMail.{property} cannot contain null recipients.") : value.Trim()).Where(value => value.Length > 0).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
+        if (!allowEmpty && result.Length == 0) throw new ArgumentException($"NotesMail.{property} cannot be empty.", property);
         return result;
     }
 
     private static string NormalizePriority(string? value) => (value ?? string.Empty).Trim().ToUpperInvariant() switch
     {
         "H" or "HIGH" => "H", "L" or "LOW" => "L", "N" or "NORMAL" or "" => "N",
-        _ => throw new NotesException(5, "NotesMail.DeliveryPriority must be High/H, Normal/N, or Low/L.")
+        _ => throw new ArgumentOutOfRangeException(nameof(value), value, "NotesMail.DeliveryPriority must be High/H, Normal/N, or Low/L.")
     };
 
     private static string NormalizeReport(string? value) => (value ?? string.Empty).Trim().ToUpperInvariant() switch
     {
         "N" or "NONE" or "0" or "" => "N", "B" or "FAILURE" or "FAILUREONLY" or "1" => "B", "C" or "CONFIRM" or "CONFIRMDELIVERY" or "2" => "C",
-        _ => throw new NotesException(5, "NotesMail.DeliveryReport must be None/N, Failure/B, or Confirm/C.")
+        _ => throw new ArgumentOutOfRangeException(nameof(value), value, "NotesMail.DeliveryReport must be None/N, Failure/B, or Confirm/C.")
     };
 }
