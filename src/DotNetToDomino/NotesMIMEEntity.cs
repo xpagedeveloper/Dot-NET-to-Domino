@@ -1,3 +1,5 @@
+using System.Globalization;
+
 namespace DotNetToDomino;
 
 /// <summary>Represents a MIME entity backed by Domino's native MIME directory.</summary>
@@ -99,10 +101,76 @@ public sealed class NotesMIMEEntity : NotesObject
     public void GetContentAsBytes(NotesStream stream) { EnsureEntityAlive(); ArgumentNullException.ThrowIfNull(stream); stream.Write(ReadRootContent(nameof(GetContentAsBytes))); }
     public void GetContentAsText(NotesStream stream, bool entityCharset = false) { EnsureEntityAlive(); ArgumentNullException.ThrowIfNull(stream); stream.WriteText(ReadRootText(nameof(GetContentAsText))); }
     public void GetEntityAsText(NotesStream stream) { EnsureEntityAlive(); ArgumentNullException.ThrowIfNull(stream); stream.Write(ReadRootEntity(nameof(GetEntityAsText))); }
-    public void SetContentFromText(NotesStream stream, string contentType, int encoding) => throw Unsupported(nameof(SetContentFromText));
-    public void SetContentFromBytes(NotesStream stream, string contentType, int encoding) => throw Unsupported(nameof(SetContentFromBytes));
-    public void EncodeContent(int encoding) => throw Unsupported(nameof(EncodeContent));
-    public void DecodeContent() => throw Unsupported(nameof(DecodeContent));
+    public void SetContentFromText(NotesStream stream, string contentType, int encoding)
+    {
+        ArgumentNullException.ThrowIfNull(stream);
+        var charset = Charset.Trim();
+        var text = stream.ReadText();
+        var bytes = charset.Length == 0 ? System.Text.Encoding.UTF8.GetBytes(text) : System.Text.Encoding.GetEncoding(charset).GetBytes(text);
+        SetContent(bytes, contentType, encoding, nameof(SetContentFromText));
+    }
+    public void SetContentFromBytes(NotesStream stream, string contentType, int encoding)
+    {
+        ArgumentNullException.ThrowIfNull(stream);
+        SetContent(stream.Read(), contentType, encoding, nameof(SetContentFromBytes));
+    }
+    public void EncodeContent(int encoding)
+    {
+        EnsureRootEntity(nameof(EncodeContent));
+        var headers = ReadRootHeaderValues();
+        var contentType = headers.FirstOrDefault(h => h.Name.Equals("Content-Type", StringComparison.OrdinalIgnoreCase)).Value;
+        if (string.IsNullOrWhiteSpace(contentType)) contentType = "application/octet-stream";
+        SetContent(ReadRootContent(nameof(EncodeContent)), contentType, encoding, nameof(EncodeContent));
+    }
+    public void DecodeContent()
+    {
+        EnsureRootEntity(nameof(DecodeContent));
+        var headers = ReadRootHeaderValues();
+        var contentType = headers.FirstOrDefault(h => h.Name.Equals("Content-Type", StringComparison.OrdinalIgnoreCase)).Value;
+        if (string.IsNullOrWhiteSpace(contentType)) contentType = "application/octet-stream";
+        SetContent(ReadRootContent(nameof(DecodeContent)), contentType, 1725, nameof(DecodeContent));
+    }
+
+    private void SetContent(byte[] content, string contentType, int encoding, string member)
+    {
+        EnsureRootEntity(member);
+        var normalizedType = RequireText(contentType, nameof(contentType));
+        var encoded = EncodeContentBytes(content, encoding);
+        var headers = ReadRootHeaderValues();
+        headers.RemoveAll(h => h.Name.Equals("Content-Type", StringComparison.OrdinalIgnoreCase) || h.Name.Equals("Content-Transfer-Encoding", StringComparison.OrdinalIgnoreCase));
+        headers.Add(("Content-Type", normalizedType));
+        headers.Add(("Content-Transfer-Encoding", EncodingName(encoding)));
+        var headerText = string.Join("\r\n", headers.Select(h => h.Name + ": " + h.Value)) + "\r\n\r\n";
+        var headerBytes = System.Text.Encoding.Latin1.GetBytes(headerText);
+        var rewritten = new byte[headerBytes.Length + encoded.Length];
+        Buffer.BlockCopy(headerBytes, 0, rewritten, 0, headerBytes.Length);
+        Buffer.BlockCopy(encoded, 0, rewritten, headerBytes.Length, encoded.Length);
+        Session.Api.WriteMimeStream(_document.Handle, _itemName, rewritten);
+        _document.InvalidateMimeDirectory();
+    }
+
+    private static string EncodingName(int encoding) => encoding switch
+    {
+        1724 => "7bit", 1725 => "8bit", 1726 => "quoted-printable", 1727 => "base64", 1728 => "binary",
+        _ => throw new ArgumentOutOfRangeException(nameof(encoding), encoding, "'encoding' must be 1724 (7bit), 1725 (8bit), 1726 (quoted-printable), 1727 (base64), or 1728 (binary).")
+    };
+
+    private static byte[] EncodeContentBytes(byte[] content, int encoding) => encoding switch
+    {
+        1724 or 1725 or 1728 => content,
+        1727 => System.Text.Encoding.ASCII.GetBytes(Convert.ToBase64String(content)),
+        1726 => EncodeQuotedPrintable(content),
+        _ => throw new ArgumentOutOfRangeException(nameof(encoding), encoding, "'encoding' must be 1724 (7bit), 1725 (8bit), 1726 (quoted-printable), 1727 (base64), or 1728 (binary).")
+    };
+
+    private static byte[] EncodeQuotedPrintable(byte[] content)
+    {
+        var builder = new System.Text.StringBuilder();
+        foreach (var value in content)
+            if ((value >= 33 && value <= 60) || (value >= 62 && value <= 126) || value is 9 or 32 or 10 or 13) builder.Append((char)value);
+            else builder.Append('=').Append(value.ToString("X2", CultureInfo.InvariantCulture));
+        return System.Text.Encoding.ASCII.GetBytes(builder.ToString());
+    }
 
     public void Remove()
     {

@@ -42,6 +42,10 @@ The required columns are `Member`, `Syntax`, `Parameters`, `Description`, and `E
 | `NotesMIMEHeader.AddValText` | `header.AddValText(value)` | `value`: text to append. | Appends text to a root MIME header value. | [MIME parity](../todo/xpscript-notes-runtime-parity.md) |
 | `NotesMIMEHeader.Remove` | `header.Remove()` | none | Removes a root MIME header. | [MIME parity](../todo/xpscript-notes-runtime-parity.md) |
 | `NotesMIMEEntity.RemoveHeaders` | `entity.RemoveHeaders(name)` | `name`: header name. | Removes all matching root MIME headers. | [MIME parity](../todo/xpscript-notes-runtime-parity.md) |
+| `NotesMIMEEntity.SetContentFromText` | `entity.SetContentFromText(stream, contentType, encoding)` | `stream`, `contentType`, `encoding`: text content and MIME encoding. | Replaces root MIME content from text. | [MIME parity](../todo/xpscript-notes-runtime-parity.md) |
+| `NotesMIMEEntity.SetContentFromBytes` | `entity.SetContentFromBytes(stream, contentType, encoding)` | `stream`, `contentType`, `encoding`: byte content and MIME encoding. | Replaces root MIME content from bytes. | [MIME parity](../todo/xpscript-notes-runtime-parity.md) |
+| `NotesMIMEEntity.EncodeContent` | `entity.EncodeContent(encoding)` | `encoding`: MIME encoding constant. | Re-encodes decoded root content. | [MIME parity](../todo/xpscript-notes-runtime-parity.md) |
+| `NotesMIMEEntity.DecodeContent` | `entity.DecodeContent()` | none | Decodes root content and stores it as 8bit. | [MIME parity](../todo/xpscript-notes-runtime-parity.md) |
 | `NotesView.GetFirstDocument` | `view.GetFirstDocument()` | none | Returns the first document in a view. | [README](../README.md) |
 | `NotesView.CreateViewNav` | `view.CreateViewNav()` | none | Creates a view navigator. | [README](../README.md) |
 | `NotesStream.Read` | `stream.Read(maxBytes)` | `maxBytes`: requested byte count. | Reads bytes from a Notes stream. | [README](../README.md) |
