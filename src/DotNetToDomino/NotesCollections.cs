@@ -103,6 +103,22 @@ public sealed class NotesDocumentCollection : NotesObject, IReadOnlyCollection<u
         _noteIds = ids.ToArray();
     }
 
+    public void Merge(NotesDocument document) { AddDocument(document); }
+    public void Merge(NotesDocumentCollection collection) { AddDocument(collection); }
+    public void Intersect(NotesDocument document)
+    {
+        ArgumentNullException.ThrowIfNull(document); EnsureAlive(); EnsureSameReplica(document.ParentDatabase);
+        if (Array.IndexOf(_noteIds, document.NoteId) < 0) _noteIds = [];
+        ResetCursor();
+    }
+    public void Intersect(NotesDocumentCollection collection)
+    {
+        ArgumentNullException.ThrowIfNull(collection); EnsureAlive(); EnsureSameReplica(collection.Parent);
+        var keep = collection._noteIds.ToHashSet(); _noteIds = _noteIds.Where(keep.Contains).ToArray(); ResetCursor();
+    }
+    public void Subtract(NotesDocument document) { RemoveDocument(document); }
+    public void Subtract(NotesDocumentCollection collection) { RemoveDocument(collection); }
+
     public void RemoveDocument(NotesDocument document)
     {
         ArgumentNullException.ThrowIfNull(document);

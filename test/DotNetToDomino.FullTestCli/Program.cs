@@ -36,6 +36,7 @@ Check("NuGet assembly loaded", () =>
     if (typeof(NotesRichTextItem).GetMethod("AttachFile") is null) throw new InvalidOperationException("NotesRichTextItem.AttachFile surface is missing.");
     if (typeof(NotesRichTextTable).GetMethod("Remove") is null || typeof(NotesRichTextDocLink).GetMethod("Remove") is null) throw new InvalidOperationException("Rich-text linked-object removal surface is missing.");
     if (typeof(NotesDocumentCollection).GetMethod("StampAllMulti", new[] { typeof(NotesDocument) }) is null || typeof(NotesNoteCollection).GetMethod("StampAllMulti", new[] { typeof(NotesDocument) }) is null) throw new InvalidOperationException("Collection StampAllMulti source-document surface is missing.");
+    if (typeof(NotesDocumentCollection).GetMethod("Merge", new[] { typeof(NotesDocumentCollection) }) is null || typeof(NotesDocumentCollection).GetMethod("Subtract", new[] { typeof(NotesDocumentCollection) }) is null) throw new InvalidOperationException("NotesDocumentCollection set-operation surface is missing.");
     if (typeof(NotesMail).GetMethod("SetBodyRichText") is null) throw new InvalidOperationException("NotesMail.SetBodyRichText surface is missing.");
     if (typeof(NotesMail).GetMethod("SetBodyMIME") is null) throw new InvalidOperationException("NotesMail.SetBodyMIME surface is missing.");
     if (typeof(NotesMail).GetMethod("AddMimeAttachment") is null) throw new InvalidOperationException("NotesMail.AddMimeAttachment surface is missing.");
