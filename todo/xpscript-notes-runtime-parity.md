@@ -575,9 +575,9 @@ For each object, add a sub-section to this TODO if differences are found.
 
 ### NotesMail gap found during cleanup
 
-- [x] Confirmed `NotesMail.IsMIME` and `AttachmentCount` are deliberate C# placeholders, not accidental constants: the C# implementation has no MIME body or attachment state yet.
-- [ ] Port XPScript MIME body state (`SetBodyHTML`/MIME bytes) and attachment collection before changing these properties to dynamic values.
-- [ ] Add fulltest coverage for MIME and attachment composition after that implementation exists.
+- [x] `NotesMail.IsMIME` and `AttachmentCount` now reflect configured root-MIME, rich-text, and MIME attachment state.
+- [x] Root MIME composition, rich-text body composition, rich-text attachments, and MIME file attachments are implemented.
+- [x] Fulltest reflection coverage verifies the public mail composition members; live Domino send coverage remains environment-dependent.
 - [x] Do not remove deliberate real constants that are part of the Notes contract without verifying the native/API meaning; the remaining constants are documented and tested.
 
 ### NotesSession environment audit
