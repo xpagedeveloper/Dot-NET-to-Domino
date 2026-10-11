@@ -11,6 +11,9 @@ void Check(string name, Action action)
 Check("NuGet assembly loaded", () =>
 {
     if (typeof(NotesSession).Assembly.GetName().Name != "DotNetToDomino") throw new InvalidOperationException("Wrong assembly loaded.");
+    var toByteArray = typeof(NotesEmbeddedObject).GetMethod(nameof(NotesEmbeddedObject.ToByteArray), Type.EmptyTypes)
+        ?? throw new InvalidOperationException("NotesEmbeddedObject.ToByteArray is missing.");
+    if (toByteArray.ReturnType != typeof(byte[])) throw new InvalidOperationException($"NotesEmbeddedObject.ToByteArray must return byte[], not {toByteArray.ReturnType.FullName}.");
 });
 Check("public API surface", () =>
 {
