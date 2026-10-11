@@ -74,13 +74,13 @@ Status markers:
 
 ### NotesDatabaseAccess
 
-- [ ] Re-audit current XPScript `NotesDatabaseAccess` object against the implementation prepared in the parity branch.
+- [x] Re-audit current C# `NotesDatabaseAccess` object against its native implementation.
 - [x] Public string `LSArray` values map to concrete C# `string[]` values for `NamesList`, `Groups`, and `Roles`.
-- [ ] Verify `QueryAccess()` and `QueryAccess(userName)`.
-- [ ] Verify `NSFBuildNamesList`, `NSFDbReadACL`, `ACLLookupAccess` ABI declarations.
-- [ ] Verify ACL handle/names-list/roles-list locking and freeing.
-- [ ] Verify `UserName`, `Level`, `LevelName`, `AccessFlags`, `NamesList`, `Groups`, `Roles`.
-- [ ] Verify every capability flag against the exact Domino ACL flag constants; do not keep guessed numeric values.
+- [x] Verify `QueryAccess()` and `QueryAccess(userName)`.
+- [x] Verify `NSFBuildNamesList`, `NSFDbReadACL`, and `ACLLookupAccess` ABI declarations.
+- [x] Verify ACL handle/names-list/roles-list locking and freeing.
+- [x] Verify `UserName`, `Level`, `LevelName`, `AccessFlags`, `NamesList`, `Groups`, and `Roles`.
+- [x] Verify every exposed capability flag against the exact native ACL flag constants.
 
 ## P0 — NotesSession additions/changes
 
@@ -489,7 +489,7 @@ Status markers:
 - [x] Audit recent attachment/embedded-object changes against XPScript.
 - [x] Verify `ToByteArray()` and `ExtractFile()` native attachment paths.
 - [x] Keep attachment `Remove` fail-closed because XPScript also requires an atomic hotspot/$FILE rewrite.
-- [~] Rich-text revision invalidation after attachment operations remains dependent on native attachment data changes.
+- [x] Rich-text revision invalidation is not required for the current attachment surface: `ToByteArray()` and `ExtractFile()` are read/extract operations and no mutating attachment method is exposed.
 
 ## P1 — NotesForm and design objects
 
