@@ -44,6 +44,8 @@ Check("NuGet assembly loaded", () =>
     if (typeof(NotesMIMEEntity).GetMethod(nameof(NotesMIMEEntity.GetChildren), Type.EmptyTypes) is null) throw new InvalidOperationException("NotesMIMEEntity.GetChildren is missing.");
     if (typeof(NotesRichTextNavigator).GetMethod(nameof(NotesRichTextNavigator.SetPositionAtEnd), new[] { typeof(object) }) is null) throw new InvalidOperationException("NotesRichTextNavigator.SetPositionAtEnd is missing.");
     if (typeof(NotesRichTextRange).GetMethod(nameof(NotesRichTextRange.SetStyle), new[] { typeof(NotesRichTextStyle) }) is null) throw new InvalidOperationException("NotesRichTextRange.SetStyle is missing.");
+    foreach (var property in new[] { "RowLabels", "Color", "AlternateColor" })
+        if (typeof(NotesRichTextTable).GetProperty(property) is not null) throw new InvalidOperationException($"Unsupported NotesRichTextTable.{property} leaked into the public API.");
 });
 Check("public API surface", () =>
 {

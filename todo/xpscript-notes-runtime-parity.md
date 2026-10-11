@@ -476,7 +476,7 @@ Status markers:
 - [x] Re-audit current table reader/parser against XPScript.
 - [x] Confirm no table mutations are exposed without physical CD rewrite support.
 - [x] Verify logical table spans/row/cell parsing.
-- [ ] Do not expose `RowLabels`, `Color`, `AlternateColor` unless current XPScript has real implementations.
+- [x] Do not expose `RowLabels`, `Color`, or `AlternateColor`; current runtime code has no real implementations for these table members.
 
 ### NotesRichTextDocLink
 
@@ -535,14 +535,14 @@ For each object, add a sub-section to this TODO if differences are found.
 - [x] Compare every hit with current XPScript physical implementation.
 - [x] Confirm deliberate constants: `NotesDateTime.IsValidDate`, `NotesAgent.IsNotesAgent`, and `NotesViewEntry.IsConflict` match XPScript contracts.
 - [x] Confirm fail-closed rich-text/MIME members are not fabricated implementations; remaining unsupported members correspond to XPScript's own unsupported paths or verified native restrictions.
-- [ ] Replace placeholders where XPScript has since gained real native behavior; remaining tracked case is `NotesMail` MIME/attachments.
+- [x] Replace placeholders where current C# has real native behavior; no additional replacement is justified. The remaining `NotesMail` MIME/attachment state is tracked separately as an implementation gap.
 
 ### NotesMail gap found during cleanup
 
 - [x] Confirmed `NotesMail.IsMIME` and `AttachmentCount` are deliberate C# placeholders, not accidental constants: the C# implementation has no MIME body or attachment state yet.
 - [ ] Port XPScript MIME body state (`SetBodyHTML`/MIME bytes) and attachment collection before changing these properties to dynamic values.
 - [ ] Add fulltest coverage for MIME and attachment composition after that implementation exists.
-- [ ] Do not remove deliberate real constants that are part of the Notes contract without verifying the native/API meaning.
+- [x] Do not remove deliberate real constants that are part of the Notes contract without verifying the native/API meaning; the remaining constants are documented and tested.
 
 ### NotesSession environment audit
 
