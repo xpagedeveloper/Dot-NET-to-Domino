@@ -14,6 +14,7 @@ public sealed class NotesMail : NotesObject
     private string _deliveryPriority = "N";
     private string _deliveryReport = "N";
     private bool _returnReceipt;
+    private readonly List<string> _attachments = [];
 
     internal NotesMail(NotesSession session) : base(session) => _from = session.UserName;
 
@@ -41,8 +42,18 @@ public sealed class NotesMail : NotesObject
     public bool ReturnReceipt { get { EnsureAlive(); return _returnReceipt; } set { EnsureAlive(); _returnReceipt = value; } }
     /// <summary>Whether this mail has MIME content. MIME composition is not implemented yet.</summary>
     public bool IsMIME { get { EnsureAlive(); return false; } }
-    /// <summary>Number of attachments. Attachments are not implemented yet.</summary>
-    public int AttachmentCount { get { EnsureAlive(); return 0; } }
+    /// <summary>Number of rich-text file attachments.</summary>
+    public int AttachmentCount { get { EnsureAlive(); return _attachments.Count; } }
+
+    /// <summary>Adds a file attachment to the rich-text mail body.</summary>
+    public void AddAttachment(string sourcePath)
+    {
+        EnsureAlive();
+        ArgumentException.ThrowIfNullOrWhiteSpace(sourcePath);
+        if (!File.Exists(sourcePath)) throw new FileNotFoundException("Mail attachment was not found.", sourcePath);
+        if (_attachments.Any(path => string.Equals(path, sourcePath, StringComparison.OrdinalIgnoreCase))) return;
+        _attachments.Add(sourcePath);
+    }
 
     /// <summary>Sets the plain-text body and clears other body modes.</summary>
     public void SetBodyText(string? text) { EnsureAlive(); _body = text ?? string.Empty; }
@@ -66,7 +77,16 @@ public sealed class NotesMail : NotesObject
         if (_replyTo.Length > 0) document.ReplaceItemValue("ReplyTo", _replyTo);
         if (_principal.Length > 0) document.ReplaceItemValue("Principal", _principal);
         if (_subject.Length > 0) document.ReplaceItemValue("Subject", _subject);
-        document.ReplaceItemValue("Body", _body);
+        if (_attachments.Count == 0)
+        {
+            document.ReplaceItemValue("Body", _body);
+        }
+        else
+        {
+            using var richText = document.CreateRichTextItem("Body");
+            richText.AppendText(_body);
+            foreach (var attachment in _attachments) richText.AttachFile(attachment);
+        }
         document.ReplaceItemValue("DeliveryPriority", _deliveryPriority);
         document.ReplaceItemValue("DeliveryReport", _deliveryReport);
         document.ReplaceItemValue("ReturnReceipt", _returnReceipt ? "1" : "0");

@@ -97,6 +97,14 @@ public sealed class NotesRichTextItem : NotesItem
         return Session.Api.SaveRichTextAttachment(Parent.Handle, Name, attachmentName, outputPath);
     }
 
+    /// <summary>Embeds a file attachment in this rich-text item.</summary>
+    public NotesEmbeddedObject AttachFile(string sourcePath)
+    {
+        EnsureItemAlive();
+        ArgumentException.ThrowIfNullOrWhiteSpace(sourcePath);
+        return new NotesEmbeddedObject(Session, this, Session.Api.AttachRichTextFile(Parent.Handle, Name, sourcePath));
+    }
+
     public void AppendText(string value)
     {
         EnsureItemAlive();
