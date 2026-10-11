@@ -25,6 +25,30 @@ These areas have public C# coverage, but XPScript contains additional postproces
 - `NotesDxlImporter`/`NotesDxlExporter` result properties and overloads.
 - `NotesNoteCollection` provenance and `StampAllMulti` behavior.
 
+## Object-by-object inventory
+
+| XPScript object | C# object | Assessment |
+| --- | --- | --- |
+| `NotesSession` | `NotesSession` | Present; environment, password, database-open, address-book, DB-directory, MIME-open, and factory behavior have been audited in part. `CreateMail()` is missing. |
+| `NotesDatabase` | `NotesDatabase` | Present; core open/create/copy, metadata, access, full-text, design, profile, document, agent, and alias surfaces are present. A complete member sweep remains. |
+| `NotesDatabaseAccess` | `NotesDatabaseAccess` | Present; native ACL snapshot path was corrected. Live Domino ACL verification remains. |
+| `NotesDbDirectory` | `NotesDBDirectory` | Present with a .NET naming difference; enumeration/open behavior needs full parity verification. |
+| `NotesDocument` | `NotesDocument` | Present; metadata, item, MIME, response, send/save/remove and ComputeWithForm surfaces exist. Overload and runtime-error parity still needs a complete sweep. |
+| `NotesDocumentCollection` | `NotesDocumentCollection` | Present; search/modified/provenance and collection operations exist. Stamp/provenance edge cases remain. |
+| `NotesNoteCollection` | `NotesNoteCollection` | Present; selection and set operations exist. XPScript provenance and `StampAllMulti` require focused review. |
+| `NotesItem` / `NotesRichTextItem` | Same | Present; item and rich-text entrypoints exist, but native mutation/attachment/HTML coverage is incomplete. |
+| `NotesMIMEEntity` / `NotesMIMEHeader` | Same | Entity is partial; header is a placeholder and child/header/mutation APIs are not implemented. |
+| `NotesMail` | **Missing** | XPScript has a complete mail object and `NotesSession.CreateMail()` factory; no equivalent C# type/factory exists. |
+| `NotesView` / `NotesViewColumn` | Same | Present; navigation and column surfaces exist. Cache/history/max-level and column edge semantics need comparison. |
+| `NotesViewEntry` / collections / navigator | Same | Present; broad surface exists. XPScript-specific navigation/cache behavior needs validation. |
+| `NotesAgent` / result | Same | Present; runtime parity branch was merged. Live native verification remains. |
+| `NotesForm` | Same | Present as a design-note wrapper; full property/method parity needs review. |
+| `NotesStream` | Same | Present; stream ABI and boundary behavior need comparison against `NotesStreamPostProcessor`. |
+| `NotesName` / `NotesDateTime` | Same | Present; conversion and formatting edge cases need comparison. |
+| `NotesDXLImporter` / `NotesDXLExporter` | Same | Present; result-property and overload parity needs review. |
+| Rich-text linked objects | Same family | Section, table, doclink, color, navigator, range and style types are present; structural mutation remains incomplete. |
+| `NotesEmbeddedObject` | Same | Present; binary-array and attachment semantics need comparison. |
+
 ## Scope rule
 
 Only behavior confirmed in the XPScript implementation and backed by a verified Domino native contract should be added to the public API. Unsupported members should remain explicit rather than returning fabricated values or silently doing nothing.
