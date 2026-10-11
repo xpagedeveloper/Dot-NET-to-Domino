@@ -45,6 +45,15 @@ public sealed class NotesDocumentCollection : NotesObject, IReadOnlyCollection<u
         return _noteIds.Length == 0 ? ResetAndNull() : OpenAt(0);
     }
 
+    public NotesDocument? GetLastDocument() => EnsureAndOpen(_noteIds.Length - 1);
+    public NotesDocument? GetNthDocument(int index) => EnsureAndOpen(index - 1);
+    public NotesDocument? GetPrevDocument(NotesDocument document)
+    {
+        ArgumentNullException.ThrowIfNull(document); EnsureAlive(); EnsureSameReplica(document.ParentDatabase);
+        var index = Array.IndexOf(_noteIds, document.NoteId);
+        return EnsureAndOpen(index - 1);
+    }
+
     public NotesDocument? GetNextDocument(NotesDocument document)
     {
         ArgumentNullException.ThrowIfNull(document);
@@ -108,6 +117,18 @@ public sealed class NotesDocumentCollection : NotesObject, IReadOnlyCollection<u
         RemoveIds(collection._noteIds);
     }
 
+    public void StampAll(string itemName, object? value)
+    {
+        EnsureAlive(); ArgumentException.ThrowIfNullOrWhiteSpace(itemName);
+        foreach (var noteId in _noteIds.ToArray()) using (var document = Parent.GetDocumentByID(noteId) ?? throw new NotesException(4091, $"NotesDocument {noteId:X8} could not be opened while stamping.")) { document.SetValue(itemName.Trim(), value); document.Save(); }
+    }
+
+    public void MarkAllRead(string? userName = null) { EnsureAlive(); foreach (var id in _noteIds) Session.Api.SetDocumentUnread(Parent.Handle, id, string.IsNullOrWhiteSpace(userName) ? Session.Username : userName, false); }
+    public void MarkAllUnread(string? userName = null) { EnsureAlive(); foreach (var id in _noteIds) Session.Api.SetDocumentUnread(Parent.Handle, id, string.IsNullOrWhiteSpace(userName) ? Session.Username : userName, true); }
+    public void PutAllInFolder(string folderName, bool createOnFail = false) { EnsureAlive(); ArgumentException.ThrowIfNullOrWhiteSpace(folderName); foreach (var id in _noteIds) Session.Api.PutDocumentInFolder(Parent.Handle, id, folderName.Trim(), createOnFail); ResetCursor(); }
+    public void RemoveAllFromFolder(string folderName) { EnsureAlive(); ArgumentException.ThrowIfNullOrWhiteSpace(folderName); foreach (var id in _noteIds) Session.Api.RemoveDocumentFromFolder(Parent.Handle, id, folderName.Trim()); ResetCursor(); }
+    public void RemoveAll(bool force = false) { EnsureAlive(); _noteIds = _noteIds.Where(id => !Session.Api.DeleteNote(Parent.Handle, id, force)).ToArray(); ResetCursor(); }
+
     /// <summary>Copies all items from a source document to every document in the collection and saves them.</summary>
     public void StampAllMulti(NotesDocument sourceDocument)
     {
@@ -156,6 +177,13 @@ public sealed class NotesDocumentCollection : NotesObject, IReadOnlyCollection<u
         _lastFetchedIndex = index;
         _lastFetchedNoteId = _noteIds[index];
         return document;
+    }
+
+    private NotesDocument? EnsureAndOpen(int index)
+    {
+        EnsureAlive();
+        if (index < 0 || index >= _noteIds.Length) return ResetAndNull();
+        return OpenAt(index);
     }
 
     private NotesDocument? ResetAndNull() { ResetCursor(); return null; }
