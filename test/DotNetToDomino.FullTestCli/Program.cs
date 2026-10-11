@@ -232,6 +232,8 @@ else
     {
         using var database = session.GetDatabase(server, databasePath, false) ?? throw new InvalidOperationException("Database not found.");
         using var document = database.CreateDocument();
+        try { _ = document.GetFirstItem(null!); throw new InvalidOperationException("Null item name was accepted."); }
+        catch (ArgumentNullException ex) when (ex.ParamName == "itemName") { }
         document.ReplaceItemValue("FullTestItem", "value").Recycle();
         using var item = document.GetFirstItem("FullTestItem") ?? throw new InvalidOperationException("Item was not created.");
         if (item.Text != "value" || item.Values.Length != 1) throw new InvalidOperationException("Item value round trip failed.");
