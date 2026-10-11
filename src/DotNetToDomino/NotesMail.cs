@@ -15,6 +15,7 @@ public sealed class NotesMail : NotesObject
     private string _deliveryReport = "N";
     private bool _returnReceipt;
     private readonly List<string> _attachments = [];
+    private Action<NotesRichTextItem>? _richTextComposer;
 
     internal NotesMail(NotesSession session) : base(session) => _from = session.UserName;
 
@@ -56,7 +57,16 @@ public sealed class NotesMail : NotesObject
     }
 
     /// <summary>Sets the plain-text body and clears other body modes.</summary>
-    public void SetBodyText(string? text) { EnsureAlive(); _body = text ?? string.Empty; }
+    public void SetBodyText(string? text) { EnsureAlive(); _richTextComposer = null; _body = text ?? string.Empty; }
+
+    /// <summary>Configures a rich-text body. The callback runs against the new Body item during Send.</summary>
+    public void SetBodyRichText(Action<NotesRichTextItem> compose)
+    {
+        EnsureAlive();
+        ArgumentNullException.ThrowIfNull(compose);
+        _richTextComposer = compose;
+        _body = string.Empty;
+    }
 
     /// <summary>Sends the memo through the configured Notes mail database.</summary>
     public void Send()
@@ -77,14 +87,15 @@ public sealed class NotesMail : NotesObject
         if (_replyTo.Length > 0) document.ReplaceItemValue("ReplyTo", _replyTo);
         if (_principal.Length > 0) document.ReplaceItemValue("Principal", _principal);
         if (_subject.Length > 0) document.ReplaceItemValue("Subject", _subject);
-        if (_attachments.Count == 0)
+        if (_richTextComposer is null && _attachments.Count == 0)
         {
             document.ReplaceItemValue("Body", _body);
         }
         else
         {
             using var richText = document.CreateRichTextItem("Body");
-            richText.AppendText(_body);
+            if (_richTextComposer is not null) _richTextComposer(richText);
+            else richText.AppendText(_body);
             foreach (var attachment in _attachments) richText.AttachFile(attachment);
         }
         document.ReplaceItemValue("DeliveryPriority", _deliveryPriority);
