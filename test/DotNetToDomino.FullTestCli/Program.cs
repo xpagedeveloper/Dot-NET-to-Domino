@@ -87,6 +87,7 @@ Check("NuGet assembly loaded", () =>
         ("NotesMIMEEntity.GetPrevSibling", typeof(NotesMIMEEntity).GetMethod(nameof(NotesMIMEEntity.GetPrevSibling), Type.EmptyTypes)),
         ("NotesMIMEEntity.GetParentEntity", typeof(NotesMIMEEntity).GetMethod(nameof(NotesMIMEEntity.GetParentEntity), Type.EmptyTypes)),
         ("NotesMIMEEntity.GetNextEntity", typeof(NotesMIMEEntity).GetMethod(nameof(NotesMIMEEntity.GetNextEntity), Type.EmptyTypes)),
+        ("NotesMIMEEntity.GetNextEntitySearch", typeof(NotesMIMEEntity).GetMethod(nameof(NotesMIMEEntity.GetNextEntity), new[] { typeof(int) })),
         ("NotesView.GetEntryByKey", typeof(NotesView).GetMethod(nameof(NotesView.GetEntryByKey), new[] { typeof(string) })),
         ("NotesDBDirectory.GetFirstDatabase", typeof(NotesDBDirectory).GetMethod(nameof(NotesDBDirectory.GetFirstDatabase), new[] { typeof(int) })),
         ("NotesDBDirectory.GetNextDatabase", typeof(NotesDBDirectory).GetMethod(nameof(NotesDBDirectory.GetNextDatabase), Type.EmptyTypes)),
