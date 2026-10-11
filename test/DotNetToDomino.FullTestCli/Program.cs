@@ -157,6 +157,10 @@ else
         catch (ArgumentNullException ex) when (ex.ParamName == "password") { }
         try { _ = session.VerifyPassword("password", null!); throw new InvalidOperationException("Null password hash was accepted."); }
         catch (ArgumentNullException ex) when (ex.ParamName == "hashedPassword") { }
+        try { _ = session.CreateName(null!); throw new InvalidOperationException("Null name was accepted."); }
+        catch (ArgumentNullException ex) when (ex.ParamName == "value") { }
+        try { _ = session.CreateDateTime("   "); throw new InvalidOperationException("Blank date/time was accepted."); }
+        catch (ArgumentException ex) when (ex.ParamName == "value") { }
         using var directory = session.GetDbDirectory(server);
         try { _ = directory.GetFirstDatabase(11); throw new InvalidOperationException("Invalid database type was accepted."); }
         catch (ArgumentOutOfRangeException ex) when (ex.ParamName == "type") { }
