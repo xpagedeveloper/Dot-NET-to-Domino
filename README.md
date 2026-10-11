@@ -43,6 +43,19 @@ Console.WriteLine(db.IsOpen);
 
 The HCL Notes or Domino native runtime must already be installed and licensed on the machine running the application.
 
+## Null safety
+
+The NuGet assembly enables C# nullable reference annotations and treats compiler warnings as errors when building this repository. APIs that may not find a Notes object return nullable types, for example `NotesDocument?`:
+
+```csharp
+var document = db.GetDocumentByUNID(unid)
+    ?? throw new InvalidOperationException("The document could not be opened.");
+
+Console.WriteLine(document.ParentDatabase.ReplicaID);
+```
+
+Required arguments are validated before native calls and produce clear `ArgumentNullException`, `ArgumentException`, or `ArgumentOutOfRangeException` errors. A member access on a variable that is already null happens in the caller before the library can run; use nullable warnings and an explicit null check as shown above.
+
 ## Repository layout
 
 ```text
