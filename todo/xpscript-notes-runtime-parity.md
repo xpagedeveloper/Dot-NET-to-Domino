@@ -557,6 +557,13 @@ For each object, add a sub-section to this TODO if differences are found.
 
 ## Native ABI and lifecycle audit
 
+### Completed reviews for this branch
+
+- [x] `TimeConstant` uses Winapi calling convention, `WORD` constant selector, and an out `TIMEDATE` value; constant `2` is used for Domino wildcard time/date.
+- [x] `TimeLocalToGM` uses a by-reference expanded-time structure and returns an integer status that is checked before copying the resulting `TIMEDATE`.
+- [x] Root MIME stream calls use Winapi delegates with explicit `WORD` item-name lengths, `DWORD` stream flags/byte counts, and `MIMEStreamClose` in `finally` blocks.
+- [x] Root MIME buffers are copied into managed arrays and freed with `Marshal.FreeHGlobal`; no native buffer ownership crosses the public C# API.
+
 For every newly ported native function:
 
 - [ ] Confirm calling convention.
