@@ -75,7 +75,17 @@ public sealed class NotesMIMEEntity : NotesObject
         }
         return null;
     }
-    public NotesMIMEHeader CreateHeader(string name) => throw Unsupported(nameof(CreateHeader));
+    public NotesMIMEHeader CreateHeader(string name)
+    {
+        EnsureRootEntity(nameof(CreateHeader));
+        ValidateHeaderName(name);
+        var headers = ReadRootHeaderValues();
+        var normalizedName = name.Trim();
+        headers.Add((normalizedName, string.Empty));
+        RewriteRootHeaders(headers);
+        var occurrence = headers.Count(header => header.Name.Equals(normalizedName, StringComparison.OrdinalIgnoreCase));
+        return new NotesMIMEHeader(Session, this, normalizedName, occurrence);
+    }
     public string GetSomeHeaders(string headerNames) { EnsureEntityAlive(); return ReadRootHeaders(headerNames); }
     public void GetContentAsBytes(NotesStream stream) { EnsureEntityAlive(); ArgumentNullException.ThrowIfNull(stream); stream.Write(ReadRootContent(nameof(GetContentAsBytes))); }
     public void GetContentAsText(NotesStream stream, bool entityCharset = false) { EnsureEntityAlive(); ArgumentNullException.ThrowIfNull(stream); stream.WriteText(ReadRootText(nameof(GetContentAsText))); }
@@ -192,6 +202,49 @@ public sealed class NotesMIMEEntity : NotesObject
         throw new NotesException(5, "MIME header is no longer present on the entity.");
     }
 
+    internal void SetHeader(string name, int occurrence, string value, bool remove)
+    {
+        EnsureRootEntity(nameof(SetHeader));
+        ValidateHeaderValue(value);
+        var headers = ReadRootHeaderValues();
+        var index = -1;
+        var found = 0;
+        for (var i = 0; i < headers.Count; i++)
+        {
+            if (!headers[i].Name.Equals(name, StringComparison.OrdinalIgnoreCase)) continue;
+            if (++found == occurrence) { index = i; break; }
+        }
+        if (index < 0) throw new NotesException(5, "MIME header is no longer present on the entity.");
+        if (remove) headers.RemoveAt(index); else headers[index] = (headers[index].Name, value);
+        RewriteRootHeaders(headers);
+    }
+
+    private void RewriteRootHeaders(List<(string Name, string Value)> headers)
+    {
+        var raw = ReadRootEntity(nameof(RewriteRootHeaders));
+        var bodyOffset = FindRootBodyOffset(raw);
+        var body = bodyOffset >= raw.Length ? [] : raw[bodyOffset..];
+        var headerText = headers.Count == 0 ? string.Empty : string.Join("\r\n", headers.Select(header => header.Name + ": " + header.Value)) + "\r\n\r\n";
+        var headerBytes = System.Text.Encoding.Latin1.GetBytes(headerText);
+        var rewritten = new byte[headerBytes.Length + body.Length];
+        Buffer.BlockCopy(headerBytes, 0, rewritten, 0, headerBytes.Length);
+        Buffer.BlockCopy(body, 0, rewritten, headerBytes.Length, body.Length);
+        Session.Api.WriteMimeStream(_document.Handle, _itemName, rewritten);
+        _document.InvalidateMimeDirectory();
+    }
+
+    private static void ValidateHeaderName(string? name)
+    {
+        if (string.IsNullOrWhiteSpace(name) || name.Contains(':') || name.Contains('\r') || name.Contains('\n'))
+            throw new NotesException(5, "Invalid MIME header name.");
+    }
+
+    private static void ValidateHeaderValue(string? value)
+    {
+        if (value is not null && (value.Contains('\r') || value.Contains('\n')))
+            throw new NotesException(5, "Invalid MIME header value.");
+    }
+
     private List<(string Name, string Value)> ReadRootHeaderValues()
     {
         var raw = ReadRootEntity(nameof(ReadRootHeaderValues));
@@ -298,6 +351,15 @@ public sealed class NotesMIMEHeader : NotesObject
         }
         return string.Empty;
     }
+
+    /// <summary>Replaces the MIME header value.</summary>
+    public void SetHeaderVal(string? value) { EnsureAlive(); _entity.SetHeader(_name, _occurrence, value ?? string.Empty, false); }
+    /// <summary>Replaces the MIME header value including parameters.</summary>
+    public void SetHeaderValAndParams(string? value) => SetHeaderVal(value);
+    /// <summary>Appends text to the MIME header value.</summary>
+    public void AddValText(string? value) { EnsureAlive(); SetHeaderVal(GetHeaderVal() + (value ?? string.Empty)); }
+    /// <summary>Removes this MIME header.</summary>
+    public void Remove() { EnsureAlive(); _entity.SetHeader(_name, _occurrence, string.Empty, true); Recycle(); }
 
     protected override void ReleaseNative() { }
 }

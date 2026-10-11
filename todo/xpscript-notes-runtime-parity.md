@@ -54,7 +54,7 @@ Status markers:
 - [~] Add `NotesMIMEHeader` based on current XPScript code; root header lookup/value/parameter reads are implemented from the serialized MIME stream.
 - [x] Port root header access from `NotesMIMEEntity`.
 - [x] Port root header name/value getters.
-- [ ] Port header value setters/overloads implemented by XPScript.
+- [~] Port root header value setters/overloads implemented by XPScript; child-entity mutation remains.
 - [ ] Port header parameter access/mutation if implemented.
 - [ ] Port header removal and `RemoveHeaders` behavior.
 - [ ] Verify header enumeration and duplicate-header semantics.

@@ -32,6 +32,10 @@ The required columns are `Member`, `Syntax`, `Parameters`, `Description`, and `E
 | `NotesMIMEHeader.HeaderName` | `header.HeaderName` | none | Gets the root MIME header name. | [MIME parity](../todo/xpscript-notes-runtime-parity.md) |
 | `NotesMIMEHeader.GetHeaderVal` | `header.GetHeaderVal()` | none | Gets the root MIME header value. | [MIME parity](../todo/xpscript-notes-runtime-parity.md) |
 | `NotesMIMEHeader.GetParamVal` | `header.GetParamVal(name)` | `name`: MIME parameter name. | Gets a root MIME header parameter. | [MIME parity](../todo/xpscript-notes-runtime-parity.md) |
+| `NotesMIMEHeader.SetHeaderVal` | `header.SetHeaderVal(value)` | `value`: replacement value. | Replaces a root MIME header value. | [MIME parity](../todo/xpscript-notes-runtime-parity.md) |
+| `NotesMIMEHeader.SetHeaderValAndParams` | `header.SetHeaderValAndParams(value)` | `value`: replacement value and parameters. | Replaces a root MIME header value and parameters. | [MIME parity](../todo/xpscript-notes-runtime-parity.md) |
+| `NotesMIMEHeader.AddValText` | `header.AddValText(value)` | `value`: text to append. | Appends text to a root MIME header value. | [MIME parity](../todo/xpscript-notes-runtime-parity.md) |
+| `NotesMIMEHeader.Remove` | `header.Remove()` | none | Removes a root MIME header. | [MIME parity](../todo/xpscript-notes-runtime-parity.md) |
 | `NotesView.GetFirstDocument` | `view.GetFirstDocument()` | none | Returns the first document in a view. | [README](../README.md) |
 | `NotesView.CreateViewNav` | `view.CreateViewNav()` | none | Creates a view navigator. | [README](../README.md) |
 | `NotesStream.Read` | `stream.Read(maxBytes)` | `maxBytes`: requested byte count. | Reads bytes from a Notes stream. | [README](../README.md) |
