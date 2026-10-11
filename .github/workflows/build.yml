@@ -25,6 +25,9 @@ jobs:
         run: dotnet restore test/DotNetToDomino.Integration/DotNetToDomino.Integration.csproj
       - name: Build integration test
         run: dotnet build test/DotNetToDomino.Integration/DotNetToDomino.Integration.csproj -c Release --no-restore
+      - name: Validate IntelliSense API documentation
+        shell: pwsh
+        run: ./scripts/validate-intellisense-api-docs.ps1
       - name: Pack
         run: dotnet pack src/DotNetToDomino/DotNetToDomino.csproj -c Release --no-build -o artifacts
       - uses: actions/upload-artifact@v4
