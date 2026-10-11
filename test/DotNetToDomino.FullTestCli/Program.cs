@@ -114,7 +114,11 @@ Check("NuGet assembly loaded", () =>
         ("NotesViewEntryCollection.GetNextEntry", typeof(NotesViewEntryCollection).GetMethod(nameof(NotesViewEntryCollection.GetNextEntry), new[] { typeof(NotesViewEntry) })),
         ("NotesViewEntryCollection.GetPrevEntry", typeof(NotesViewEntryCollection).GetMethod(nameof(NotesViewEntryCollection.GetPrevEntry), new[] { typeof(NotesViewEntry) })),
         ("NotesViewEntryCollection.GetNthEntry", typeof(NotesViewEntryCollection).GetMethod(nameof(NotesViewEntryCollection.GetNthEntry), new[] { typeof(int) })),
-        ("NotesViewEntryCollection.GetEntry", typeof(NotesViewEntryCollection).GetMethod(nameof(NotesViewEntryCollection.GetEntry), new[] { typeof(NotesDocument) }))
+        ("NotesViewEntryCollection.GetEntry", typeof(NotesViewEntryCollection).GetMethod(nameof(NotesViewEntryCollection.GetEntry), new[] { typeof(NotesDocument) })),
+        ("NotesViewNavigator.GetNextEntry", typeof(NotesViewNavigator).GetMethod(nameof(NotesViewNavigator.GetNext), new[] { typeof(NotesViewEntry) })),
+        ("NotesViewNavigator.GetPrevEntry", typeof(NotesViewNavigator).GetMethod(nameof(NotesViewNavigator.GetPrev), new[] { typeof(NotesViewEntry) })),
+        ("NotesViewNavigator.GetNextDocumentEntry", typeof(NotesViewNavigator).GetMethod(nameof(NotesViewNavigator.GetNextDocument), new[] { typeof(NotesViewEntry) })),
+        ("NotesViewNavigator.GetPrevDocumentEntry", typeof(NotesViewNavigator).GetMethod(nameof(NotesViewNavigator.GetPrevDocument), new[] { typeof(NotesViewEntry) }))
     };
     foreach (var (name, method) in nullableObjectLookups)
         if (method is null || new NullabilityInfoContext().Create(method.ReturnParameter).ReadState != NullabilityState.Nullable) throw new InvalidOperationException($"{name} must be annotated as nullable.");
