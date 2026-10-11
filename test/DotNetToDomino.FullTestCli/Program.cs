@@ -18,13 +18,29 @@ Check("public API surface", () =>
     if (types.Length == 0) throw new InvalidOperationException("No exported types found.");
     foreach (var type in types)
     {
+        if (type.FullName!.Contains("XPScript", StringComparison.OrdinalIgnoreCase) || type.FullName.Contains("LSArray", StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException($"Forbidden reference type leaked into public API: {type.FullName}.");
         foreach (var property in type.GetProperties(BindingFlags.Public | BindingFlags.Instance | BindingFlags.Static))
+        {
             if (property.GetMethod is null && property.SetMethod is null) throw new InvalidOperationException($"{type.Name}.{property.Name} has no accessor.");
+            EnsureCSharpType(property.PropertyType, $"{type.Name}.{property.Name}");
+        }
         foreach (var method in type.GetMethods(BindingFlags.Public | BindingFlags.Instance | BindingFlags.Static).Where(m => !m.IsSpecialName))
+        {
             if (method.ContainsGenericParameters) throw new InvalidOperationException($"{type.Name}.{method.Name} has open generic parameters.");
+            EnsureCSharpType(method.ReturnType, $"{type.Name}.{method.Name} return type");
+            foreach (var parameter in method.GetParameters()) EnsureCSharpType(parameter.ParameterType, $"{type.Name}.{method.Name} parameter {parameter.Name}");
+        }
     }
     Console.WriteLine($"  Audited {types.Length} exported types.");
 });
+
+void EnsureCSharpType(Type type, string member)
+{
+    if (type.FullName?.Contains("XPScript", StringComparison.OrdinalIgnoreCase) == true || type.FullName?.Contains("LSArray", StringComparison.OrdinalIgnoreCase) == true)
+        throw new InvalidOperationException($"Forbidden XPScript type leaked through {member}: {type.FullName}.");
+    foreach (var argument in type.IsArray ? new[] { type.GetElementType()! } : type.IsGenericType ? type.GetGenericArguments() : Array.Empty<Type>()) EnsureCSharpType(argument, member);
+}
 
 var runtime = Environment.GetEnvironmentVariable("NOTES_RUNTIME");
 if (string.IsNullOrWhiteSpace(runtime)) failures.Add("NOTES_RUNTIME is not set; native full tests cannot run.");

@@ -27,6 +27,8 @@ CI builds the project to catch public API/compiler regressions. Native execution
 
 `DotNetToDomino.FullTestCli` consumes the locally generated NuGet package, audits the exported API by reflection, and runs native smoke tests. Failures are printed with the fully qualified C# exception type and return exit code `1`.
 
+The CLI also rejects any public API type, property, return value, or parameter that leaks an XPScript/`LSArray` type. XPScript is used only as a behavioral reference; the exposed surface must use C#/.NET types.
+
 Build the package and run it with `NOTES_RUNTIME` set:
 
 ```shell
