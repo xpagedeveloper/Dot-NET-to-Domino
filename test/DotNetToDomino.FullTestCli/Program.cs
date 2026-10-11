@@ -159,8 +159,14 @@ else
         catch (ArgumentNullException ex) when (ex.ParamName == "hashedPassword") { }
         try { _ = session.CreateName(null!); throw new InvalidOperationException("Null name was accepted."); }
         catch (ArgumentNullException ex) when (ex.ParamName == "value") { }
-        try { _ = session.CreateDateTime("   "); throw new InvalidOperationException("Blank date/time was accepted."); }
-        catch (ArgumentException ex) when (ex.ParamName == "value") { }
+        using (var dateTime = session.CreateDateTime(null!))
+        {
+            if (dateTime.Value is null) throw new InvalidOperationException("CreateDateTime(null) did not create a current date/time value.");
+        }
+        using (var blankDateTime = session.CreateDateTime("   "))
+        {
+            if (blankDateTime.Value is null) throw new InvalidOperationException("CreateDateTime(blank) did not create a current date/time value.");
+        }
         using var directory = session.GetDbDirectory(server);
         try { _ = directory.GetFirstDatabase(11); throw new InvalidOperationException("Invalid database type was accepted."); }
         catch (ArgumentOutOfRangeException ex) when (ex.ParamName == "type") { }

@@ -60,7 +60,7 @@ public sealed class NotesSession : IDisposable
     public NotesDatabase OpenByReplicaID(string server, string replicaId) { EnsureAlive(); ArgumentException.ThrowIfNullOrWhiteSpace(replicaId); server = server?.Trim() ?? string.Empty; replicaId = replicaId.Trim(); try { var filePath = _api.LocateDatabaseByReplicaId(server, replicaId); if (filePath.Length == 0) return new NotesDatabase(this, 0, server, filePath, replicaId); return new NotesDatabase(this, _api.OpenDatabase(server, filePath), server, filePath, replicaId); } catch (NotesException ex) { return new NotesDatabase(this, 0, server, string.Empty, replicaId, ex.Message); } }
     public NotesDBDirectory GetDbDirectory(string? server = null) { EnsureAlive(); return new NotesDBDirectory(this, server?.Trim() ?? string.Empty); }
     public NotesName CreateName(string value) { EnsureAlive(); ArgumentException.ThrowIfNullOrWhiteSpace(value); return new NotesName(this, value.Trim()); }
-    public NotesDateTime CreateDateTime(string value) { EnsureAlive(); ArgumentException.ThrowIfNullOrWhiteSpace(value); return new NotesDateTime(this, value.Trim()); }
+    public NotesDateTime CreateDateTime(string? value) { EnsureAlive(); return string.IsNullOrWhiteSpace(value) ? CreateDateTimeNow() : new NotesDateTime(this, value.Trim()); }
     public NotesDateTime CreateDateTimeNow() { EnsureAlive(); return NotesDateTime.FromNative(this, _api.CurrentTimeDate()); }
     public NotesStream CreateStream() { EnsureAlive(); return new NotesStream(this); }
     public NotesMail CreateMail() { EnsureAlive(); return new NotesMail(this); }
