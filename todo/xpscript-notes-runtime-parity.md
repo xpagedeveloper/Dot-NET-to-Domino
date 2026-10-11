@@ -7,6 +7,42 @@ Target project: `xpagedeveloper/Dot-NET-to-Domino`
 
 Baseline target: `aac605230669166c1a0c44efaa6198ed31d37500` (`main` when this TODO was created).
 
+## Remaining confirmed gaps
+
+This is the current implementation queue. Older repeated sections in this file are historical audit snapshots; use this section for the present status.
+
+### NotesMail
+
+- [ ] Add MIME mail composition and make `IsMIME`/`AttachmentCount` reflect the actual message state.
+- [ ] Add rich-text mail bodies with the same validation and send behavior as XPScript.
+- [ ] Add mail attachments and verify native item/attachment ownership.
+- [ ] Verify all mail delivery options and send error paths against the native mail runtime.
+
+### MIME child entities and headers
+
+- [ ] Implement `AppendChildEntity` when the native child-entity creation ABI is verified.
+- [ ] Implement child-entity content reads and writes, including nested multipart entities.
+- [ ] Implement child-entity removal and invalidate all affected managed handles safely.
+- [ ] Implement child-header creation, mutation, and removal with verified native handles.
+- [ ] Verify multipart MIME behavior and lifecycle against a live Domino runtime.
+
+### Rich-text structural mutation
+
+- [ ] Implement rich-text object `Remove()` operations when atomic CD-record rewrite/delete support is available.
+- [ ] Complete native-backed rich-text HTML, linked-object, and attachment mutation coverage.
+
+### Remaining object parity audits
+
+- [ ] Complete `NotesDocumentCollection`/`NotesNoteCollection` provenance and `StampAllMulti` parity.
+- [ ] Complete the remaining `NotesDatabase` full-text, design, metadata, and alias edge-case sweep.
+- [ ] Complete `NotesView`/`NotesViewNavigator` cache, history, max-level, and column edge-case parity.
+- [ ] Complete the remaining Notes object/member inventory against the current XPScript surface.
+
+### Runtime verification
+
+- [ ] Run native Domino tests for ACL, `OpenByReplicaID`, `ConvertMIME`, MIME multipart, and handle lifecycle behavior.
+- [ ] Inspect and record the exact final-head CI result for the completed parity branch.
+
 ## Rules for this work
 
 For every Notes object/member below, do not compare only names or signatures. Inspect the physical XPScript implementation behind the member and trace it through its native helper(s).
