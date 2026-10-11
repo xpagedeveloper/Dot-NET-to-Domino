@@ -74,6 +74,7 @@ Runtime parity notes:
 - [NotesAgent runtime parity](docs/agent-runtime-parity.md)
 - [XPScript Notes surface gap audit](docs/xpscript-missing-notes-surface.md)
 - [Machine-readable IntelliSense API reference](docs/intellisense-api-reference.md)
+- [Third-party notices and dependency policy](THIRD-PARTY-NOTICES.md)
 - `NotesStream`
 - `NotesDXLImporter`
 - `NotesDXLExporter`
