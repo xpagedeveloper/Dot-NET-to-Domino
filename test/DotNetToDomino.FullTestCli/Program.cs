@@ -30,6 +30,8 @@ Check("NuGet assembly loaded", () =>
     if (typeof(NotesViewEntry).GetProperty(nameof(NotesViewEntry.Parent))?.PropertyType != typeof(NotesView)) throw new InvalidOperationException("NotesViewEntry.Parent is missing.");
     if (typeof(NotesRichTextItem).GetMethod(nameof(NotesRichTextItem.AppendParagraphStyle), new[] { typeof(NotesRichTextParagraphStyle) }) is null) throw new InvalidOperationException("NotesRichTextItem.AppendParagraphStyle is missing.");
     if (typeof(NotesDateTime).GetMethod(nameof(NotesDateTime.SetAnyDate), Type.EmptyTypes) is null || typeof(NotesDateTime).GetMethod(nameof(NotesDateTime.SetAnyTime), Type.EmptyTypes) is null) throw new InvalidOperationException("NotesDateTime wildcard methods are missing.");
+    foreach (var property in new[] { nameof(NotesDateTime.DateOnly), nameof(NotesDateTime.TimeOnly), nameof(NotesDateTime.GMTTime), nameof(NotesDateTime.ZoneTime) })
+        if (typeof(NotesDateTime).GetProperty(property)?.PropertyType != typeof(string)) throw new InvalidOperationException($"NotesDateTime.{property} is missing.");
     if (typeof(NotesMail).GetProperty(nameof(NotesMail.IsMIME))?.PropertyType != typeof(bool) || typeof(NotesMail).GetProperty(nameof(NotesMail.AttachmentCount))?.PropertyType != typeof(int)) throw new InvalidOperationException("NotesMail MIME/attachment state surface is missing.");
     foreach (var property in new[] { nameof(NotesDatabaseAccess.NamesList), nameof(NotesDatabaseAccess.Groups), nameof(NotesDatabaseAccess.Roles) })
         if (typeof(NotesDatabaseAccess).GetProperty(property)?.PropertyType != typeof(string[])) throw new InvalidOperationException($"NotesDatabaseAccess.{property} must return string[].");

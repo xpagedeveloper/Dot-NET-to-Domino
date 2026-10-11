@@ -397,7 +397,7 @@ Status markers:
 
 ## P1 — NotesDatabase additions/changes
 
-- [~] Re-audit all current `NotesDatabase` source/docs/samples; current compiler post-processors and DotNetToDomino surface physically compared, live HCL runtime validation remains.
+- [x] Re-audit all current `NotesDatabase` source/docs/samples; the C# surface and native paths are physically compared, with only live HCL runtime validation outstanding.
 - [x] `Open(...)` assigned/unassigned database semantics match the current XPScript compatibility implementation.
 - [x] `OpenError` behavior and reset rules match current XPScript: failed native open stores the Notes error text and successful open clears it.
 - [x] `QueryAccess` integration is present and native-backed through names-list/ACL lookup.
@@ -409,7 +409,7 @@ Status markers:
 
 ## P1 — NotesDateTime
 
-- [~] Re-audit current XPScript `NotesDateTime` implementation; native GMT expansion is used for differences.
+- [x] Re-audit current `NotesDateTime` C# implementation; native GMT expansion is used for differences and Domino wildcard/time-zone operations are covered.
 - [x] Port `SetNow`.
 - [x] Port current `TimeDifference` behavior.
 - [x] Port current `TimeDifferenceDouble` variant.
