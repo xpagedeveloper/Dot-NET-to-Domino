@@ -1,5 +1,7 @@
 # TODO: Current XPScript Notes runtime parity
 
+See [`docs/xpscript-missing-notes-surface.md`](../docs/xpscript-missing-notes-surface.md) for the current cross-repository gap inventory.
+
 Reference project: `xpagedeveloper/XPscript`
 Target project: `xpagedeveloper/Dot-NET-to-Domino`
 

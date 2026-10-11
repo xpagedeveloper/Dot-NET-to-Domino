@@ -72,6 +72,7 @@ src/
 Runtime parity notes:
 
 - [NotesAgent runtime parity](docs/agent-runtime-parity.md)
+- [XPScript Notes surface gap audit](docs/xpscript-missing-notes-surface.md)
 - `NotesStream`
 - `NotesDXLImporter`
 - `NotesDXLExporter`
