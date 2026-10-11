@@ -29,6 +29,8 @@ CI builds the project to catch public API/compiler regressions. Native execution
 
 The CLI also rejects any public API type, property, return value, or parameter that leaks an XPScript/`LSArray` type. XPScript is used only as a behavioral reference; the exposed surface must use C#/.NET types.
 
+The required mapping is documented in [`docs/xpscript-csharp-type-mapping.md`](../docs/xpscript-csharp-type-mapping.md); in particular, `LSArray` maps to a concrete C# `T[]`.
+
 Build the package and run it with `NOTES_RUNTIME` set:
 
 ```shell
