@@ -67,10 +67,10 @@ Status markers:
 - [x] Port directory server/name properties.
 - [x] Port database enumeration/open behavior.
 - [x] Port first/next database iteration semantics if present in the current public surface.
-- [ ] Port database type filtering and constants used by XPScript.
-- [ ] Verify remote vs local server path behavior.
-- [ ] Verify returned `NotesDatabase` objects are open/closed exactly as XPScript specifies.
-- [ ] Verify native directory/search handles are released correctly.
+- [x] Port database type filtering and constants used by XPScript.
+- [x] Verify remote vs local server path behavior through the shared native search implementation.
+- [x] Verify returned `NotesDatabase` objects are unopened references and `OpenDatabase` returns the opened wrapper.
+- [x] Verify native directory/search handles are released correctly by the enumerator path; live HCL runtime validation remains environment-dependent.
 
 ### NotesDatabaseAccess
 
@@ -517,16 +517,15 @@ Audit every current public Notes object found in XPScript `docs`, `samples`, and
 - [x] `NotesRichTextStyle` — verified style fields, `StyleNoChange`, boolean-style values, and range validation against XPScript.
 - [x] `NotesRichTextParagraphStyle` — verified alignment, spacing, margins, pagination, tab limits/types, and C# array/list mapping for `Tabs`.
 - [x] `NotesColorObject` — verified `NotesColor` range 0–255 and linked-object lifetime behavior.
-- [ ] `NotesForm`
-- [ ] `NotesView`
-- [ ] `NotesViewColumn`
-- [ ] `NotesViewEntry`
-- [ ] `NotesViewNavigator` / equivalent navigator objects
-- [ ] `NotesDocumentCollection`
-- [ ] `NotesNoteCollection`
-- [ ] `NotesAgentResult`
+- [x] `NotesForm`
+- [x] `NotesView`
+- [x] `NotesViewColumn`
+- [x] `NotesViewEntry`
+- [x] `NotesViewNavigator` / equivalent navigator objects
+- [x] `NotesDocumentCollection`
+- [x] `NotesNoteCollection`
 - [x] `NotesAgentResult` — added XPScript-compatible `Success` and `Status`; output normalization and recycle ownership were already present.
-- [ ] Any additional `Notes*` object present in current XPScript docs/runtime but absent from this list.
+- [x] No additional public `Notes*` object was found in the current XPScript docs/runtime that is absent from this list.
 
 For each object, add a sub-section to this TODO if differences are found.
 
