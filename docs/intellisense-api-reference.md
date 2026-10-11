@@ -20,6 +20,7 @@ The required columns are `Member`, `Syntax`, `Parameters`, `Description`, and `E
 | `NotesDBDirectory.GetNextDatabase` | `directory.GetNextDatabase()` | none | Gets the next database in the enumeration. | [TODO](../todo/xpscript-notes-runtime-parity.md) |
 | `NotesDBDirectory.OpenDatabase` | `directory.OpenDatabase(filePath)` | `filePath`: database path. | Opens a database from the directory server. | [TODO](../todo/xpscript-notes-runtime-parity.md) |
 | `NotesDBDirectory.GetFirstDatabase` | `directory.GetFirstDatabase(type)` | one of the four `NotesConst` database type values. | Starts native local/remote database enumeration with validated filtering. | [TODO](../todo/xpscript-notes-runtime-parity.md) |
+| `NotesDatabaseAccess.NamesList/Groups/Roles` | `access.NamesList` etc. | `string[]`. | Maps XPScript string `LSArray` values to concrete C# arrays. | [TODO](../todo/xpscript-notes-runtime-parity.md) |
 | `NotesMail.SendTo` | `mail.SendTo = recipients` | recipients: primary recipients. | Sets primary mail recipients. | [mail parity](xpscript-missing-notes-surface.md) |
 | `NotesMail.Subject` | `mail.Subject = subject` | subject: message subject. | Sets the mail subject. | [mail parity](xpscript-missing-notes-surface.md) |
 | `NotesMail.Body` | `mail.Body = body` | body: plain-text message body. | Sets the plain-text body. | [mail parity](xpscript-missing-notes-surface.md) |

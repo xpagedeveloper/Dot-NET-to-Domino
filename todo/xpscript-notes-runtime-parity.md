@@ -75,6 +75,7 @@ Status markers:
 ### NotesDatabaseAccess
 
 - [ ] Re-audit current XPScript `NotesDatabaseAccess` object against the implementation prepared in the parity branch.
+- [x] Public string `LSArray` values map to concrete C# `string[]` values for `NamesList`, `Groups`, and `Roles`.
 - [ ] Verify `QueryAccess()` and `QueryAccess(userName)`.
 - [ ] Verify `NSFBuildNamesList`, `NSFDbReadACL`, `ACLLookupAccess` ABI declarations.
 - [ ] Verify ACL handle/names-list/roles-list locking and freeing.
