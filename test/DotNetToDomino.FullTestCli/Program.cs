@@ -54,6 +54,11 @@ Check("NuGet assembly loaded", () =>
 Check("public API surface", () =>
 {
     var types = typeof(NotesSession).Assembly.GetExportedTypes().Where(t => t.Namespace == "DotNetToDomino").ToArray();
+    foreach (var type in types.Where(t => !t.IsAbstract && typeof(NotesObject).IsAssignableFrom(t)))
+    {
+        if (!typeof(IDisposable).IsAssignableFrom(type) || type.GetMethod(nameof(NotesObject.Recycle)) is null || type.GetProperty(nameof(NotesObject.IsRecycled))?.PropertyType != typeof(bool))
+            throw new InvalidOperationException($"Notes object {type.Name} does not expose the required Recycle/IsRecycled/IDisposable lifecycle contract.");
+    }
     if (types.Length == 0) throw new InvalidOperationException("No exported types found.");
     foreach (var type in types)
     {
