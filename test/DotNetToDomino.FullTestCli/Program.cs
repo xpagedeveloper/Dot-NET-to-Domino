@@ -36,6 +36,7 @@ Check("NuGet assembly loaded", () =>
     foreach (var name in new[] { nameof(NotesConst.REPLICA_CANDIDATE), nameof(NotesConst.TEMPLATE_CANDIDATE), nameof(NotesConst.DATABASE), nameof(NotesConst.TEMPLATE) })
         if (typeof(NotesConst).GetField(name)?.FieldType != typeof(int)) throw new InvalidOperationException($"NotesConst.{name} is missing.");
     if (typeof(NotesSession).GetMethod(nameof(NotesSession.SetEnvironmentVar), new[] { typeof(string), typeof(object), typeof(bool) }) is null) throw new InvalidOperationException("NotesSession.SetEnvironmentVar is missing.");
+    if (typeof(NotesAgentResult).GetProperty(nameof(NotesAgentResult.Success))?.PropertyType != typeof(bool) || typeof(NotesAgentResult).GetProperty(nameof(NotesAgentResult.Status))?.PropertyType != typeof(int)) throw new InvalidOperationException("NotesAgentResult.Success/Status are missing.");
 });
 Check("public API surface", () =>
 {

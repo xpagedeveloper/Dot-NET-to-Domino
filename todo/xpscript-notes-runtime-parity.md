@@ -525,6 +525,7 @@ Audit every current public Notes object found in XPScript `docs`, `samples`, and
 - [ ] `NotesDocumentCollection`
 - [ ] `NotesNoteCollection`
 - [ ] `NotesAgentResult`
+- [x] `NotesAgentResult` — added XPScript-compatible `Success` and `Status`; output normalization and recycle ownership were already present.
 - [ ] Any additional `Notes*` object present in current XPScript docs/runtime but absent from this list.
 
 For each object, add a sub-section to this TODO if differences are found.

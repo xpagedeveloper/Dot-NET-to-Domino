@@ -161,6 +161,8 @@ public sealed class NotesAgentResult : NotesObject
         Output = NotesAgentOutput.Normalize(output);
     }
     public NotesDatabase Database { get; }
+    public bool Success { get { EnsureAlive(); return true; } }
+    public int Status { get { EnsureAlive(); return 0; } }
     public string Output { get; }
     protected override void ReleaseNative() => Database.UnregisterChild(this);
 }
