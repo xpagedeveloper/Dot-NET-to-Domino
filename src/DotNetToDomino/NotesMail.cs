@@ -15,6 +15,7 @@ public sealed class NotesMail : NotesObject
     private string _deliveryReport = "N";
     private bool _returnReceipt;
     private readonly List<string> _attachments = [];
+    private readonly List<string> _mimeAttachments = [];
     private Action<NotesRichTextItem>? _richTextComposer;
     private Action<NotesMIMEEntity>? _mimeComposer;
 
@@ -43,7 +44,7 @@ public sealed class NotesMail : NotesObject
     /// <summary>Whether a return receipt is requested.</summary>
     public bool ReturnReceipt { get { EnsureAlive(); return _returnReceipt; } set { EnsureAlive(); _returnReceipt = value; } }
     /// <summary>Whether this mail has MIME content. MIME composition is not implemented yet.</summary>
-    public bool IsMIME { get { EnsureAlive(); return _mimeComposer is not null; } }
+    public bool IsMIME { get { EnsureAlive(); return _mimeComposer is not null || _mimeAttachments.Count > 0; } }
     /// <summary>Number of rich-text file attachments.</summary>
     public int AttachmentCount { get { EnsureAlive(); return _attachments.Count; } }
 
@@ -55,6 +56,17 @@ public sealed class NotesMail : NotesObject
         if (!File.Exists(sourcePath)) throw new FileNotFoundException("Mail attachment was not found.", sourcePath);
         if (_attachments.Any(path => string.Equals(path, sourcePath, StringComparison.OrdinalIgnoreCase))) return;
         _attachments.Add(sourcePath);
+    }
+
+    /// <summary>Adds a file to a multipart MIME mail body.</summary>
+    public void AddMimeAttachment(string sourcePath)
+    {
+        EnsureAlive();
+        ArgumentException.ThrowIfNullOrWhiteSpace(sourcePath);
+        if (!File.Exists(sourcePath)) throw new FileNotFoundException("MIME mail attachment was not found.", sourcePath);
+        if (_mimeComposer is not null) throw new InvalidOperationException("AddMimeAttachment cannot be combined with SetBodyMIME; compose the complete MIME body in one callback.");
+        if (_mimeAttachments.Any(path => string.Equals(path, sourcePath, StringComparison.OrdinalIgnoreCase))) return;
+        _mimeAttachments.Add(sourcePath);
     }
 
     /// <summary>Sets the plain-text body and clears other body modes.</summary>
@@ -103,6 +115,25 @@ public sealed class NotesMail : NotesObject
         {
             using var mime = document.CreateMIMEEntity("Body");
             _mimeComposer(mime);
+        }
+        else if (_mimeAttachments.Count > 0)
+        {
+            using var mime = document.CreateMIMEEntity("Body");
+            using var stream = Session.CreateStream();
+            var boundary = "=_DotNetToDomino_" + Guid.NewGuid().ToString("N");
+            var builder = new System.Text.StringBuilder();
+            builder.Append("This is a multipart MIME message.\r\n\r\n");
+            builder.Append("--").Append(boundary).Append("\r\nContent-Type: text/plain; charset=utf-8\r\nContent-Transfer-Encoding: 8bit\r\n\r\n");
+            builder.Append(_body).Append("\r\n");
+            foreach (var attachment in _mimeAttachments)
+            {
+                var name = Path.GetFileName(attachment).Replace("\"", "", StringComparison.Ordinal);
+                builder.Append("--").Append(boundary).Append("\r\nContent-Type: application/octet-stream; name=\"").Append(name).Append("\"\r\nContent-Disposition: attachment; filename=\"").Append(name).Append("\"\r\nContent-Transfer-Encoding: base64\r\n\r\n");
+                builder.Append(Convert.ToBase64String(File.ReadAllBytes(attachment), Base64FormattingOptions.InsertLineBreaks)).Append("\r\n");
+            }
+            builder.Append("--").Append(boundary).Append("--\r\n");
+            stream.WriteText(builder.ToString());
+            mime.SetContentFromBytes(stream, "multipart/mixed; boundary=\"" + boundary + "\"", 1725);
         }
         else if (_richTextComposer is null && _attachments.Count == 0)
         {
