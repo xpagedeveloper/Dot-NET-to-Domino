@@ -72,4 +72,10 @@ The required columns are `Member`, `Syntax`, `Parameters`, `Description`, and `E
 | `NotesRichTextTable.RowCount` | `table.RowCount` | none | Gets the parsed table row count. | [TODO](../todo/xpscript-notes-runtime-parity.md) |
 | `NotesRichTextTable.ColumnCount` | `table.ColumnCount` | none | Gets the parsed table column count. | [TODO](../todo/xpscript-notes-runtime-parity.md) |
 | `NotesRichTextTable.RightToLeft` | `table.RightToLeft` | none | Gets the table direction flag. | [TODO](../todo/xpscript-notes-runtime-parity.md) |
+| `NotesRichTextDocLink.DbReplicaID` | `link.DbReplicaID` | none | Gets the linked database replica ID. | [TODO](../todo/xpscript-notes-runtime-parity.md) |
+| `NotesRichTextDocLink.ViewUNID` | `link.ViewUNID` | none | Gets the linked view UNID. | [TODO](../todo/xpscript-notes-runtime-parity.md) |
+| `NotesRichTextDocLink.DocUNID` | `link.DocUNID` | none | Gets the linked document UNID. | [TODO](../todo/xpscript-notes-runtime-parity.md) |
+| `NotesRichTextDocLink.DisplayComment` | `link.DisplayComment` | none | Gets the link display comment. | [TODO](../todo/xpscript-notes-runtime-parity.md) |
+| `NotesRichTextDocLink.ServerHint` | `link.ServerHint` | none | Gets the link server hint. | [TODO](../todo/xpscript-notes-runtime-parity.md) |
+| `NotesRichTextDocLink.HotSpotText` | `link.HotSpotText` | none | Gets the link hotspot text. | [TODO](../todo/xpscript-notes-runtime-parity.md) |
 

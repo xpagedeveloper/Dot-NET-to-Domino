@@ -478,8 +478,9 @@ Status markers:
 
 ### NotesRichTextDocLink
 
-- [ ] Re-audit current doclink reader/mutation implementation.
-- [ ] Do not expose `HotSpotTextStyle` unless current XPScript has a real implementation.
+- [x] Re-audit current doclink reader/mutation implementation against XPScript.
+- [x] Verify replica/view/document IDs, display comment, server hint, and hotspot text parsing.
+- [x] Keep unsupported hotspot style/mutation APIs unexposed until a real native rewrite is available.
 
 ### NotesEmbeddedObject
 
