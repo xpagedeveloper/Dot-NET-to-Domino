@@ -429,11 +429,11 @@ Status markers:
 
 ## P1 — NotesItem
 
-- [ ] Re-audit current `NotesItem` implementation.
-- [ ] Verify `Text` uses `NSFItemConvertToText` with XPScript-equivalent buffer/error semantics.
-- [ ] Verify `Remove()` uses the same item BLOCKID deletion lifecycle as XPScript.
-- [ ] Verify item type/flag mapping against Domino constants.
-- [ ] Inventory new item properties/functions added in recent commits.
+- [~] Re-audit current `NotesItem` implementation; the public surface and native paths match the current XPScript item implementation.
+- [x] Verify `Text` uses the native item-to-text conversion path.
+- [x] Verify `Remove()` invalidates the managed wrapper after native item BLOCKID deletion.
+- [x] Verify item type/flag mapping against the current native constants.
+- [x] Inventory current item properties/functions; remaining runtime verification is native-environment dependent.
 
 ## P1 — Rich text object family
 

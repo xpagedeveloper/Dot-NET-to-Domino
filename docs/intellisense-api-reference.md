@@ -29,6 +29,9 @@ The required columns are `Member`, `Syntax`, `Parameters`, `Description`, and `E
 | `NotesDatabase.GetDocumentByUNID` | `database.GetDocumentByUNID(unid)` | `unid`: 32-character universal ID. | Opens a document by universal ID. | [README](../README.md) |
 | `NotesDatabase.GetMIMEEntity` | `document.GetMIMEEntity(itemName)` | `itemName`: currently the Body item. | Opens a MIME entity directory. | [MIME parity](../todo/xpscript-notes-runtime-parity.md) |
 | `NotesDocument.ReplaceItemValue` | `document.ReplaceItemValue(name, value)` | `name`, `value`: item name and value. | Replaces or creates a document item. | [README](../README.md) |
+| `NotesItem.Text` | `item.Text` | none | Converts the item value to Notes text using the native API. | [TODO](../todo/xpscript-notes-runtime-parity.md) |
+| `NotesItem.Values` | `item.Values` | none | Reads or replaces item values. | [TODO](../todo/xpscript-notes-runtime-parity.md) |
+| `NotesItem.Remove` | `item.Remove()` | none | Removes the item and invalidates its wrapper. | [TODO](../todo/xpscript-notes-runtime-parity.md) |
 | `NotesDocument.Save` | `document.Save(force, makeResponse)` | `force`, `makeResponse`: save options. | Saves a document through the native API. | [README](../README.md) |
 | `NotesDocument.ComputeWithForm` | `document.ComputeWithForm(form, raiseError)` | `form`, `raiseError`: compute options. | Computes document fields using a form. | [TODO](../todo/xpscript-notes-runtime-parity.md) |
 | `NotesMIMEEntity.ContentAsText` | `entity.ContentAsText` | none | Reads root MIME content as text. | [MIME parity](../todo/xpscript-notes-runtime-parity.md) |
