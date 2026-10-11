@@ -51,7 +51,7 @@ public sealed class NotesMail : NotesObject
     public string DeliveryReport { get { EnsureAlive(); return _deliveryReport; } set { EnsureAlive(); _deliveryReport = NormalizeReport(value); } }
     /// <summary>Whether a return receipt is requested.</summary>
     public bool ReturnReceipt { get { EnsureAlive(); return _returnReceipt; } set { EnsureAlive(); _returnReceipt = value; } }
-    /// <summary>Whether this mail has MIME content. MIME composition is not implemented yet.</summary>
+    /// <summary>Whether this mail has MIME content or MIME attachments.</summary>
     public bool IsMIME
     {
         get
