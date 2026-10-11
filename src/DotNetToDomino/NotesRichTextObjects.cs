@@ -390,6 +390,27 @@ public sealed class NotesRichTextNavigator : NotesObject
         return MaterializeElement(CurrentRecord);
     }
 
+    public void SetPosition(object element)
+    {
+        EnsureNavigatorAlive();
+        ArgumentNullException.ThrowIfNull(element);
+        var record = element switch
+        {
+            NotesRichTextLinkedObject linked when ReferenceEquals(linked.PositionOwner, _item) => linked.PositionRecord(),
+            NotesEmbeddedObject embedded when ReferenceEquals(embedded.Parent, _item) => _records.FirstOrDefault(value => value.ElementType == ElementEmbeddedObject && string.Equals(value.LinkedObjectName, embedded.Name, StringComparison.OrdinalIgnoreCase)),
+            _ => throw new ArgumentException("'element' must be a rich-text element belonging to this item.", nameof(element))
+        } ?? throw new InvalidOperationException("The rich-text element no longer exists.");
+        var index = _records.FindIndex(value => value.SegmentIndex == record.SegmentIndex && value.RecordIndex == record.RecordIndex && value.Signature == record.Signature);
+        if (index < _rangeStart || index > _rangeEnd || index < 0) throw new InvalidOperationException("The rich-text element is outside the navigator range.");
+        SetCurrent(index, record.ElementType, 0);
+    }
+
+    public void SetPositionAtEnd(object element)
+    {
+        SetPosition(element);
+        _charOffset = CurrentRecord.Text.Length;
+    }
+
     public object? GetFirstElement(int type)
     {
         EnsureNavigatorAlive(); RefreshIfChanged(); type = ValidateGetElementType(type);

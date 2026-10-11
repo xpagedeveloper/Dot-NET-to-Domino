@@ -448,8 +448,8 @@ Status markers:
 
 ### NotesRichTextNavigator
 
-- [ ] Port/verify `SetPosition`.
-- [ ] Port/verify `SetPositionAtEnd`.
+- [x] Port/verify `SetPosition` for linked rich-text and embedded elements.
+- [x] Port/verify `SetPositionAtEnd` for the resolved element record.
 - [ ] Verify section/table/doclink/hotspot boundary positioning.
 - [ ] Verify navigator invalidation after rich-text mutation.
 

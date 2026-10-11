@@ -62,4 +62,6 @@ The required columns are `Member`, `Syntax`, `Parameters`, `Description`, and `E
 | `NotesDateTime.TimeDifference` | `dateTime.TimeDifference(other)` | `other`: another NotesDateTime. | Returns the GMT difference in seconds. | [TODO](../todo/xpscript-notes-runtime-parity.md) |
 | `NotesDateTime.TimeDifferenceDouble` | `dateTime.TimeDifferenceDouble(other)` | `other`: another NotesDateTime. | Returns the GMT difference in seconds as double. | [TODO](../todo/xpscript-notes-runtime-parity.md) |
 | `NotesDateTime.ConvertToZone` | `dateTime.ConvertToZone(zone)` | `zone`: Domino time-zone number. | Converts the Notes time/date value using Domino zone semantics. | [TODO](../todo/xpscript-notes-runtime-parity.md) |
+| `NotesRichTextNavigator.SetPosition` | `navigator.SetPosition(element)` | `element`: linked rich-text element. | Positions the navigator at a rich-text element from the same item. | [TODO](../todo/xpscript-notes-runtime-parity.md) |
+| `NotesRichTextNavigator.SetPositionAtEnd` | `navigator.SetPositionAtEnd(element)` | `element`: linked rich-text element. | Positions at the end of a rich-text element. | [TODO](../todo/xpscript-notes-runtime-parity.md) |
 
