@@ -9,9 +9,9 @@ Reference sources are under `XPscript/src/XPScript.Compiler` and the related Not
 | Area | XPScript evidence | Dot-NET-to-Domino status | Next work |
 | --- | --- | --- | --- |
 | `NotesMail` | `NotesMailPostProcessor.cs`, `NotesMailSenderSemanticsPostProcessor.cs`, `samples/notes-mail-surface.xps` | No public `NotesMail` type or `NotesSession.CreateMail()` factory found | Port recipient, subject, body, delivery options, rich-text body, and send validation through the native mail path |
-| MIME headers | `NotesMimeChildHeaderReadPostProcessor.cs`, `NotesMimeEntityDataHeaderPostProcessor.cs` | `NotesMIMEHeader` exists only as a placeholder; `GetNthHeader` and `CreateHeader` remain unsupported | Verify native header lookup, header lifetime, duplicate/continuation semantics, and mutation ABI |
-| MIME child mutation | `NotesMimeChildMutationPostProcessor.cs`, `NotesMimeEmptyChildBootstrapPostProcessor.cs` | Child traversal exists, but child creation/removal and content mutation remain unsupported | Port child creation/removal and ownership invalidation |
-| MIME root mutation | `NotesMimeRootMutationPostProcessor.cs` | Root reads are present; `SetContentFromText`, `SetContentFromBytes`, `EncodeContent`, `DecodeContent`, and `Preamble` remain unsupported | Verify native MIME stream/entity mutation and encoding behavior |
+| MIME headers | `NotesMimeChildHeaderReadPostProcessor.cs`, `NotesMimeEntityDataHeaderPostProcessor.cs` | Root `NotesMIMEHeader` lookup, reads, parameter mutation, removal, and duplicate enumeration are implemented | Child-header creation/mutation still requires a verified native child-handle ABI |
+| MIME child mutation | `NotesMimeChildMutationPostProcessor.cs`, `NotesMimeEmptyChildBootstrapPostProcessor.cs` | Root and child traversal are implemented; child creation/removal and child content mutation remain unsupported | Port child creation/removal and ownership invalidation when native support is verified |
+| MIME root mutation | `NotesMimeRootMutationPostProcessor.cs` | Root content reads/writes, encoding/decoding, and preamble behavior are implemented | Verify the remaining multipart/child behavior against a live Domino runtime |
 | Notes rich-text structural writes | `NotesRichTextStructuralWriteSurfacePostProcessor.cs` | Structural objects expose `Remove()` as unsupported in the current implementation | Verify native CD-record rewrite/delete semantics before implementing |
 
 ## Areas requiring member-by-member comparison
@@ -37,7 +37,7 @@ These areas have public C# coverage, but XPScript contains additional postproces
 | `NotesDocumentCollection` | `NotesDocumentCollection` | Present; search/modified/provenance and collection operations exist. Stamp/provenance edge cases remain. |
 | `NotesNoteCollection` | `NotesNoteCollection` | Present; selection and set operations exist. XPScript provenance and `StampAllMulti` require focused review. |
 | `NotesItem` / `NotesRichTextItem` | Same | Present; item and rich-text entrypoints exist, but native mutation/attachment/HTML coverage is incomplete. |
-| `NotesMIMEEntity` / `NotesMIMEHeader` | Same | Entity is partial; header is a placeholder and child/header/mutation APIs are not implemented. |
+| `NotesMIMEEntity` / `NotesMIMEHeader` | Same | Entity and root header behavior are implemented; child mutation and live multipart validation remain open. |
 | `NotesMail` | `NotesMail` | Initial text-mail surface is implemented, including `NotesSession.CreateMail()`, recipients, headers, delivery options, and native document send. MIME, rich-text, and attachments remain open. |
 | `NotesView` / `NotesViewColumn` | Same | Present; navigation and column surfaces exist. Cache/history/max-level and column edge semantics need comparison. |
 | `NotesViewEntry` / collections / navigator | Same | Present; broad surface exists. XPScript-specific navigation/cache behavior needs validation. |
