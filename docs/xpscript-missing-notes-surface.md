@@ -35,7 +35,7 @@ These areas have public C# coverage, but XPScript contains additional postproces
 | `NotesDbDirectory` | `NotesDBDirectory` | Present with a .NET naming difference; enumeration/open behavior needs full parity verification. |
 | `NotesDocument` | `NotesDocument` | Present; metadata, item, MIME, response, send/save/remove and ComputeWithForm surfaces exist. Overload and runtime-error parity still needs a complete sweep. |
 | `NotesDocumentCollection` | `NotesDocumentCollection` | Present; search/modified/provenance, collection operations, and managed/native `StampAllMulti` exist. Exact provenance edge cases remain. |
-| `NotesNoteCollection` | `NotesNoteCollection` | Present; selection, set operations, and managed/native `StampAllMulti` exist. XPScript provenance edge cases remain. |
+| `NotesNoteCollection` | `NotesNoteCollection` | Present; selection, `SinceTime`, set operations, and managed/native `StampAllMulti` exist. XPScript provenance edge cases remain. |
 | `NotesItem` / `NotesRichTextItem` | Same | Present; item and rich-text entrypoints exist, but native mutation/attachment/HTML coverage is incomplete. |
 | `NotesMIMEEntity` / `NotesMIMEHeader` | Same | Entity and root header behavior are implemented; child mutation and live multipart validation remain open. |
 | `NotesMail` | `NotesMail` | Text mail, composable rich-text bodies, rich-text file attachments, root MIME composition, and MIME file attachments are implemented, including `NotesSession.CreateMail()`, recipients, headers, delivery options, and native document send. Child MIME entities remain open. |

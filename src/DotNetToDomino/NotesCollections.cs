@@ -222,7 +222,7 @@ public sealed class NotesNoteCollection : NotesObject, IReadOnlyCollection<uint>
     public void BuildCollection()
     {
         EnsureAlive();
-        _noteIds = Session.Api.BuildNoteCollection(Parent.Handle, SelectionFormula, BuildSelectionMask()).Distinct().OrderBy(id => id).ToArray();
+        _noteIds = Session.Api.BuildNoteCollection(Parent.Handle, SelectionFormula, BuildSelectionMask(), SinceTime?.NativeValue).Distinct().OrderBy(id => id).ToArray();
         _built = true;
         _lastBuildUtc = DateTimeOffset.UtcNow;
     }

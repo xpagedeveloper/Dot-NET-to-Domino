@@ -6,7 +6,7 @@ internal sealed partial class NotesNativeApi
 {
     internal IReadOnlyList<uint> SearchByNoteClass(nint db, ushort noteClassMask) => BuildNoteCollection(db, "@All", noteClassMask);
 
-    internal IReadOnlyList<uint> BuildNoteCollection(nint db, string formula, uint noteClassMask)
+    internal IReadOnlyList<uint> BuildNoteCollection(nint db, string formula, uint noteClassMask, NotesTimeDate? since = null)
     {
         EnsureInitialized();
         using var thread = EnterThread();
@@ -33,14 +33,21 @@ internal sealed partial class NotesNativeApi
             if ((match.SERetFlags & 0x01) != 0 && match.Id.NoteId != 0) ids.Add(match.Id.NoteId);
             return 0;
         };
+        nint sincePointer = 0;
         try
         {
+            if (since is NotesTimeDate sinceValue)
+            {
+                sincePointer = Marshal.AllocHGlobal(Marshal.SizeOf<NotesTimeDate>());
+                Marshal.StructureToPtr(sinceValue, sincePointer, false);
+            }
             CheckStatus(Resolve<NoteCollection_NSFSearch>("NSFSearch")(
-                db, formulaHandle, 0, 0, checked((ushort)noteClassMask), 0, callback, 0, 0), "NSFSearch(note collection)");
+                db, formulaHandle, 0, 0, checked((ushort)noteClassMask), sincePointer, callback, 0, 0), "NSFSearch(note collection)");
             return ids.Distinct().ToArray();
         }
         finally
         {
+            if (sincePointer != 0) Marshal.FreeHGlobal(sincePointer);
             Resolve<NoteCollection_OSMemFree>("OSMemFree")(formulaHandle);
             GC.KeepAlive(callback);
         }
