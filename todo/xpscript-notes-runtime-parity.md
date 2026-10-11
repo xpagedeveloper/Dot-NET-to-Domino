@@ -28,7 +28,7 @@ This is the current implementation queue. Older repeated sections in this file a
 
 ### Rich-text structural mutation
 
-- [~] Complete rich-text linked-object `Remove()` operations; range/item removal already uses native-backed CD-record/item mutation.
+- [~] Complete rich-text linked-object `Remove()` operations for sections, tables, and doclinks; embedded-object removal remains open.
 - [ ] Complete native-backed rich-text HTML, linked-object, and attachment mutation coverage.
 
 ### Remaining object parity audits

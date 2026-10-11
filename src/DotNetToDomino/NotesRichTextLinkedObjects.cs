@@ -41,6 +41,19 @@ public abstract class NotesRichTextLinkedObject : NotesObject
         throw new InvalidOperationException("The rich text element no longer exists in its parent item.");
     }
 
+    protected void RemoveRecordSpan(int start, int end)
+    {
+        EnsureLinkedAlive();
+        var records = Records();
+        if (start < 0 || end < start || end >= records.Count) throw new InvalidOperationException("The rich text element span is invalid.");
+        var rewritten = NotesRichTextCdTransform.Transform(records, record =>
+            record.RecordIndex >= records[start].RecordIndex && record.RecordIndex <= records[end].RecordIndex
+                ? null
+                : NotesRichTextRecordRewrite.Preserve(record));
+        RichTextItem.RewriteRichTextRecords(rewritten);
+        Recycle();
+    }
+
     protected void EnsureLinkedAlive() { EnsureAlive(); RichTextItem.EnsureRichTextAlive(); }
     protected override void ReleaseNative() { }
 }
@@ -234,6 +247,21 @@ public sealed class NotesRichTextTable : NotesRichTextLinkedObject
     public int ColumnCount { get { var d = GetDimensions(); return d.Columns; } }
     public bool RightToLeft { get { var data = CurrentRecord().Data; return data.Length >= 14 && (ReadUInt16(data, 12) & TableRightToLeft) != 0; } }
     public int Style { get { var data = CurrentRecord().Data; return data.Length >= 14 ? ReadUInt16(data, 12) : 0; } }
+    public void Remove()
+    {
+        EnsureLinkedAlive();
+        var records = Records();
+        var start = CurrentFlatIndex(records);
+        var end = start;
+        for (var i = start + 1; i < records.Count; i++)
+        {
+            end = i;
+            if (records[i].Signature == TableEndSignature) break;
+        }
+        if (end == start || records[end].Signature != TableEndSignature)
+            throw new NotesException(91, "Rich text table has no matching end record.");
+        RemoveRecordSpan(start, end);
+    }
 
     private (int Rows, int Columns) GetDimensions()
     {
@@ -265,6 +293,12 @@ public sealed class NotesRichTextDocLink : NotesRichTextLinkedObject
     public string DisplayComment => ParseTarget().DisplayComment;
     public string ServerHint => ParseTarget().ServerHint;
     public string HotSpotText => ParseTarget().HotspotText;
+    public void Remove()
+    {
+        EnsureLinkedAlive();
+        var records = Records();
+        RemoveRecordSpan(CurrentFlatIndex(records), CurrentFlatIndex(records));
+    }
 
     private (string DbReplicaId, string ViewUnid, string DocUnid, string DisplayComment, string ServerHint, string HotspotText) ParseTarget()
     {
