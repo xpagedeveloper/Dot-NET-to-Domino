@@ -28,6 +28,7 @@ Check("NuGet assembly loaded", () =>
     if (typeof(NotesView).GetProperty(nameof(NotesView.Parent))?.PropertyType != typeof(NotesDatabase)) throw new InvalidOperationException("NotesView.Parent is missing.");
     if (typeof(NotesViewColumn).GetProperty(nameof(NotesViewColumn.Parent))?.PropertyType != typeof(NotesView)) throw new InvalidOperationException("NotesViewColumn.Parent is missing.");
     if (typeof(NotesViewEntry).GetProperty(nameof(NotesViewEntry.Parent))?.PropertyType != typeof(NotesView)) throw new InvalidOperationException("NotesViewEntry.Parent is missing.");
+    if (typeof(NotesRichTextItem).GetMethod(nameof(NotesRichTextItem.AppendParagraphStyle), new[] { typeof(NotesRichTextParagraphStyle) }) is null) throw new InvalidOperationException("NotesRichTextItem.AppendParagraphStyle is missing.");
 });
 Check("public API surface", () =>
 {

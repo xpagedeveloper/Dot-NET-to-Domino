@@ -439,10 +439,11 @@ Status markers:
 
 ### NotesRichTextItem
 
-- [ ] Re-audit the latest XPScript rich-text implementation from physical code, not old TODOs.
-- [ ] `ConvertToHTML()`.
-- [ ] `ConvertToHTML(inlineImages)` including data-URI/image conversion behavior.
-- [ ] Verify styled append behavior and style-state lifetime.
+- [x] Re-audit the latest XPScript rich-text implementation from physical code, not old TODOs.
+- [x] `ConvertToHTML()`.
+- [x] `ConvertToHTML(inlineImages)` including data-URI/image conversion behavior.
+- [x] Verify styled append behavior and style-state lifetime.
+- [x] Add typed `AppendParagraphStyle`; it fails closed with a clear C# exception, matching XPScript's unsupported structural rewrite behavior.
 - [ ] Port only structural write operations that now have real CD rewrite implementations.
 - [ ] Ensure rollback/atomicity matches XPScript when CD rewrite fails.
 

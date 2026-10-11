@@ -113,6 +113,13 @@ public sealed class NotesRichTextItem : NotesItem
         _appendStyleState = style.ExportState();
     }
 
+    public void AppendParagraphStyle(NotesRichTextParagraphStyle style)
+    {
+        EnsureItemAlive();
+        ArgumentNullException.ThrowIfNull(style);
+        throw new NotSupportedException("NotesRichTextItem.AppendParagraphStyle requires atomic composite-data rewrite support and is not supported by this runtime yet.");
+    }
+
     public NotesRichTextNavigator CreateNavigator()
     {
         EnsureItemAlive();
