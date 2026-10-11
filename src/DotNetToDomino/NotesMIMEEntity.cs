@@ -512,6 +512,29 @@ public sealed class NotesMIMEHeader : NotesObject
         return string.Empty;
     }
 
+    /// <summary>Replaces or appends one MIME header parameter.</summary>
+    public void SetParamVal(string parameterName, string? parameterValue)
+    {
+        EnsureAlive();
+        ArgumentException.ThrowIfNullOrWhiteSpace(parameterName);
+        var wanted = parameterName.Trim();
+        var value = parameterValue ?? string.Empty;
+        var header = GetHeaderVal();
+        var parts = header.Split(';').Select(part => part.Trim()).ToList();
+        var replacement = wanted + "=\"" + value.Replace("\"", "\\\"", StringComparison.Ordinal) + "\"";
+        var replaced = false;
+        for (var index = 1; index < parts.Count; index++)
+        {
+            var equals = parts[index].IndexOf('=');
+            if (equals <= 0 || !parts[index][..equals].Trim().Equals(wanted, StringComparison.OrdinalIgnoreCase)) continue;
+            parts[index] = replacement;
+            replaced = true;
+            break;
+        }
+        if (!replaced) parts.Add(replacement);
+        _entity.SetHeader(_name, _occurrence, string.Join("; ", parts), false);
+    }
+
     /// <summary>Replaces the MIME header value.</summary>
     public void SetHeaderVal(string? value) { EnsureAlive(); _entity.SetHeader(_name, _occurrence, value ?? string.Empty, false); }
     /// <summary>Replaces the MIME header value including parameters.</summary>

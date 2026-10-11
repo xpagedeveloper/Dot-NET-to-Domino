@@ -55,7 +55,7 @@ Status markers:
 - [x] Port root header access from `NotesMIMEEntity`.
 - [x] Port root header name/value getters.
 - [~] Port root header value setters/overloads implemented by XPScript; child-entity mutation remains.
-- [ ] Port header parameter access/mutation if implemented.
+- [x] Port root header parameter access/mutation (`GetParamVal`/`SetParamVal`); child-header mutation remains pending native child-handle verification.
 - [~] Port root header removal and `RemoveHeaders`; child-entity mutation remains.
 - [~] Root header enumeration and duplicate-header semantics are implemented; child-entity headers remain open.
 - [ ] Verify header/entity handle lifetime and native memory ownership.
