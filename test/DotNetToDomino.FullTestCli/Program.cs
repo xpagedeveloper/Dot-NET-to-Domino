@@ -122,7 +122,14 @@ Check("NuGet assembly loaded", () =>
         ("NotesViewNavigator.GetNextCategoryEntry", typeof(NotesViewNavigator).GetMethod(nameof(NotesViewNavigator.GetNextCategory), new[] { typeof(NotesViewEntry) })),
         ("NotesViewNavigator.GetPrevCategoryEntry", typeof(NotesViewNavigator).GetMethod(nameof(NotesViewNavigator.GetPrevCategory), new[] { typeof(NotesViewEntry) })),
         ("NotesViewNavigator.GetEntry", typeof(NotesViewNavigator).GetMethod(nameof(NotesViewNavigator.GetEntry), new[] { typeof(NotesDocument) })),
-        ("NotesViewNavigator.GetChild", typeof(NotesViewNavigator).GetMethod(nameof(NotesViewNavigator.GetChild), Type.EmptyTypes))
+        ("NotesViewNavigator.GetChild", typeof(NotesViewNavigator).GetMethod(nameof(NotesViewNavigator.GetChild), Type.EmptyTypes)),
+        ("NotesViewNavigator.GetChildEntry", typeof(NotesViewNavigator).GetMethod(nameof(NotesViewNavigator.GetChild), new[] { typeof(NotesViewEntry) })),
+        ("NotesViewNavigator.GetParent", typeof(NotesViewNavigator).GetMethod(nameof(NotesViewNavigator.GetParent), Type.EmptyTypes)),
+        ("NotesViewNavigator.GetParentEntry", typeof(NotesViewNavigator).GetMethod(nameof(NotesViewNavigator.GetParent), new[] { typeof(NotesViewEntry) })),
+        ("NotesViewNavigator.GetNextSibling", typeof(NotesViewNavigator).GetMethod(nameof(NotesViewNavigator.GetNextSibling), Type.EmptyTypes)),
+        ("NotesViewNavigator.GetPrevSibling", typeof(NotesViewNavigator).GetMethod(nameof(NotesViewNavigator.GetPrevSibling), Type.EmptyTypes)),
+        ("NotesViewNavigator.GetNth", typeof(NotesViewNavigator).GetMethod(nameof(NotesViewNavigator.GetNth), new[] { typeof(int) })),
+        ("NotesViewNavigator.GetPos", typeof(NotesViewNavigator).GetMethod(nameof(NotesViewNavigator.GetPos), new[] { typeof(string), typeof(string) }))
     };
     foreach (var (name, method) in nullableObjectLookups)
         if (method is null || new NullabilityInfoContext().Create(method.ReturnParameter).ReadState != NullabilityState.Nullable) throw new InvalidOperationException($"{name} must be annotated as nullable.");
