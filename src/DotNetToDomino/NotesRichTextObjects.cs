@@ -666,6 +666,30 @@ public sealed class NotesRichTextRange : NotesObject
     public void SetBegin(NotesRichTextRange range) { ArgumentNullException.ThrowIfNull(range); SetBeginCore(range.BeginRecord, range.BeginOffset, range.Type, range.RichTextItem); }
     public void SetEnd(NotesRichTextNavigator navigator) { ArgumentNullException.ThrowIfNull(navigator); SetEndCore(navigator.CurrentIndex, navigator.CurrentCharOffset, navigator.CurrentElementType, navigator.RichTextItem); }
     public void SetEnd(NotesRichTextRange range) { ArgumentNullException.ThrowIfNull(range); SetEndCore(range.EndRecord, range.EndOffset, range.Type, range.RichTextItem); }
+    public void SetStyle(NotesRichTextStyle style)
+    {
+        EnsureRangeAlive();
+        ArgumentNullException.ThrowIfNull(style);
+        var state = style.ExportState();
+        var records = _item.ReadRichTextRecords();
+        var rewritten = NotesRichTextCdTransform.Transform(records, record =>
+        {
+            if (record.RecordIndex < _beginRecord || record.RecordIndex > _endRecord || record.Signature != 133 || record.Data.Length < 8)
+                return NotesRichTextRecordRewrite.Preserve(record);
+            var data = (byte[])record.Data.Clone();
+            if (state.NotesFont != NotesRichTextStyle.StyleNoChange) data[4] = checked((byte)state.NotesFont);
+            var attributes = data[5];
+            attributes = ApplyStyleFlag(attributes, 0x01, state.Bold);
+            attributes = ApplyStyleFlag(attributes, 0x02, state.Italic);
+            attributes = ApplyStyleFlag(attributes, 0x04, state.Underline);
+            attributes = ApplyStyleFlag(attributes, 0x08, state.Strikethrough);
+            data[5] = attributes;
+            if (state.NotesColor != NotesRichTextStyle.StyleNoChange) data[6] = checked((byte)state.NotesColor);
+            if (state.FontSize != NotesRichTextStyle.StyleNoChange) data[7] = checked((byte)state.FontSize);
+            return new NotesRichTextRecordRewrite(record.SegmentIndex, record.RecordIndex, record.Signature, data);
+        });
+        _item.RewriteRichTextRecords(rewritten);
+    }
     public void Remove()
     {
         EnsureRangeAlive();
@@ -713,6 +737,7 @@ public sealed class NotesRichTextRange : NotesObject
     }
     private void EnsureSameItem(NotesRichTextItem item) { if (!ReferenceEquals(_item, item)) throw new ArgumentException("Rich text positions must belong to the same NotesRichTextItem."); }
     private static int Compare(int leftRecord, int leftOffset, int rightRecord, int rightOffset) { var byRecord = leftRecord.CompareTo(rightRecord); return byRecord != 0 ? byRecord : leftOffset.CompareTo(rightOffset); }
+    private static byte ApplyStyleFlag(byte value, byte mask, int setting) => setting == NotesRichTextStyle.StyleNoChange ? value : setting != 0 ? (byte)(value | mask) : (byte)(value & ~mask);
     private void EnsureRangeAlive() { EnsureAlive(); _item.EnsureRichTextAlive(); }
     protected override void ReleaseNative() { }
 }

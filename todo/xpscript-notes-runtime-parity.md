@@ -458,6 +458,7 @@ Status markers:
 
 - [~] Audit new range mutation functions; CD-record rewrite support is available for complete-record operations.
 - [x] Port `Remove` for ranges aligned to complete rich-text records.
+- [x] Port `SetStyle` for text-run CD records using the native rewrite path.
 - [ ] Port `SetStyle` if physically implemented.
 - [ ] Verify logical-span calculations and mutation rollback.
 
