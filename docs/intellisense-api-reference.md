@@ -53,4 +53,7 @@ The required columns are `Member`, `Syntax`, `Parameters`, `Description`, and `E
 | `NotesView.CreateViewNav` | `view.CreateViewNav()` | none | Creates a view navigator. | [README](../README.md) |
 | `NotesStream.Read` | `stream.Read(maxBytes)` | `maxBytes`: requested byte count. | Reads bytes from a Notes stream. | [README](../README.md) |
 | `NotesSession.CreateStream` | `session.CreateStream()` | none | Creates a Notes stream. | [README](../README.md) |
+| `NotesDateTime.SetNow` | `dateTime.SetNow()` | none | Replaces the value with the current Domino time/date. | [TODO](../todo/xpscript-notes-runtime-parity.md) |
+| `NotesDateTime.TimeDifference` | `dateTime.TimeDifference(other)` | `other`: another NotesDateTime. | Returns the GMT difference in seconds. | [TODO](../todo/xpscript-notes-runtime-parity.md) |
+| `NotesDateTime.TimeDifferenceDouble` | `dateTime.TimeDifferenceDouble(other)` | `other`: another NotesDateTime. | Returns the GMT difference in seconds as double. | [TODO](../todo/xpscript-notes-runtime-parity.md) |
 

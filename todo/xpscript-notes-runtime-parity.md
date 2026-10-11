@@ -408,10 +408,10 @@ Status markers:
 
 ## P1 — NotesDateTime
 
-- [ ] Re-audit current XPScript `NotesDateTime` implementation.
-- [ ] Port `SetNow` if missing.
-- [ ] Port current `TimeDifference` behavior.
-- [ ] Port current `TimeDifferenceDouble`/related variants if public and implemented.
+- [~] Re-audit current XPScript `NotesDateTime` implementation; native GMT expansion is used for differences.
+- [x] Port `SetNow`.
+- [x] Port current `TimeDifference` behavior.
+- [x] Port current `TimeDifferenceDouble` variant.
 - [ ] Verify timezone/zone/DST handling uses Notes `TIMEDATE` semantics rather than .NET approximations.
 - [ ] Verify wildcard date/time behavior if exposed.
 

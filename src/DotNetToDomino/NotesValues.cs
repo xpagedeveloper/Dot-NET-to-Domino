@@ -97,6 +97,25 @@ public sealed class NotesDateTime : NotesObject
             catch { return null; }
         }
     }
+    public void SetNow()
+    {
+        EnsureAlive();
+        _value = Session.Api.CurrentTimeDate();
+    }
+    public double TimeDifference(NotesDateTime other)
+    {
+        EnsureAlive();
+        ArgumentNullException.ThrowIfNull(other);
+        other.EnsureAlive();
+        var left = Session.Api.ExpandTimeDateGmt(_value);
+        var right = Session.Api.ExpandTimeDateGmt(other._value);
+        if (left.Year < 1 || right.Year < 1 || left.Month < 1 || right.Month < 1)
+            throw new InvalidOperationException("TimeDifference cannot be used with wildcard NotesDateTime values.");
+        var leftUtc = new DateTime(left.Year, left.Month, left.Day, left.Hour, left.Minute, left.Second, DateTimeKind.Utc);
+        var rightUtc = new DateTime(right.Year, right.Month, right.Day, right.Hour, right.Minute, right.Second, DateTimeKind.Utc);
+        return (leftUtc - rightUtc).TotalSeconds;
+    }
+    public double TimeDifferenceDouble(NotesDateTime other) => TimeDifference(other);
     public void AdjustSecond(int amount) => Adjust(amount, 0, 0, 0, 0, 0);
     public void AdjustMinute(int amount) => Adjust(0, amount, 0, 0, 0, 0);
     public void AdjustHour(int amount) => Adjust(0, 0, amount, 0, 0, 0);
