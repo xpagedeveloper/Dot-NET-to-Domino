@@ -31,10 +31,14 @@ public sealed class NotesMail : NotesObject
     public IReadOnlyList<string> BlindCopyTo { get { EnsureAlive(); return _blindCopyTo; } set => _blindCopyTo = NormalizeRecipients(value, nameof(BlindCopyTo), true); }
     /// <summary>Sender address. Defaults to the session user.</summary>
     public string From { get { EnsureAlive(); return _from; } set { EnsureAlive(); _from = (value ?? string.Empty).Trim(); } }
+    /// <summary>Effective sender from the owning session.</summary>
+    public string Sender { get { EnsureAlive(); return Session.UserName; } }
     /// <summary>Reply-to address.</summary>
     public string ReplyTo { get { EnsureAlive(); return _replyTo; } set { EnsureAlive(); _replyTo = (value ?? string.Empty).Trim(); } }
     /// <summary>Principal used for delegated mail.</summary>
     public string Principal { get { EnsureAlive(); return _principal; } set { EnsureAlive(); _principal = (value ?? string.Empty).Trim(); } }
+    /// <summary>Alias for Principal.</summary>
+    public string OnBehalfOf { get { EnsureAlive(); return Principal; } set => Principal = value; }
     /// <summary>Message subject.</summary>
     public string Subject { get { EnsureAlive(); return _subject; } set { EnsureAlive(); _subject = value ?? string.Empty; } }
     /// <summary>Plain-text message body.</summary>
@@ -71,6 +75,14 @@ public sealed class NotesMail : NotesObject
         _mimeAttachments.Add(sourcePath);
     }
 
+    /// <summary>Removes all configured rich-text and MIME attachments.</summary>
+    public void ClearAttachments()
+    {
+        EnsureAlive();
+        _attachments.Clear();
+        _mimeAttachments.Clear();
+    }
+
     /// <summary>Sets the plain-text body and clears other body modes.</summary>
     public void SetBodyText(string? text) { EnsureAlive(); _richTextComposer = null; _mimeComposer = null; _mimeBodyContent = null; _mimeBodyContentType = null; _body = text ?? string.Empty; }
 
@@ -88,6 +100,9 @@ public sealed class NotesMail : NotesObject
         _richTextComposer = null;
         _body = string.Empty;
     }
+
+    /// <summary>Alias for SetMIMEBody.</summary>
+    public void SetMIME(string? content, string contentType) => SetMIMEBody(content, contentType);
 
     /// <summary>Configures a rich-text body. The callback runs against the new Body item during Send.</summary>
     public void SetBodyRichText(Action<NotesRichTextItem> compose)
