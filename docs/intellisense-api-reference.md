@@ -78,4 +78,6 @@ The required columns are `Member`, `Syntax`, `Parameters`, `Description`, and `E
 | `NotesRichTextDocLink.DisplayComment` | `link.DisplayComment` | none | Gets the link display comment. | [TODO](../todo/xpscript-notes-runtime-parity.md) |
 | `NotesRichTextDocLink.ServerHint` | `link.ServerHint` | none | Gets the link server hint. | [TODO](../todo/xpscript-notes-runtime-parity.md) |
 | `NotesRichTextDocLink.HotSpotText` | `link.HotSpotText` | none | Gets the link hotspot text. | [TODO](../todo/xpscript-notes-runtime-parity.md) |
+| `NotesEmbeddedObject.ToByteArray` | `embedded.ToByteArray()` | none | Reads attachment bytes through the native Notes API. | [TODO](../todo/xpscript-notes-runtime-parity.md) |
+| `NotesEmbeddedObject.ExtractFile` | `embedded.ExtractFile(path)` | `path`: output file path. | Saves an embedded attachment to a file. | [TODO](../todo/xpscript-notes-runtime-parity.md) |
 

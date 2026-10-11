@@ -484,9 +484,10 @@ Status markers:
 
 ### NotesEmbeddedObject
 
-- [ ] Audit recent attachment/embedded-object changes.
-- [ ] Port attachment `Remove` if now implemented.
-- [ ] Verify attachment extraction/save/remove lifecycle and rich-text revision invalidation.
+- [x] Audit recent attachment/embedded-object changes against XPScript.
+- [x] Verify `ToByteArray()` and `ExtractFile()` native attachment paths.
+- [x] Keep attachment `Remove` fail-closed because XPScript also requires an atomic hotspot/$FILE rewrite.
+- [~] Rich-text revision invalidation after attachment operations remains dependent on native attachment data changes.
 
 ## P1 — NotesForm and design objects
 
