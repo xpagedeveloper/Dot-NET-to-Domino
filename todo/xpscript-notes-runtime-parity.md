@@ -577,7 +577,7 @@ For every newly ported native function:
 - [x] Pack the NuGet package successfully.
 - [ ] Run existing CI on the exact final head SHA.
 - [ ] Inspect CI logs rather than relying only on the PR status badge.
-- [ ] Review public API diff for accidental placeholders or compiler-only APIs.
+- [x] Review public API diff for accidental placeholders or compiler-only APIs; the fulltest reflection audit rejects leaked XPScript/`LSArray` types and the changed public members were reviewed.
 - [ ] Review native ABI changes separately before merge.
 - [x] Document runtime-dependent behavior that cannot be tested without an installed HCL Notes/Domino runtime.
 - [ ] Merge only after the final head is green.
