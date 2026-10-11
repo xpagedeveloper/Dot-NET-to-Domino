@@ -283,6 +283,13 @@ else
         if (!string.IsNullOrWhiteSpace(databasePath))
         {
             using var database = session.GetDatabase(server, databasePath, false) ?? throw new InvalidOperationException("Database not found.");
+            using var document = database.CreateDocument();
+            try { _ = document.CopyToDatabase(null!); throw new InvalidOperationException("Null copy database was accepted."); }
+            catch (ArgumentNullException ex) when (ex.ParamName == "d") { }
+        }
+        if (!string.IsNullOrWhiteSpace(databasePath))
+        {
+            using var database = session.GetDatabase(server, databasePath, false) ?? throw new InvalidOperationException("Database not found.");
             try { _ = database.Search(null!); throw new InvalidOperationException("Null formula was accepted."); }
             catch (ArgumentNullException ex) when (ex.ParamName == "formula") { }
             try { _ = database.FTSearch("   "); throw new InvalidOperationException("Blank full-text query was accepted."); }
