@@ -22,3 +22,16 @@ dotnet run --project test/DotNetToDomino.Integration/DotNetToDomino.Integration.
 The test does not save the document it creates and does not delete databases or documents. Environment-variable round-trip writes `$DotNetToDominoIntegrationTest` to the active Notes environment, so use a dedicated test Notes/Domino installation when running native integration tests.
 
 CI builds the project to catch public API/compiler regressions. Native execution requires an installed HCL Notes/Domino runtime and is intentionally not run on the generic GitHub-hosted runner.
+
+## Full NuGet test CLI
+
+`DotNetToDomino.FullTestCli` consumes the locally generated NuGet package, audits the exported API by reflection, and runs native smoke tests. Failures are printed with the fully qualified C# exception type and return exit code `1`.
+
+Build the package and run it with `NOTES_RUNTIME` set:
+
+```shell
+dotnet build DotNetToDomino.sln -c Release
+dotnet run --project test/DotNetToDomino.FullTestCli/DotNetToDomino.FullTestCli.csproj --no-restore
+```
+
+Optionally set `NOTES_TEST_DATABASE` and `NOTES_TEST_SERVER` for database/document tests. The CLI fails when `NOTES_RUNTIME` is missing so an accidental non-native run cannot be reported as a successful full test.
