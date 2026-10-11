@@ -39,6 +39,18 @@ public sealed class NotesMIMEEntity : NotesObject
     public NotesMIMEEntity? GetParentEntity() => Wrap(_owner.Parent(CheckedEntity()));
     public NotesMIMEEntity? GetNextSibling() => Wrap(_owner.NextSibling(CheckedEntity()));
     public NotesMIMEEntity? GetPrevSibling() => Wrap(_owner.PrevSibling(CheckedEntity()));
+    public IReadOnlyList<NotesMIMEEntity> GetChildren()
+    {
+        EnsureEntityAlive();
+        var result = new List<NotesMIMEEntity>();
+        var child = Wrap(_owner.FirstSubpart(_nativeEntity));
+        while (child is not null)
+        {
+            result.Add(child);
+            child = child.GetNextSibling();
+        }
+        return result;
+    }
     public NotesMIMEEntity? GetNextEntity() { EnsureEntityAlive(); return Wrap(_owner.IterateNext(_owner.RootEntity, _nativeEntity)); }
     public NotesMIMEEntity? GetNextEntity(int search)
     {

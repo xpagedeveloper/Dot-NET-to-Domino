@@ -38,7 +38,7 @@ Status markers:
 - [x] `NotesDocument.CreateMIMEEntity(...)` moved onto `NotesDocument` and now creates a packed native `MIME_PART` with `NSFItemAppend`, matching XPScript Body-only semantics.
 - [x] `NotesDocument.GetMIMEEntity(...)` moved onto `NotesDocument` with the same current Body-only native-directory restriction as XPScript.
 - [x] `NotesDocument.CloseMIMEEntities()` releases the cached native MIME directory; save/recycle paths also invalidate it before note update/close.
-- [ ] Port MIME entity parent/child/sibling traversal using the same native handles and ownership rules.
+- [~] Port MIME entity parent/child/sibling traversal using the same native handles and ownership rules; direct child enumeration is implemented.
 - [ ] Port child enumeration and `AppendChildEntity` behavior.
 - [ ] Port entity removal and ensure handles become invalid safely after removal.
 - [~] Content type/subtype and charset are native-directory backed; root `Encoding` is derived from `Content-Transfer-Encoding` like XPScript. Root multipart `Preamble` access/mutation is implemented; child-entity access remains open.
