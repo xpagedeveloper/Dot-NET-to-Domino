@@ -68,6 +68,10 @@ src/
 - `NotesDateTime`
 - `NotesAgent`
 - `NotesAgentResult`
+
+Runtime parity notes:
+
+- [NotesAgent runtime parity](docs/agent-runtime-parity.md)
 - `NotesStream`
 - `NotesDXLImporter`
 - `NotesDXLExporter`
