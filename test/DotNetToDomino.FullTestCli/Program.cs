@@ -88,7 +88,15 @@ Check("NuGet assembly loaded", () =>
         ("NotesView.GetEntryByKey", typeof(NotesView).GetMethod(nameof(NotesView.GetEntryByKey), new[] { typeof(string) })),
         ("NotesDBDirectory.GetFirstDatabase", typeof(NotesDBDirectory).GetMethod(nameof(NotesDBDirectory.GetFirstDatabase), new[] { typeof(int) })),
         ("NotesDBDirectory.GetNextDatabase", typeof(NotesDBDirectory).GetMethod(nameof(NotesDBDirectory.GetNextDatabase), Type.EmptyTypes)),
-        ("NotesViewNavigator.GetCurrent", typeof(NotesViewNavigator).GetMethod(nameof(NotesViewNavigator.GetCurrent), Type.EmptyTypes))
+        ("NotesViewNavigator.GetCurrent", typeof(NotesViewNavigator).GetMethod(nameof(NotesViewNavigator.GetCurrent), Type.EmptyTypes)),
+        ("NotesViewNavigator.GetFirst", typeof(NotesViewNavigator).GetMethod(nameof(NotesViewNavigator.GetFirst), Type.EmptyTypes)),
+        ("NotesViewNavigator.GetLast", typeof(NotesViewNavigator).GetMethod(nameof(NotesViewNavigator.GetLast), Type.EmptyTypes)),
+        ("NotesViewNavigator.GetNext", typeof(NotesViewNavigator).GetMethod(nameof(NotesViewNavigator.GetNext), Type.EmptyTypes)),
+        ("NotesViewNavigator.GetPrev", typeof(NotesViewNavigator).GetMethod(nameof(NotesViewNavigator.GetPrev), Type.EmptyTypes)),
+        ("NotesViewNavigator.GetFirstDocument", typeof(NotesViewNavigator).GetMethod(nameof(NotesViewNavigator.GetFirstDocument), Type.EmptyTypes)),
+        ("NotesViewNavigator.GetLastDocument", typeof(NotesViewNavigator).GetMethod(nameof(NotesViewNavigator.GetLastDocument), Type.EmptyTypes)),
+        ("NotesViewNavigator.GetNextDocument", typeof(NotesViewNavigator).GetMethod(nameof(NotesViewNavigator.GetNextDocument), Type.EmptyTypes)),
+        ("NotesViewNavigator.GetPrevDocument", typeof(NotesViewNavigator).GetMethod(nameof(NotesViewNavigator.GetPrevDocument), Type.EmptyTypes))
     };
     foreach (var (name, method) in nullableObjectLookups)
         if (method is null || new NullabilityInfoContext().Create(method.ReturnParameter).ReadState != NullabilityState.Nullable) throw new InvalidOperationException($"{name} must be annotated as nullable.");
