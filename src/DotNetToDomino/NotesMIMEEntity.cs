@@ -65,7 +65,7 @@ public sealed class NotesMIMEEntity : NotesObject
     {
         EnsureRootEntity(nameof(GetNthHeader));
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
-        if (occurrence < 1) throw new ArgumentOutOfRangeException(nameof(occurrence));
+        RequireRange(occurrence, 1, int.MaxValue, nameof(occurrence));
         var wanted = name.Trim();
         var found = 0;
         foreach (var header in ReadRootHeaderValues())
