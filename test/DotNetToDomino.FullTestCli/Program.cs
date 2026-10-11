@@ -120,7 +120,9 @@ Check("NuGet assembly loaded", () =>
         ("NotesViewNavigator.GetNextDocumentEntry", typeof(NotesViewNavigator).GetMethod(nameof(NotesViewNavigator.GetNextDocument), new[] { typeof(NotesViewEntry) })),
         ("NotesViewNavigator.GetPrevDocumentEntry", typeof(NotesViewNavigator).GetMethod(nameof(NotesViewNavigator.GetPrevDocument), new[] { typeof(NotesViewEntry) })),
         ("NotesViewNavigator.GetNextCategoryEntry", typeof(NotesViewNavigator).GetMethod(nameof(NotesViewNavigator.GetNextCategory), new[] { typeof(NotesViewEntry) })),
-        ("NotesViewNavigator.GetPrevCategoryEntry", typeof(NotesViewNavigator).GetMethod(nameof(NotesViewNavigator.GetPrevCategory), new[] { typeof(NotesViewEntry) }))
+        ("NotesViewNavigator.GetPrevCategoryEntry", typeof(NotesViewNavigator).GetMethod(nameof(NotesViewNavigator.GetPrevCategory), new[] { typeof(NotesViewEntry) })),
+        ("NotesViewNavigator.GetEntry", typeof(NotesViewNavigator).GetMethod(nameof(NotesViewNavigator.GetEntry), new[] { typeof(NotesDocument) })),
+        ("NotesViewNavigator.GetChild", typeof(NotesViewNavigator).GetMethod(nameof(NotesViewNavigator.GetChild), Type.EmptyTypes))
     };
     foreach (var (name, method) in nullableObjectLookups)
         if (method is null || new NullabilityInfoContext().Create(method.ReturnParameter).ReadState != NullabilityState.Nullable) throw new InvalidOperationException($"{name} must be annotated as nullable.");
