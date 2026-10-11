@@ -276,6 +276,8 @@ else
         catch (ArgumentOutOfRangeException ex) when (ex.ParamName == "type") { }
         try { _ = directory.OpenDatabase(null!); throw new InvalidOperationException("Null database path was accepted."); }
         catch (ArgumentException ex) when (ex.ParamName == "filePath") { }
+        try { _ = session.OpenDatabase(server, null!); throw new InvalidOperationException("Null session database path was accepted."); }
+        catch (ArgumentNullException ex) when (ex.ParamName == "filePath") { }
         try { _ = session.OpenByReplicaID(server, null!); throw new InvalidOperationException("Null replica ID was accepted."); }
         catch (ArgumentNullException ex) when (ex.ParamName == "replicaId") { }
         if (!string.IsNullOrWhiteSpace(databasePath))
