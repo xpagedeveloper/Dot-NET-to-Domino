@@ -52,7 +52,17 @@ public sealed class NotesMail : NotesObject
     /// <summary>Whether a return receipt is requested.</summary>
     public bool ReturnReceipt { get { EnsureAlive(); return _returnReceipt; } set { EnsureAlive(); _returnReceipt = value; } }
     /// <summary>Whether this mail has MIME content. MIME composition is not implemented yet.</summary>
-    public bool IsMIME { get { EnsureAlive(); return _mimeComposer is not null || _mimeAttachments.Count > 0; } }
+    public bool IsMIME
+    {
+        get
+        {
+            EnsureAlive();
+            return _mimeComposer is not null
+                || _mimeBodyContent is not null
+                || _mimeBodyBytes is not null
+                || _mimeAttachments.Count > 0;
+        }
+    }
     /// <summary>Number of rich-text file attachments.</summary>
     public int AttachmentCount { get { EnsureAlive(); return _attachments.Count + _mimeAttachments.Count; } }
 
