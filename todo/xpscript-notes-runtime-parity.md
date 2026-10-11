@@ -543,6 +543,10 @@ For each object, add a sub-section to this TODO if differences are found.
 - [ ] Add fulltest coverage for MIME and attachment composition after that implementation exists.
 - [ ] Do not remove deliberate real constants that are part of the Notes contract without verifying the native/API meaning.
 
+### NotesSession environment audit
+
+- [x] `GetEnvironmentString`, `GetEnvironmentValue`, and `SetEnvironmentVar` match XPScript name normalization, system scope, current-culture `DateTime` conversion, integer/string support, and invalid-type errors.
+
 ### NotesDBDirectory audit
 
 - [x] Ported database type filtering and constants `REPLICA_CANDIDATE`, `TEMPLATE_CANDIDATE`, `DATABASE`, and `TEMPLATE` match XPScript values.
