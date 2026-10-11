@@ -116,6 +116,11 @@ public sealed class NotesDateTime : NotesObject
         return (leftUtc - rightUtc).TotalSeconds;
     }
     public double TimeDifferenceDouble(NotesDateTime other) => TimeDifference(other);
+    public void ConvertToZone(int zone)
+    {
+        EnsureAlive();
+        Session.Api.ConvertTimeDateToZone(ref _value, zone);
+    }
     public void AdjustSecond(int amount) => Adjust(amount, 0, 0, 0, 0, 0);
     public void AdjustMinute(int amount) => Adjust(0, amount, 0, 0, 0, 0);
     public void AdjustHour(int amount) => Adjust(0, 0, amount, 0, 0, 0);

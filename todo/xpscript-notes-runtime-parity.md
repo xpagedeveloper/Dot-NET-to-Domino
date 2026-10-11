@@ -412,6 +412,7 @@ Status markers:
 - [x] Port `SetNow`.
 - [x] Port current `TimeDifference` behavior.
 - [x] Port current `TimeDifferenceDouble` variant.
+- [x] Port `ConvertToZone` using Domino `TimeLocalToGM` semantics.
 - [ ] Verify timezone/zone/DST handling uses Notes `TIMEDATE` semantics rather than .NET approximations.
 - [ ] Verify wildcard date/time behavior if exposed.
 

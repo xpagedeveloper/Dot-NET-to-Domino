@@ -56,4 +56,5 @@ The required columns are `Member`, `Syntax`, `Parameters`, `Description`, and `E
 | `NotesDateTime.SetNow` | `dateTime.SetNow()` | none | Replaces the value with the current Domino time/date. | [TODO](../todo/xpscript-notes-runtime-parity.md) |
 | `NotesDateTime.TimeDifference` | `dateTime.TimeDifference(other)` | `other`: another NotesDateTime. | Returns the GMT difference in seconds. | [TODO](../todo/xpscript-notes-runtime-parity.md) |
 | `NotesDateTime.TimeDifferenceDouble` | `dateTime.TimeDifferenceDouble(other)` | `other`: another NotesDateTime. | Returns the GMT difference in seconds as double. | [TODO](../todo/xpscript-notes-runtime-parity.md) |
+| `NotesDateTime.ConvertToZone` | `dateTime.ConvertToZone(zone)` | `zone`: Domino time-zone number. | Converts the Notes time/date value using Domino zone semantics. | [TODO](../todo/xpscript-notes-runtime-parity.md) |
 

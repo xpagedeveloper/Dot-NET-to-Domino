@@ -92,6 +92,17 @@ internal sealed partial class NotesNativeApi
             throw new NotesException("TimeDateAdjust failed.");
     }
 
+    internal void ConvertTimeDateToZone(ref NotesTimeDate value, int zone)
+    {
+        EnsureInitialized();
+        using var thread = EnterThread();
+        var local = ExpandTimeDate(value);
+        local.Zone = zone;
+        if (Resolve<TimeLocalToGMDelegate>("TimeLocalToGM")(ref local) != 0)
+            throw new NotesException("TimeLocalToGM failed.");
+        value = local.GM;
+    }
+
     internal string AbbreviateName(string value)
     {
         EnsureInitialized();
@@ -116,5 +127,6 @@ internal sealed partial class NotesNativeApi
     [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate int TimeDateAdjustDelegate(ref NotesTimeDate value, int seconds, int minutes, int hours, int days, int months, int years);
     [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate int TimeGMToLocalDelegate(ref NotesExpandedTime value);
     [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate int TimeGMToLocalZoneDelegate(ref NotesExpandedTime value);
+    [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate int TimeLocalToGMDelegate(ref NotesExpandedTime value);
     [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate ushort DNAbbreviateDelegate(uint flags, nint templateName, nint input, nint output, ushort outputSize, out ushort outputLength);
 }
