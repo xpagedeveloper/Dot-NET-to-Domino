@@ -3,6 +3,7 @@ namespace DotNetToDomino;
 /// <summary>Builds and sends a mail memo through the Notes/Domino mail path.</summary>
 public sealed class NotesMail : NotesObject
 {
+    private sealed record MimeAttachment(string SourcePath, string FileName, string ContentType);
     private string[] _sendTo = [];
     private string[] _copyTo = [];
     private string[] _blindCopyTo = [];
@@ -15,7 +16,7 @@ public sealed class NotesMail : NotesObject
     private string _deliveryReport = "N";
     private bool _returnReceipt;
     private readonly List<string> _attachments = [];
-    private readonly List<string> _mimeAttachments = [];
+    private readonly List<MimeAttachment> _mimeAttachments = [];
     private Action<NotesRichTextItem>? _richTextComposer;
     private Action<NotesMIMEEntity>? _mimeComposer;
     private string? _mimeBodyContent;
@@ -52,7 +53,7 @@ public sealed class NotesMail : NotesObject
     /// <summary>Whether this mail has MIME content. MIME composition is not implemented yet.</summary>
     public bool IsMIME { get { EnsureAlive(); return _mimeComposer is not null || _mimeAttachments.Count > 0; } }
     /// <summary>Number of rich-text file attachments.</summary>
-    public int AttachmentCount { get { EnsureAlive(); return _attachments.Count; } }
+    public int AttachmentCount { get { EnsureAlive(); return _attachments.Count + _mimeAttachments.Count; } }
 
     /// <summary>Adds a file attachment to the rich-text mail body.</summary>
     public void AddAttachment(string sourcePath)
@@ -66,14 +67,25 @@ public sealed class NotesMail : NotesObject
 
     /// <summary>Adds a file to a multipart MIME mail body.</summary>
     public void AddMimeAttachment(string sourcePath)
+        => AddMimeAttachment(sourcePath, Path.GetFileName(sourcePath), "application/octet-stream");
+
+    /// <summary>Adds a MIME attachment with an explicit file name and content type.</summary>
+    public void AddMimeAttachment(string sourcePath, string? fileName, string? contentType)
     {
         EnsureAlive();
         ArgumentException.ThrowIfNullOrWhiteSpace(sourcePath);
         if (!File.Exists(sourcePath)) throw new FileNotFoundException("MIME mail attachment was not found.", sourcePath);
         if (_mimeComposer is not null) throw new InvalidOperationException("AddMimeAttachment cannot be combined with SetBodyMIME; compose the complete MIME body in one callback.");
-        if (_mimeAttachments.Any(path => string.Equals(path, sourcePath, StringComparison.OrdinalIgnoreCase))) return;
-        _mimeAttachments.Add(sourcePath);
+        var normalizedName = string.IsNullOrWhiteSpace(fileName) ? Path.GetFileName(sourcePath) : fileName.Trim();
+        if (normalizedName.Length == 0 || normalizedName.IndexOf('\0') >= 0) throw new ArgumentException("MIME attachment file name is invalid.", nameof(fileName));
+        var normalizedType = string.IsNullOrWhiteSpace(contentType) ? "application/octet-stream" : contentType.Trim();
+        if (normalizedType.Contains('\r') || normalizedType.Contains('\n')) throw new ArgumentException("MIME attachment content type cannot contain CR/LF.", nameof(contentType));
+        if (_mimeAttachments.Any(item => string.Equals(item.SourcePath, sourcePath, StringComparison.OrdinalIgnoreCase))) return;
+        _mimeAttachments.Add(new MimeAttachment(sourcePath, normalizedName, normalizedType));
     }
+
+    /// <summary>Adds a MIME attachment using XPScript-compatible optional metadata.</summary>
+    public void AddAttachment(string sourcePath, string? fileName, string? contentType) => AddMimeAttachment(sourcePath, fileName, contentType);
 
     /// <summary>Removes all configured rich-text and MIME attachments.</summary>
     public void ClearAttachments()
@@ -169,9 +181,9 @@ public sealed class NotesMail : NotesObject
             builder.Append(_body).Append("\r\n");
             foreach (var attachment in _mimeAttachments)
             {
-                var name = Path.GetFileName(attachment).Replace("\"", "", StringComparison.Ordinal);
-                builder.Append("--").Append(boundary).Append("\r\nContent-Type: application/octet-stream; name=\"").Append(name).Append("\"\r\nContent-Disposition: attachment; filename=\"").Append(name).Append("\"\r\nContent-Transfer-Encoding: base64\r\n\r\n");
-                builder.Append(Convert.ToBase64String(File.ReadAllBytes(attachment), Base64FormattingOptions.InsertLineBreaks)).Append("\r\n");
+                var name = attachment.FileName.Replace("\"", "", StringComparison.Ordinal);
+                builder.Append("--").Append(boundary).Append("\r\nContent-Type: ").Append(attachment.ContentType).Append("; name=\"").Append(name).Append("\"\r\nContent-Disposition: attachment; filename=\"").Append(name).Append("\"\r\nContent-Transfer-Encoding: base64\r\n\r\n");
+                builder.Append(Convert.ToBase64String(File.ReadAllBytes(attachment.SourcePath), Base64FormattingOptions.InsertLineBreaks)).Append("\r\n");
             }
             builder.Append("--").Append(boundary).Append("--\r\n");
             stream.WriteText(builder.ToString());

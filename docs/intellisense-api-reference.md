@@ -113,6 +113,7 @@ The required columns are `Member`, `Syntax`, `Parameters`, `Description`, and `E
 | `NotesMail.Sender` / `OnBehalfOf` | `mail.Sender` / `mail.OnBehalfOf` | sender/delegated sender. | Exposes the session sender and the Principal alias used for delegated mail. | [TODO](../todo/xpscript-notes-runtime-parity.md) |
 | `NotesMail.SetMIME` / `ClearAttachments` | `mail.SetMIME(content, type)` / `mail.ClearAttachments()` | MIME content or no arguments. | Provides XPScript-compatible MIME alias and attachment reset operation. | [TODO](../todo/xpscript-notes-runtime-parity.md) |
 | `NotesMail.AddMimeAttachment` | `mail.AddMimeAttachment(path)` | existing file path. | Adds a base64 MIME file part to the multipart mail body. | [TODO](../todo/xpscript-notes-runtime-parity.md) |
+| `NotesMail.AddAttachment` | `mail.AddAttachment(path, fileName, contentType)` | file path and optional metadata. | Adds a MIME attachment with explicit filename and content type. | [TODO](../todo/xpscript-notes-runtime-parity.md) |
 | `NotesRichTextTable.RowCount` | `table.RowCount` | none | Gets the parsed table row count. | [TODO](../todo/xpscript-notes-runtime-parity.md) |
 | `NotesRichTextTable.ColumnCount` | `table.ColumnCount` | none | Gets the parsed table column count. | [TODO](../todo/xpscript-notes-runtime-parity.md) |
 | `NotesRichTextTable.RightToLeft` | `table.RightToLeft` | none | Gets the table direction flag. | [TODO](../todo/xpscript-notes-runtime-parity.md) |

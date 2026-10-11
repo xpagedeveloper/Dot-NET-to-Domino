@@ -43,6 +43,7 @@ Check("NuGet assembly loaded", () =>
     if (typeof(NotesMail).GetMethod("SetBodyMIME") is null) throw new InvalidOperationException("NotesMail.SetBodyMIME surface is missing.");
     if (typeof(NotesMail).GetMethod("SetBodyHTML") is null) throw new InvalidOperationException("NotesMail.SetBodyHTML surface is missing.");
     if (typeof(NotesMail).GetProperty("Sender") is null || typeof(NotesMail).GetProperty("OnBehalfOf") is null || typeof(NotesMail).GetMethod("SetMIME") is null || typeof(NotesMail).GetMethod("ClearAttachments") is null) throw new InvalidOperationException("NotesMail sender/attachment compatibility surface is missing.");
+    if (typeof(NotesMail).GetMethod("AddAttachment", new[] { typeof(string), typeof(string), typeof(string) }) is null) throw new InvalidOperationException("NotesMail custom attachment metadata surface is missing.");
     if (typeof(NotesMail).GetMethod("AddMimeAttachment") is null) throw new InvalidOperationException("NotesMail.AddMimeAttachment surface is missing.");
     foreach (var property in new[] { nameof(NotesDatabaseAccess.NamesList), nameof(NotesDatabaseAccess.Groups), nameof(NotesDatabaseAccess.Roles) })
         if (typeof(NotesDatabaseAccess).GetProperty(property)?.PropertyType != typeof(string[])) throw new InvalidOperationException($"NotesDatabaseAccess.{property} must return string[].");

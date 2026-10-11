@@ -13,7 +13,7 @@ This is the current implementation queue. Older repeated sections in this file a
 
 ### NotesMail
 
-- [~] Add root MIME mail composition and MIME file attachments through `SetBodyMIME`, `SetBodyHTML`, `SetMIME`, and `AddMimeAttachment`; sender aliases and attachment clearing are implemented, while child-entity mutation and custom attachment metadata remain open.
+- [~] Add root MIME mail composition and MIME file attachments through `SetBodyMIME`, `SetBodyHTML`, `SetMIME`, and attachment overloads; sender aliases, attachment clearing, and custom MIME filename/content-type are implemented, while child-entity mutation remains open.
 - [x] Add rich-text mail bodies through `NotesMail.SetBodyRichText`; live Domino send parity remains to be verified.
 - [x] Add rich-text file attachments through `NotesRichTextItem.AttachFile` and `NotesMail.AddAttachment`; MIME attachments remain open.
 - [ ] Verify all mail delivery options and send error paths against the native mail runtime.
