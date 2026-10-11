@@ -772,6 +772,12 @@ public sealed class NotesEmbeddedObject : NotesObject
     }
 
     public byte[] ToByteArray() { EnsureEmbeddedAlive(); return Session.Api.ReadAttachmentBytes(_parent.Parent.Handle, _metadata.Name); }
+    public void Remove()
+    {
+        EnsureEmbeddedAlive();
+        _parent.RemoveEmbeddedObject(_metadata);
+        Recycle();
+    }
     private void EnsureEmbeddedAlive() { EnsureAlive(); _parent.EnsureRichTextAlive(); }
     protected override void ReleaseNative() { }
 }

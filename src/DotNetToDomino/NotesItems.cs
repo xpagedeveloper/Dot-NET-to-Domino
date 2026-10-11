@@ -175,4 +175,16 @@ public sealed class NotesRichTextItem : NotesItem
         Session.Api.ReplaceRichTextCdRecords(Parent.Handle, Name, original, records);
         _richTextRevision++;
     }
+
+    internal void RemoveEmbeddedObject(NotesAttachmentMetadata metadata)
+    {
+        EnsureItemAlive();
+        var records = ReadRichTextRecords();
+        var rewritten = NotesRichTextCdTransform.Transform(records, record =>
+            record.ElementType == NotesRichTextNavigator.ElementEmbeddedObject && string.Equals(record.LinkedObjectName, metadata.Name, StringComparison.OrdinalIgnoreCase)
+                ? null
+                : NotesRichTextRecordRewrite.Preserve(record));
+        RewriteRichTextRecords(rewritten);
+        Session.Api.RemoveItemByBlock(Parent.Handle, metadata.ItemBlock);
+    }
 }

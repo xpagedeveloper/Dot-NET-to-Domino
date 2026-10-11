@@ -12,7 +12,7 @@ Reference sources are under `XPscript/src/XPScript.Compiler` and the related Not
 | MIME headers | `NotesMimeChildHeaderReadPostProcessor.cs`, `NotesMimeEntityDataHeaderPostProcessor.cs` | Root `NotesMIMEHeader` lookup, reads, parameter mutation, removal, and duplicate enumeration are implemented | Child-header creation/mutation still requires a verified native child-handle ABI |
 | MIME child mutation | `NotesMimeChildMutationPostProcessor.cs`, `NotesMimeEmptyChildBootstrapPostProcessor.cs` | Root and child traversal are implemented; child creation/removal and child content mutation remain unsupported | Port child creation/removal and ownership invalidation when native support is verified |
 | MIME root mutation | `NotesMimeRootMutationPostProcessor.cs` | Root content reads/writes, encoding/decoding, and preamble behavior are implemented | Verify the remaining multipart/child behavior against a live Domino runtime |
-| Notes rich-text structural writes | `NotesRichTextStructuralWriteSurfacePostProcessor.cs` | Range, item, section, table, and doclink removal use native-backed CD-record/item mutation; embedded-object removal remains unsupported | Complete embedded-object mutation and live runtime verification |
+| Notes rich-text structural writes | `NotesRichTextStructuralWriteSurfacePostProcessor.cs` | Range, item, section, table, doclink, and embedded-object removal use native-backed CD-record/item mutation | Verify remaining attachment edge cases and live runtime behavior |
 
 ## Areas requiring member-by-member comparison
 

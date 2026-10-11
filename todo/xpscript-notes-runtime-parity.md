@@ -29,7 +29,7 @@ This is the current implementation queue. Older repeated sections in this file a
 ### Rich-text structural mutation
 
 - [~] Complete rich-text linked-object `Remove()` operations for sections, tables, and doclinks; embedded-object removal remains open.
-- [ ] Complete native-backed rich-text HTML, linked-object, and attachment mutation coverage.
+- [~] Complete native-backed rich-text HTML and linked-object mutation coverage; embedded-object removal now deletes the hotspot and matching `$FILE` block, while broader attachment edge cases remain to be verified.
 
 ### Remaining object parity audits
 

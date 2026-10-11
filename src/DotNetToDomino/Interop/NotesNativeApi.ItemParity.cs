@@ -19,6 +19,13 @@ internal sealed partial class NotesNativeApi
         CheckStatus(Resolve<ItemParity_NSFItemDeleteByBlockId>("NSFItemDeleteByBLOCKID")(note, info.ItemBlock), "NSFItemDeleteByBLOCKID");
     }
 
+    internal void RemoveItemByBlock(nint note, NotesBlockId itemBlock)
+    {
+        EnsureInitialized();
+        using var thread = EnterThread();
+        CheckStatus(Resolve<ItemParity_NSFItemDeleteByBlockId>("NSFItemDeleteByBLOCKID")(note, itemBlock), "NSFItemDeleteByBLOCKID");
+    }
+
     [UnmanagedFunctionPointer(CallingConvention.Winapi)]
     private delegate ushort ItemParity_NSFItemDeleteByBlockId(nint note, NotesBlockId itemBlock);
 }
