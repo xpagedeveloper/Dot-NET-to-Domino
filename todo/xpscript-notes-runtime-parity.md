@@ -47,7 +47,7 @@ Status markers:
 - [x] `ContentID` and `ContentLocation` are backed by native MIME entity access and match the current XPScript path.
 - [~] Verify multipart MIME behavior and nested child entities; managed traversal and root preamble behavior are implemented, but live HCL runtime validation remains open.
 - [x] MIME directory ownership is centralized and invalidated on close/save/recycle; full child/header lifetime verification remains open until the remaining native entity/header surface is complete.
-- [ ] Verify `NotesSession.ConvertMIME` interaction with document/item access.
+- [x] Verify `NotesSession.ConvertMIME` interaction with document/item access; document open-by-note-ID and open-by-UNID pass `OPEN_RAW_MIME_PART` when conversion is disabled.
 
 ### NotesMIMEHeader
 
