@@ -498,11 +498,11 @@ Status markers:
 
 ## P1 — NotesDocumentCollection / NotesNoteCollection
 
-- [ ] Re-audit recent collection changes.
-- [ ] Verify NoteID normalization changes.
-- [ ] Verify modified-document metadata and design/document classification.
-- [ ] Verify collection ownership/recycle behavior.
-- [ ] Audit any new collection mutation/search members.
+- [x] Re-audit recent collection changes.
+- [x] Verify NoteID normalization changes; C# now applies the same `0x7fffffff` mask as XPScript.
+- [x] Verify modified-document metadata and design/document classification.
+- [x] Verify collection ownership/recycle behavior and parent lifetime checks.
+- [x] Audit collection mutation/search members; no additional physical XPScript members require porting in this pass.
 
 ## P2 — Remaining Notes object inventory
 

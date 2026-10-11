@@ -14,15 +14,16 @@ public sealed class NotesDocumentCollection : NotesObject, IReadOnlyCollection<u
     private NotesTimeDate _untilTime;
     private uint[]? _documentNoteIds;
     private uint[]? _designNoteIds;
+    private readonly NotesDatabase _parent;
 
     internal NotesDocumentCollection(NotesSession session, NotesDatabase parent, IEnumerable<uint> noteIds) : base(session)
     {
-        Parent = parent;
-        _noteIds = noteIds.Distinct().ToArray();
+        _parent = parent;
+        _noteIds = noteIds.Select(NormalizeNoteId).Distinct().ToArray();
         _replicaId = parent.IsOpen ? session.Api.GetDatabaseReplicaId(parent.Handle) : string.Empty;
     }
 
-    public NotesDatabase Parent { get; }
+    public NotesDatabase Parent { get { EnsureAlive(); return _parent; } }
     public int Count { get { EnsureAlive(); return _noteIds.Length; } }
     public string? FirstNoteId => Count == 0 ? null : _noteIds[0].ToString("X8", CultureInfo.InvariantCulture);
     public NotesDateTime? UntilTime { get { EnsureAlive(); return _hasModifiedMetadata ? NotesDateTime.FromNative(Session, _untilTime) : null; } }
@@ -33,8 +34,8 @@ public sealed class NotesDocumentCollection : NotesObject, IReadOnlyCollection<u
     internal void InitializeModifiedMetadata(NotesTimeDate untilTime, IEnumerable<uint> documentNoteIds, IEnumerable<uint> designNoteIds)
     {
         _untilTime = untilTime;
-        _documentNoteIds = documentNoteIds.Distinct().ToArray();
-        _designNoteIds = designNoteIds.Distinct().ToArray();
+        _documentNoteIds = documentNoteIds.Select(NormalizeNoteId).Distinct().ToArray();
+        _designNoteIds = designNoteIds.Select(NormalizeNoteId).Distinct().ToArray();
         _hasModifiedMetadata = true;
     }
 
@@ -156,6 +157,7 @@ public sealed class NotesDocumentCollection : NotesObject, IReadOnlyCollection<u
         var replicaId = database.IsOpen ? Session.Api.GetDatabaseReplicaId(database.Handle) : database.ReplicaID;
         if (!string.Equals(_replicaId, replicaId, StringComparison.OrdinalIgnoreCase)) throw new ArgumentException("Notes object belongs to a different database replica.", nameof(database));
     }
+    private static uint NormalizeNoteId(uint noteId) => noteId & 0x7fffffffu;
 }
 
 /// <summary>Selection-driven collection of Notes data and design notes.</summary>
@@ -164,10 +166,11 @@ public sealed class NotesNoteCollection : NotesObject, IReadOnlyCollection<uint>
     private uint[] _noteIds = [];
     private bool _built;
     private DateTimeOffset _lastBuildUtc;
+    private readonly NotesDatabase _parent;
 
-    internal NotesNoteCollection(NotesSession session, NotesDatabase parent) : base(session) => Parent = parent;
+    internal NotesNoteCollection(NotesSession session, NotesDatabase parent) : base(session) { _parent = parent; }
 
-    public NotesDatabase Parent { get; }
+    public NotesDatabase Parent { get { EnsureAlive(); return _parent; } }
     public int Count { get { EnsureAlive(); RequireBuilt(); return _noteIds.Length; } }
     public string SelectionFormula { get; set; } = "@All";
     public NotesDateTime? SinceTime { get; set; }
