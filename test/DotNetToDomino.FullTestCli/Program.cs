@@ -85,7 +85,10 @@ Check("NuGet assembly loaded", () =>
         ("NotesMIMEEntity.GetFirstChildEntity", typeof(NotesMIMEEntity).GetMethod(nameof(NotesMIMEEntity.GetFirstChildEntity), Type.EmptyTypes)),
         ("NotesMIMEEntity.GetNextSibling", typeof(NotesMIMEEntity).GetMethod(nameof(NotesMIMEEntity.GetNextSibling), Type.EmptyTypes)),
         ("NotesMIMEEntity.GetParentEntity", typeof(NotesMIMEEntity).GetMethod(nameof(NotesMIMEEntity.GetParentEntity), Type.EmptyTypes)),
-        ("NotesView.GetEntryByKey", typeof(NotesView).GetMethod(nameof(NotesView.GetEntryByKey), new[] { typeof(string) }))
+        ("NotesView.GetEntryByKey", typeof(NotesView).GetMethod(nameof(NotesView.GetEntryByKey), new[] { typeof(string) })),
+        ("NotesDBDirectory.GetFirstDatabase", typeof(NotesDBDirectory).GetMethod(nameof(NotesDBDirectory.GetFirstDatabase), new[] { typeof(int) })),
+        ("NotesDBDirectory.GetNextDatabase", typeof(NotesDBDirectory).GetMethod(nameof(NotesDBDirectory.GetNextDatabase), Type.EmptyTypes)),
+        ("NotesViewNavigator.GetCurrent", typeof(NotesViewNavigator).GetMethod(nameof(NotesViewNavigator.GetCurrent), Type.EmptyTypes))
     };
     foreach (var (name, method) in nullableObjectLookups)
         if (method is null || new NullabilityInfoContext().Create(method.ReturnParameter).ReadState != NullabilityState.Nullable) throw new InvalidOperationException($"{name} must be annotated as nullable.");
