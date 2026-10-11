@@ -1,25 +1,27 @@
-# Third-party notices
+# Third-party reference notices
 
-## Current release
+`DotNetToDomino` is an independent .NET wrapper around the HCL Notes/Domino native API. The projects and documentation below are implementation references only; their source code and binaries are not copied into or redistributed by this repository.
 
-The `DotNetToDomino` NuGet package currently has no third-party NuGet package dependencies. Its managed implementation uses only the .NET 10 base class libraries and direct P/Invoke-style bindings to the HCL Notes/Domino native runtime.
+## HCL Domino C API documentation
 
-The HCL Notes/Domino runtime, native libraries, SDK headers, and HCL documentation are not redistributed by this repository or its NuGet package. Users must obtain and license the applicable HCL Notes/Domino product separately.
+Copyright HCL Software.
 
-The project source and managed library are licensed under Apache License 2.0; see [`LICENSE`](LICENSE).
+The [HCL Domino C API documentation](https://opensource.hcltechsw.com/domino-c-api-docs/) is used as the primary reference for native signatures, constants, ABI details and MIME behavior. HCL's open-source catalog lists it under the [Apache License, Version 2.0](https://www.apache.org/licenses/LICENSE-2.0). This project does not redistribute the HCL C API toolkit or documentation archive.
 
-## Dependency policy
+## HCL Domino JNX
 
-Before adding an external NuGet package or copied/generated third-party source, record all of the following in this file in the same change:
+Copyright 2019–2021 HCL. The [Domino JNX project](https://github.com/HCL-TECH-SOFTWARE/domino-jnx) is used as a secondary reference for Notes behavior and native API mapping. It is licensed under the [Apache License, Version 2.0](https://www.apache.org/licenses/LICENSE-2.0). No JNX source or binary is distributed here.
 
-1. Package or project name and exact version.
-2. Package URL and source repository.
-3. License identifier and a link to the license text.
-4. Copyright and notice text when required by that license.
-5. Whether the dependency is shipped in the runtime NuGet package or used only by tests/build tooling.
+## Domino JNA
 
-Dependencies used only by tests or build tooling must be kept out of the runtime package whenever possible. Do not copy HCL native binaries or proprietary HCL material into this repository or package.
+Copyright Klehmann and contributors. The [Domino JNA project](https://github.com/klehmann/domino-jna) is used as a reference for MIME serialization and Notes item writeback. It is licensed under the [Apache License, Version 2.0](https://www.apache.org/licenses/LICENSE-2.0). No Domino JNA source or binary is distributed here.
 
-## Review rule
+## NuGet dependencies
 
-Every new `PackageReference`, vendored source file, generated artifact based on external code, or runtime native dependency must receive a license/notice review before merge. If a package has transitive dependencies, inspect and record the transitive license obligations as well.
+The runtime and integration test projects currently declare no external `PackageReference` dependencies. They use the .NET 10 base class libraries and direct native bindings to the separately installed HCL runtime. If a package is added later, this section must record its exact version, source URL, copyright holder, license and required NOTICE/redistribution material, including reviewed transitive dependencies.
+
+## .NET platform and HCL runtime
+
+The library is built on the [.NET platform](https://github.com/dotnet/runtime), generally distributed under the [MIT License](https://github.com/dotnet/runtime/blob/main/LICENSE.TXT). This package does not redistribute the .NET runtime; self-contained applications must retain notices from their runtime distribution.
+
+The commercial HCL Notes/Domino runtime, native libraries and product documentation are not included. HCL, Notes and Domino marks belong to their respective owners. References are for attribution, interoperability and compatibility identification only.
