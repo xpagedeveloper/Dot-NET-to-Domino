@@ -20,7 +20,7 @@ These areas have public C# coverage, but XPScript contains additional postproces
 
 - `NotesDocument` LotusScript aliases, `ComputeWithForm`, send overloads, and collection operations.
 - `NotesDatabase` LotusScript aliases and full-text/design metadata.
-- `NotesView`/`NotesViewNavigator` cache, history, and navigation limits.
+- `NotesView`/`NotesViewNavigator` history semantics and remaining navigation edge cases; cache, max-level, reverse navigation, and factory surfaces are present.
 - `NotesRichTextItem`, navigator/range mutation, attachments, HTML, MIME, and linked objects.
 - `NotesDxlImporter`/`NotesDxlExporter` result properties and overloads.
 - `NotesNoteCollection` provenance and `StampAllMulti` behavior.
@@ -39,8 +39,8 @@ These areas have public C# coverage, but XPScript contains additional postproces
 | `NotesItem` / `NotesRichTextItem` | Same | Present; item and rich-text entrypoints exist, but native mutation/attachment/HTML coverage is incomplete. |
 | `NotesMIMEEntity` / `NotesMIMEHeader` | Same | Entity and root header behavior are implemented; child mutation and live multipart validation remain open. |
 | `NotesMail` | `NotesMail` | Text mail, composable rich-text bodies, rich-text file attachments, root MIME composition, and MIME file attachments are implemented, including `NotesSession.CreateMail()`, recipients, headers, delivery options, and native document send. Child MIME entities remain open. |
-| `NotesView` / `NotesViewColumn` | Same | Present; navigation and column surfaces exist. Cache/history/max-level and column edge semantics need comparison. |
-| `NotesViewEntry` / collections / navigator | Same | Present; broad surface exists. XPScript-specific navigation/cache behavior needs validation. |
+| `NotesView` / `NotesViewColumn` | Same | Present; navigation, reverse navigation, refresh, cache/max-level factories, and column surfaces exist. History and column edge semantics need live comparison. |
+| `NotesViewEntry` / collections / navigator | Same | Present; broad navigation, cache, max-level, sibling/parent/child, and bulk-operation surfaces exist. XPScript-specific history behavior needs validation. |
 | `NotesAgent` / result | Same | Present; runtime parity branch was merged. Live native verification remains. |
 | `NotesForm` | Same | Present as a design-note wrapper; full property/method parity needs review. |
 | `NotesStream` | Same | Present; stream ABI and boundary behavior need comparison against `NotesStreamPostProcessor`. |
