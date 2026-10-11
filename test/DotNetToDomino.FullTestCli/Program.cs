@@ -128,6 +128,8 @@ Check("NuGet assembly loaded", () =>
         ("NotesViewNavigator.GetParentEntry", typeof(NotesViewNavigator).GetMethod(nameof(NotesViewNavigator.GetParent), new[] { typeof(NotesViewEntry) })),
         ("NotesViewNavigator.GetNextSibling", typeof(NotesViewNavigator).GetMethod(nameof(NotesViewNavigator.GetNextSibling), Type.EmptyTypes)),
         ("NotesViewNavigator.GetPrevSibling", typeof(NotesViewNavigator).GetMethod(nameof(NotesViewNavigator.GetPrevSibling), Type.EmptyTypes)),
+        ("NotesViewNavigator.GetNextSiblingEntry", typeof(NotesViewNavigator).GetMethod(nameof(NotesViewNavigator.GetNextSibling), new[] { typeof(NotesViewEntry) })),
+        ("NotesViewNavigator.GetPrevSiblingEntry", typeof(NotesViewNavigator).GetMethod(nameof(NotesViewNavigator.GetPrevSibling), new[] { typeof(NotesViewEntry) })),
         ("NotesViewNavigator.GetNth", typeof(NotesViewNavigator).GetMethod(nameof(NotesViewNavigator.GetNth), new[] { typeof(int) })),
         ("NotesViewNavigator.GetPos", typeof(NotesViewNavigator).GetMethod(nameof(NotesViewNavigator.GetPos), new[] { typeof(string), typeof(string) }))
     };
