@@ -8,11 +8,11 @@ Reference sources are under `XPscript/src/XPScript.Compiler` and the related Not
 
 | Area | XPScript evidence | Dot-NET-to-Domino status | Next work |
 | --- | --- | --- | --- |
-| `NotesMail` | `NotesMailPostProcessor.cs`, `NotesMailSenderSemanticsPostProcessor.cs`, `samples/notes-mail-surface.xps` | No public `NotesMail` type or `NotesSession.CreateMail()` factory found | Port recipient, subject, body, delivery options, rich-text body, and send validation through the native mail path |
+| `NotesMail` | `NotesMailPostProcessor.cs`, `NotesMailSenderSemanticsPostProcessor.cs`, `samples/notes-mail-surface.xps` | Text, rich-text, root MIME, rich-text attachment, and MIME attachment composition are present; child MIME composition remains open | Verify delivery semantics and implement child-entity composition when its native ABI is verified |
 | MIME headers | `NotesMimeChildHeaderReadPostProcessor.cs`, `NotesMimeEntityDataHeaderPostProcessor.cs` | Root `NotesMIMEHeader` lookup, reads, parameter mutation, removal, and duplicate enumeration are implemented | Child-header creation/mutation still requires a verified native child-handle ABI |
 | MIME child mutation | `NotesMimeChildMutationPostProcessor.cs`, `NotesMimeEmptyChildBootstrapPostProcessor.cs` | Root and child traversal are implemented; child creation/removal and child content mutation remain unsupported | Port child creation/removal and ownership invalidation when native support is verified |
 | MIME root mutation | `NotesMimeRootMutationPostProcessor.cs` | Root content reads/writes, encoding/decoding, and preamble behavior are implemented | Verify the remaining multipart/child behavior against a live Domino runtime |
-| Notes rich-text structural writes | `NotesRichTextStructuralWriteSurfacePostProcessor.cs` | Structural objects expose `Remove()` as unsupported in the current implementation | Verify native CD-record rewrite/delete semantics before implementing |
+| Notes rich-text structural writes | `NotesRichTextStructuralWriteSurfacePostProcessor.cs` | Range and item removal use native-backed CD-record/item mutation; some linked-object removal remains unsupported | Complete the remaining linked-object mutation surface and live runtime verification |
 
 ## Areas requiring member-by-member comparison
 
@@ -29,7 +29,7 @@ These areas have public C# coverage, but XPScript contains additional postproces
 
 | XPScript object | C# object | Assessment |
 | --- | --- | --- |
-| `NotesSession` | `NotesSession` | Present; environment, password, database-open, address-book, DB-directory, MIME-open, and factory behavior have been audited in part. `CreateMail()` is missing. |
+| `NotesSession` | `NotesSession` | Present; environment, password, database-open, address-book, DB-directory, MIME-open, and `CreateMail()` factory behavior are implemented. Live runtime verification remains. |
 | `NotesDatabase` | `NotesDatabase` | Present; core open/create/copy, metadata, access, full-text, design, profile, document, agent, and alias surfaces are present. A complete member sweep remains. |
 | `NotesDatabaseAccess` | `NotesDatabaseAccess` | Present; native ACL snapshot path was corrected. Live Domino ACL verification remains. |
 | `NotesDbDirectory` | `NotesDBDirectory` | Present with a .NET naming difference; enumeration/open behavior needs full parity verification. |
