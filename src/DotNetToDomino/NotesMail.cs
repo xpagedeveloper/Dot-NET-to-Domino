@@ -18,6 +18,8 @@ public sealed class NotesMail : NotesObject
     private readonly List<string> _mimeAttachments = [];
     private Action<NotesRichTextItem>? _richTextComposer;
     private Action<NotesMIMEEntity>? _mimeComposer;
+    private string? _mimeBodyContent;
+    private string? _mimeBodyContentType;
 
     internal NotesMail(NotesSession session) : base(session) => _from = session.UserName;
 
@@ -70,7 +72,22 @@ public sealed class NotesMail : NotesObject
     }
 
     /// <summary>Sets the plain-text body and clears other body modes.</summary>
-    public void SetBodyText(string? text) { EnsureAlive(); _richTextComposer = null; _mimeComposer = null; _body = text ?? string.Empty; }
+    public void SetBodyText(string? text) { EnsureAlive(); _richTextComposer = null; _mimeComposer = null; _mimeBodyContent = null; _mimeBodyContentType = null; _body = text ?? string.Empty; }
+
+    /// <summary>Sets an HTML MIME body.</summary>
+    public void SetBodyHTML(string? html) => SetMIMEBody(html, "text/html; charset=UTF-8");
+
+    /// <summary>Sets a text MIME body with the supplied content type.</summary>
+    public void SetMIMEBody(string? content, string contentType)
+    {
+        EnsureAlive();
+        ArgumentException.ThrowIfNullOrWhiteSpace(contentType);
+        _mimeBodyContent = content ?? string.Empty;
+        _mimeBodyContentType = contentType.Trim();
+        _mimeComposer = null;
+        _richTextComposer = null;
+        _body = string.Empty;
+    }
 
     /// <summary>Configures a rich-text body. The callback runs against the new Body item during Send.</summary>
     public void SetBodyRichText(Action<NotesRichTextItem> compose)
@@ -80,6 +97,8 @@ public sealed class NotesMail : NotesObject
         _richTextComposer = compose;
         _body = string.Empty;
         _mimeComposer = null;
+        _mimeBodyContent = null;
+        _mimeBodyContentType = null;
     }
 
     /// <summary>Configures the root MIME entity during Send.</summary>
@@ -89,6 +108,8 @@ public sealed class NotesMail : NotesObject
         ArgumentNullException.ThrowIfNull(compose);
         _mimeComposer = compose;
         _richTextComposer = null;
+        _mimeBodyContent = null;
+        _mimeBodyContentType = null;
         _body = string.Empty;
     }
 
@@ -111,10 +132,16 @@ public sealed class NotesMail : NotesObject
         if (_replyTo.Length > 0) document.ReplaceItemValue("ReplyTo", _replyTo);
         if (_principal.Length > 0) document.ReplaceItemValue("Principal", _principal);
         if (_subject.Length > 0) document.ReplaceItemValue("Subject", _subject);
-        if (_mimeComposer is not null)
+        if (_mimeComposer is not null || _mimeBodyContent is not null)
         {
             using var mime = document.CreateMIMEEntity("Body");
-            _mimeComposer(mime);
+            if (_mimeBodyContent is not null)
+            {
+                using var stream = Session.CreateStream();
+                stream.WriteText(_mimeBodyContent);
+                mime.SetContentFromText(stream, _mimeBodyContentType!, 1725);
+            }
+            else _mimeComposer!(mime);
         }
         else if (_mimeAttachments.Count > 0)
         {

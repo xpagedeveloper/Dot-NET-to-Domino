@@ -41,6 +41,7 @@ Check("NuGet assembly loaded", () =>
     if (typeof(NotesEmbeddedObject).GetMethod("Remove") is null) throw new InvalidOperationException("NotesEmbeddedObject.Remove surface is missing.");
     if (typeof(NotesMail).GetMethod("SetBodyRichText") is null) throw new InvalidOperationException("NotesMail.SetBodyRichText surface is missing.");
     if (typeof(NotesMail).GetMethod("SetBodyMIME") is null) throw new InvalidOperationException("NotesMail.SetBodyMIME surface is missing.");
+    if (typeof(NotesMail).GetMethod("SetBodyHTML") is null) throw new InvalidOperationException("NotesMail.SetBodyHTML surface is missing.");
     if (typeof(NotesMail).GetMethod("AddMimeAttachment") is null) throw new InvalidOperationException("NotesMail.AddMimeAttachment surface is missing.");
     foreach (var property in new[] { nameof(NotesDatabaseAccess.NamesList), nameof(NotesDatabaseAccess.Groups), nameof(NotesDatabaseAccess.Roles) })
         if (typeof(NotesDatabaseAccess).GetProperty(property)?.PropertyType != typeof(string[])) throw new InvalidOperationException($"NotesDatabaseAccess.{property} must return string[].");
