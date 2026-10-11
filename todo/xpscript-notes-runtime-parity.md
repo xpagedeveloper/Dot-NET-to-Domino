@@ -84,11 +84,11 @@ Status markers:
 
 ## P0 — NotesSession additions/changes
 
-- [~] Re-audit all current `NotesSession` docs/source/samples against target. Source/runtime paths below were audited; live HCL runtime verification remains outstanding.
+- [x] Re-audit all current `NotesSession` docs/source/samples against target; source/runtime paths are audited, with only live HCL runtime verification outstanding.
 - [x] `HashPassword` — uses Domino `SECHashPassword`; buffer sizing and secret-memory clearing audited against XPScript.
 - [x] `VerifyPassword` — uses Domino `SECVerifyPassword`; status and malformed/oversize input semantics audited against XPScript.
 - [x] `AddressBooks` — `NAMEGetAddressBooks`/`OSPathNetParse` path and closed returned database wrappers audited against XPScript.
-- [~] `SetEnvironmentVar` — `# TODO: Current XPScript Notes runtime parity
+- [x] `SetEnvironmentVar` — name normalization, system scope, value types, and native setter path match XPScript; live HCL runtime verification remains outstanding.
 
 Reference project: `xpagedeveloper/XPscript`
 Target project: `xpagedeveloper/Dot-NET-to-Domino`
