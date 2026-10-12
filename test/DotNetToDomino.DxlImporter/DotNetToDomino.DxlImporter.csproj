@@ -7,6 +7,6 @@
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="DotNetToDomino" Version="0.1.0-alpha.1" />
+    <PackageReference Include="DotNetToDomino" Version="0.1.0-alpha.2" />
   </ItemGroup>
 </Project>

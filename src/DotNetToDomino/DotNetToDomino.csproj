@@ -6,7 +6,7 @@
     <AssemblyName>DotNetToDomino</AssemblyName>
     <RootNamespace>DotNetToDomino</RootNamespace>
     <PackageId>DotNetToDomino</PackageId>
-    <Version>0.1.0-alpha.1</Version>
+    <Version>0.1.0-alpha.2</Version>
     <Authors>xpagedeveloper</Authors>
     <Description>Native .NET 10 object wrappers for the HCL Notes/Domino C API.</Description>
     <PackageTags>hcl;notes;domino;c-api;interop;dotnet10</PackageTags>
