@@ -314,6 +314,15 @@ else
             catch (ArgumentOutOfRangeException ex) when (ex.ParamName == "id") { }
         }
     });
+    if (!string.IsNullOrWhiteSpace(databasePath)) Check("null argument traps", () =>
+    {
+        using var database = session.GetDatabase(server, databasePath, false) ?? throw new InvalidOperationException("Database not found.");
+        using var document = database.CreateDocument();
+        ExpectException<ArgumentNullException>("SetValue null", () => document.SetValue("NullValue", null));
+        ExpectException<ArgumentNullException>("SetString null", () => document.SetString("NullString", null!));
+        using var stream = session.CreateStream();
+        ExpectException<ArgumentNullException>("WriteText null", () => stream.WriteText(null!));
+    });
     Check("exception trapping", () =>
     {
         ExpectException<ArgumentNullException>("null password is trapped", () => session.HashPassword(null!));
