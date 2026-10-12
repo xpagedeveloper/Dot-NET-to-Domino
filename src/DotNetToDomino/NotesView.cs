@@ -63,21 +63,24 @@ public sealed class NotesView : NotesObject
     public NotesDocument? GetFirstDocumentByKey(string key, bool exactMatch = true)
     {
         EnsureOpen();
-        var ids = Session.Api.FindViewByTextKey(_handle, key ?? string.Empty, 1, exactMatch);
+        ArgumentException.ThrowIfNullOrWhiteSpace(key);
+        var ids = Session.Api.FindViewByTextKey(_handle, key.Trim(), 1, exactMatch);
         return ids.Count == 0 ? null : Parent.GetDocumentByID(ids[0]);
     }
 
     public NotesDocumentCollection GetAllDocumentsByKey(string key, bool exactMatch = true)
     {
         EnsureOpen();
-        return Parent.Own(new NotesDocumentCollection(Session, Parent, Session.Api.FindViewByTextKey(_handle, key ?? string.Empty, 0, exactMatch)));
+        ArgumentException.ThrowIfNullOrWhiteSpace(key);
+        return Parent.Own(new NotesDocumentCollection(Session, Parent, Session.Api.FindViewByTextKey(_handle, key.Trim(), 0, exactMatch)));
     }
 
     public NotesDocumentCollection FTSearch(string query, int maxResults = 0)
     {
         EnsureOpen();
-        if (maxResults < 0) throw new ArgumentOutOfRangeException(nameof(maxResults));
-        return Parent.Own(new NotesDocumentCollection(Session, Parent, Session.Api.FullTextSearch(Parent.Handle, _handle, query, maxResults)));
+        ArgumentException.ThrowIfNullOrWhiteSpace(query);
+        if (maxResults < 0) throw new ArgumentOutOfRangeException(nameof(maxResults), maxResults, "'maxResults' cannot be negative.");
+        return Parent.Own(new NotesDocumentCollection(Session, Parent, Session.Api.FullTextSearch(Parent.Handle, _handle, query.Trim(), maxResults)));
     }
 
     public NotesDocumentCollection FullTextSearch(string query, int maxResults = 0) => FTSearch(query, maxResults);
