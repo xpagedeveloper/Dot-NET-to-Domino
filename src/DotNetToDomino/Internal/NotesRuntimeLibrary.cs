@@ -41,6 +41,14 @@ internal sealed class NotesRuntimeLibrary : IDisposable
 
             try
             {
+                if (OperatingSystem.IsWindows())
+                {
+                    // nnotes.dll has native dependencies beside it. Ensure Windows
+                    // resolves those dependencies from the selected Notes runtime,
+                    // matching the XPScript host setup.
+                    SetDllDirectory(resolvedDirectory);
+                    SetCurrentDirectory(resolvedDirectory);
+                }
                 return new NotesRuntimeLibrary(resolvedDirectory, path, NativeLibrary.Load(path));
             }
             catch (Exception ex) when (ex is DllNotFoundException or BadImageFormatException)
@@ -52,6 +60,12 @@ internal sealed class NotesRuntimeLibrary : IDisposable
         throw new DllNotFoundException(
             $"No HCL Notes/Domino native runtime library was found in '{resolvedDirectory}'. Expected: {string.Join(", ", candidates)}.");
     }
+
+    [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+    private static extern bool SetDllDirectory(string? path);
+
+    [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+    private static extern bool SetCurrentDirectory(string path);
 
     internal nint GetExport(string name)
     {
