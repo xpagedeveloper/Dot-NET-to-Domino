@@ -17,6 +17,12 @@ var notesIni = args.Length == 5 ? Path.GetFullPath(args[4]) : null;
 if (!File.Exists(dxlPath)) throw new FileNotFoundException("DXL file was not found.", dxlPath);
 if (targetPath.Length == 0) throw new ArgumentException("Target NSF path cannot be empty.", nameof(args));
 
+var runtimeInfo = NotesRuntimeDiagnostics.Inspect(runtime);
+Console.WriteLine($"Native runtime: {runtimeInfo.NativeLibraryPath}");
+Console.WriteLine($"Exists: {runtimeInfo.Exists}, size: {runtimeInfo.FileSize}, version: {runtimeInfo.FileVersion}, file architecture: {runtimeInfo.FileArchitecture}, process architecture: {runtimeInfo.ProcessArchitecture}");
+if (!runtimeInfo.Exists) throw new FileNotFoundException("The expected Notes native library was not found.", runtimeInfo.NativeLibraryPath);
+if (!runtimeInfo.ArchitectureMatches) throw new BadImageFormatException($"Native Notes runtime architecture '{runtimeInfo.FileArchitecture}' does not match process architecture '{runtimeInfo.ProcessArchitecture}'.");
+
 using var session = new NotesSession(runtime, notesIni);
 using var database = session.OpenDatabase(server, targetPath);
 if (!database.IsOpen)
