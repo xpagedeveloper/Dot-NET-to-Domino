@@ -240,6 +240,10 @@ else
         document.SetValue("EmptyValueItem", string.Empty);
         if (document.GetString("EmptyStringItem") != string.Empty || document.GetString("EmptyValueItem") != string.Empty)
             throw new InvalidOperationException("Empty string item values did not round-trip.");
+        try { document.SetDateTime("DateItem", null!); throw new InvalidOperationException("Null SetDateTime value was accepted."); }
+        catch (ArgumentNullException ex) when (ex.ParamName == "v") { }
+        try { document.RemoveItem(null!); throw new InvalidOperationException("Null RemoveItem name was accepted."); }
+        catch (ArgumentNullException ex) when (ex.ParamName == "n") { }
         document.ReplaceItemValue("FullTestItem", "value").Recycle();
         using var item = document.GetFirstItem("FullTestItem") ?? throw new InvalidOperationException("Item was not created.");
         if (item.Text != "value" || item.Values.Length != 1) throw new InvalidOperationException("Item value round trip failed.");
