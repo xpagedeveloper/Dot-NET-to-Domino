@@ -174,6 +174,19 @@ Check("public API surface", () =>
             throw new InvalidOperationException($"Notes object {type.Name} does not expose the required Recycle/IsRecycled/IDisposable lifecycle contract.");
     }
     if (types.Length == 0) throw new InvalidOperationException("No exported types found.");
+    var richTextTransform = typeof(NotesSession).Assembly.GetType("DotNetToDomino.Interop.NotesRichTextCdTransform", throwOnError: false)
+        ?? throw new InvalidOperationException("Rich-text CD transform helper is missing.");
+    foreach (var methodName in new[] { "Preserve", "Transform", "GroupCanonicalSegments", "ValidateForPersistence" })
+        if (richTextTransform.GetMethod(methodName, BindingFlags.NonPublic | BindingFlags.Static) is null)
+            throw new InvalidOperationException($"Rich-text transform method {methodName} is missing.");
+    var nativeApi = typeof(NotesSession).Assembly.GetType("DotNetToDomino.Interop.NotesNativeApi", throwOnError: false)
+        ?? throw new InvalidOperationException("Native API type is missing.");
+    if (nativeApi.GetMethod("ReplaceRichTextCdRecords", BindingFlags.NonPublic | BindingFlags.Instance) is null)
+        throw new InvalidOperationException("Native rich-text rewrite entry point is missing.");
+    var mimeOwner = typeof(NotesSession).Assembly.GetType("DotNetToDomino.NotesMimeDirectoryOwner", throwOnError: false)
+        ?? throw new InvalidOperationException("MIME directory owner is missing.");
+    if (!typeof(IDisposable).IsAssignableFrom(mimeOwner) || mimeOwner.GetMethod(nameof(IDisposable.Dispose)) is null)
+        throw new InvalidOperationException("MIME directory owner must implement IDisposable.");
     foreach (var type in types)
     {
         if (type.FullName!.Contains("XPScript", StringComparison.OrdinalIgnoreCase) || type.FullName.Contains("LSArray", StringComparison.OrdinalIgnoreCase))
