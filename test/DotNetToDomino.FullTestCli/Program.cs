@@ -411,7 +411,12 @@ else
         if (children.Count != 2) throw new InvalidOperationException($"Expected two MIME child entities, found {children.Count}.");
         using var child = children[0];
         ExpectException<NotSupportedException>("Child content read guard", () => _ = child.ContentAsText);
+        using var childContent = session.CreateStream();
+        childContent.WriteText("child update");
+        ExpectException<NotSupportedException>("Child content write guard", () => child.SetContentFromText(childContent, "text/plain", 1725));
+        ExpectException<NotSupportedException>("Child header lookup guard", () => child.GetHeaders());
         ExpectException<NotSupportedException>("Child header creation guard", () => child.CreateHeader("X-Test"));
+        ExpectException<NotSupportedException>("Child header removal guard", () => child.RemoveHeaders("X-Test"));
         ExpectException<NotSupportedException>("Child removal guard", child.Remove);
     });
 }
