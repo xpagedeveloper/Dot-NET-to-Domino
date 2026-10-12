@@ -242,6 +242,23 @@ else
         using var paragraphStyle = session.CreateRichTextParagraphStyle();
         ExpectException<NotSupportedException>("AppendParagraphStyle ABI guard", () => richText.AppendParagraphStyle(paragraphStyle));
         ExpectException<ArgumentNullException>("Rich text attachment path null", () => richText.AttachFile(null!));
+        var sourcePath = Path.Combine(Path.GetTempPath(), "DotNetToDomino-FullTest-" + Guid.NewGuid().ToString("N") + ".bin");
+        var extractedPath = Path.Combine(Path.GetTempPath(), "DotNetToDomino-FullTest-Extracted-" + Guid.NewGuid().ToString("N") + ".bin");
+        try
+        {
+            var sourceBytes = new byte[] { 0, 1, 2, 127, 128, 254, 255 };
+            File.WriteAllBytes(sourcePath, sourceBytes);
+            using var embedded = richText.AttachFile(sourcePath);
+            if (!sourceBytes.SequenceEqual(embedded.ToByteArray())) throw new InvalidOperationException("Embedded attachment bytes did not round-trip.");
+            if (!richText.SaveAttachment(Path.GetFileName(sourcePath), extractedPath) || !sourceBytes.SequenceEqual(File.ReadAllBytes(extractedPath))) throw new InvalidOperationException("Rich-text attachment extraction failed.");
+            embedded.Remove();
+            ExpectException<ObjectDisposedException>("Removed embedded object", () => embedded.ToByteArray());
+        }
+        finally
+        {
+            if (File.Exists(sourcePath)) File.Delete(sourcePath);
+            if (File.Exists(extractedPath)) File.Delete(extractedPath);
+        }
         using var navigator = richText.CreateNavigator();
         if (navigator.FindFirstElement(NotesRichTextNavigator.ElementTextRun))
         {

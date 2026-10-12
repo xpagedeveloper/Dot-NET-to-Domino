@@ -29,7 +29,7 @@ This is the current implementation queue. Older repeated sections in this file a
 ### Rich-text structural mutation
 
 - [x] Complete rich-text linked-object `Remove()` operations for sections, tables, doclinks, and embedded objects; broader attachment edge cases remain to be verified.
-- [~] Complete native-backed rich-text HTML and linked-object mutation coverage; embedded-object removal deletes the hotspot and matching `$FILE` block, while broader attachment edge cases remain to be verified.
+- [~] Complete native-backed rich-text HTML and linked-object mutation coverage; embedded-object removal deletes the hotspot and matching `$FILE` block, and FullTestCli now covers binary attachment round-trip/extraction/recycle behavior. `AppendParagraphStyle` remains guarded until a verified paragraph composite-record ABI is available; live attachment verification remains open.
 
 ### Remaining object parity audits
 
