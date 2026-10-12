@@ -251,8 +251,8 @@ internal sealed partial class NotesNativeApi
                 TranslateUtf8ToLmbcs,
                 input,
                 checked((uint)bytes.Length),
-                checked((uint)(capacity - 1)),
-                output);
+                output,
+                checked((uint)(capacity - 1)));
             if (length >= capacity)
                 throw new NotesException("LMBCS conversion exceeded the output buffer.");
             Marshal.WriteByte(output, checked((int)length), 0);
@@ -283,8 +283,8 @@ internal sealed partial class NotesNativeApi
                 TranslateLmbcsToUtf8,
                 input,
                 checked((uint)length),
-                checked((uint)(capacity - 1)),
-                output);
+                output,
+                checked((uint)(capacity - 1)));
             var bytes = new byte[checked((int)count)];
             if (count > 0)
                 Marshal.Copy(output, bytes, 0, bytes.Length);
@@ -427,7 +427,10 @@ internal sealed partial class NotesNativeApi
     [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate void NotesTermDelegate();
     [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate ushort NotesInitThreadDelegate();
     [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate void NotesTermThreadDelegate();
-    [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate uint OSTranslate32Delegate(ushort mode, nint input, uint inputLength, uint outputSize, nint output);
+    // Domino C API signature: (mode, input, inputLength, output, outputLength).
+    // Reversing the final two arguments makes nnotes.dll write through the size
+    // value and causes an 0xC0000005 access violation during FromLmbcs.
+    [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate uint OSTranslate32Delegate(ushort mode, nint input, uint inputLength, nint output, uint outputSize);
     [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate ushort OSLoadStringDelegate(nint module, ushort code, nint output, ushort outputLength);
     [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate ushort SECKFMGetUserNameDelegate(nint output);
     [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate ushort OSPathNetConstructDelegate(nint portName, nint serverName, nint fileName, nint pathName);
