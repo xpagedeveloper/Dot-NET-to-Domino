@@ -104,6 +104,8 @@ public sealed class NotesRichTextItem : NotesItem
     {
         EnsureItemAlive();
         ArgumentException.ThrowIfNullOrWhiteSpace(sourcePath);
+        sourcePath = sourcePath.Trim();
+        if (!File.Exists(sourcePath)) throw new FileNotFoundException("Rich-text attachment source file was not found.", sourcePath);
         return new NotesEmbeddedObject(Session, this, Session.Api.AttachRichTextFile(Parent.Handle, Name, sourcePath));
     }
 
