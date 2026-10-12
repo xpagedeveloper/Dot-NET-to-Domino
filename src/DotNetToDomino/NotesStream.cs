@@ -27,7 +27,10 @@ public sealed class NotesStream : NotesObject
     {
         EnsureAlive();
         Close();
-        if (string.IsNullOrWhiteSpace(filePath)) return false;
+        ArgumentException.ThrowIfNullOrWhiteSpace(filePath);
+        ArgumentException.ThrowIfNullOrWhiteSpace(mode);
+        filePath = filePath.Trim();
+        mode = mode.Trim();
         _readOnly = mode.Equals("readonly", StringComparison.OrdinalIgnoreCase) || mode.Equals("read", StringComparison.OrdinalIgnoreCase);
         try
         {
