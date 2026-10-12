@@ -397,6 +397,23 @@ else
         Console.WriteLine("PASS exception trapping continued after invalid calls");
     });
     if (!string.IsNullOrWhiteSpace(databasePath)) Check("database and document surface", () => { using var database = session.GetDatabase(server, databasePath, false) ?? throw new InvalidOperationException("Database not found."); if (!database.IsOpen) throw new InvalidOperationException(database.OpenError); _ = database.Title; _ = database.Categories; _ = database.TemplateName; _ = database.DesignTemplateName; _ = database.ReplicaID; _ = database.Size; _ = database.PercentUsed; _ = database.CurrentAccessLevel; _ = database.Created; _ = database.LastModified; _ = database.FileFormat; using var access = database.QueryAccess(); _ = access.Level; _ = access.LevelName; _ = access.AccessFlags; _ = access.NamesList; _ = access.Groups; _ = access.Roles; using var document = database.CreateDocument(); document.ReplaceItemValue("Form", "FullTest").Recycle(); document.ReplaceItemValue("Subject", "Full test").Recycle(); if (!document.HasItem("Subject") || document.GetString("Subject") != "Full test") throw new InvalidOperationException("Document item round trip failed."); using var mime = document.CreateMIMEEntity(); _ = mime.GetChildren(); _ = mime.GetHeaders(); using var content = session.CreateStream(); content.WriteText("MIME full test"); mime.SetContentFromText(content, "text/plain; charset=utf-8", 1727); try { mime.EncodeContent(11); throw new InvalidOperationException("Invalid MIME encoding was accepted."); } catch (ArgumentOutOfRangeException ex) when (ex.ParamName == "encoding") { } });
+    if (!string.IsNullOrWhiteSpace(databasePath)) Check("nested MIME child guards", () =>
+    {
+        using var database = session.GetDatabase(server, databasePath, false) ?? throw new InvalidOperationException("Database not found.");
+        using var document = database.CreateDocument();
+        using var mime = document.CreateMIMEEntity();
+        const string boundary = "dotnet-child-test";
+        var raw = "--" + boundary + "\r\nContent-Type: text/plain\r\n\r\nfirst\r\n--" + boundary + "\r\nContent-Type: text/plain\r\n\r\nsecond\r\n--" + boundary + "--\r\n";
+        using var stream = session.CreateStream();
+        stream.WriteText(raw);
+        mime.SetContentFromBytes(stream, "multipart/mixed; boundary=\"" + boundary + "\"", 1725);
+        var children = mime.GetChildren();
+        if (children.Count != 2) throw new InvalidOperationException($"Expected two MIME child entities, found {children.Count}.");
+        using var child = children[0];
+        ExpectException<NotSupportedException>("Child content read guard", () => _ = child.ContentAsText);
+        ExpectException<NotSupportedException>("Child header creation guard", () => child.CreateHeader("X-Test"));
+        ExpectException<NotSupportedException>("Child removal guard", child.Remove);
+    });
 }
 
 if (failures.Count != 0) { Console.Error.WriteLine($"FULL TEST FAILED ({failures.Count} error(s))"); Environment.ExitCode = 1; } else Console.WriteLine("FULL TEST PASSED");

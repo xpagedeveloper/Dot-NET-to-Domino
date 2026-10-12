@@ -20,11 +20,11 @@ This is the current implementation queue. Older repeated sections in this file a
 
 ### MIME child entities and headers
 
-- [ ] Implement `AppendChildEntity` when the native child-entity creation ABI is verified.
-- [ ] Implement child-entity content reads and writes, including nested multipart entities.
-- [ ] Implement child-entity removal and invalidate all affected managed handles safely.
-- [ ] Implement child-header creation, mutation, and removal with verified native handles.
-- [ ] Verify multipart MIME behavior and lifecycle against a live Domino runtime.
+- [ ] Implement `AppendChildEntity` when the native child-entity creation ABI is verified; FullTestCli now verifies nested child traversal without fabricating creation.
+- [ ] Implement child-entity content reads and writes, including nested multipart entities; child guards are tested until per-entity native stream access is verified.
+- [ ] Implement child-entity removal and invalidate all affected managed handles safely; the current guard is tested.
+- [ ] Implement child-header creation, mutation, and removal with verified native handles; the current guard is tested.
+- [ ] Verify multipart MIME behavior and lifecycle against a live Domino runtime; nested traversal and guarded unsupported operations are covered locally.
 
 ### Rich-text structural mutation
 
