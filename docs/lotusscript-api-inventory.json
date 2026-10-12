@@ -5,6 +5,7 @@
     "../XPscript/src/XPScript.Compiler/*LotusScript*SurfacePostProcessor.cs",
     "docs/xpscript-missing-notes-surface.md"
   ],
+  "memberGapDocument": "lotusscript-member-gaps.md",
   "statusDefinitions": {
     "implemented": "Public C# surface exists; local/static checks passed.",
     "partial": "Surface exists but one or more members, semantics, or ABI paths remain incomplete.",
