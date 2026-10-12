@@ -320,8 +320,16 @@ else
         using var document = database.CreateDocument();
         ExpectException<ArgumentNullException>("SetValue null", () => document.SetValue("NullValue", null));
         ExpectException<ArgumentNullException>("SetString null", () => document.SetString("NullString", null!));
+        ExpectException<ArgumentNullException>("UniversalId null", () => document.UniversalId = null!);
         using var stream = session.CreateStream();
+        ExpectException<ArgumentNullException>("Write null", () => stream.Write((string)null!));
         ExpectException<ArgumentNullException>("WriteText null", () => stream.WriteText(null!));
+    });
+    if (!string.IsNullOrWhiteSpace(databasePath)) Check("agent null argument trap", () =>
+    {
+        using var database = session.GetDatabase(server, databasePath, false) ?? throw new InvalidOperationException("Database not found.");
+        var agent = database.Agents.FirstOrDefault();
+        if (agent is not null) ExpectException<ArgumentNullException>("ServerName null", () => agent.ServerName = null!);
     });
     Check("exception trapping", () =>
     {
