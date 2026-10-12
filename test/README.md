@@ -44,3 +44,16 @@ dotnet run --project test/DotNetToDomino.FullTestCli/DotNetToDomino.FullTestCli.
 Optionally set `NOTES_TEST_DATABASE` and `NOTES_TEST_SERVER` for database/document tests. The CLI fails when `NOTES_RUNTIME` is missing so an accidental non-native run cannot be reported as a successful full test.
 
 The live NotesMail matrix is skipped unless both `NOTES_TEST_MAIL_LIVE=1` and `NOTES_TEST_MAIL_TO` are set. It verifies `H/N/L` delivery priority, `N/B/C` delivery report, and requests a return receipt for the confirmation case.
+
+## Creating a native test database from DXL
+
+The fixture [`test/fixtures/DotNetToDominoTest.dxl`](fixtures/DotNetToDominoTest.dxl) contains a form, document, and `DotNetToDominoTestAgent` that prints `STATUS OK`. Build and run the importer on a Notes/Domino client:
+
+```shell
+dotnet run --project test/DotNetToDomino.DxlImporter/DotNetToDomino.DxlImporter.csproj -- \
+  "C:\Program Files\HCL\Notes" \
+  test/fixtures/DotNetToDominoTest.dxl \
+  "C:\Notes\Data\DotNetToDominoTest.nsf"
+```
+
+The importer creates the target NSF if it does not exist, then imports the DXL. Use `NOTES_TEST_AGENT=DotNetToDominoTestAgent` when running FullTestCli afterward.

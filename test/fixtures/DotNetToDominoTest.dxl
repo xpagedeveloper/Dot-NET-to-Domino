@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE database SYSTEM "xmlschemas/domino_12_0.dtd">
+<database xmlns="http://www.lotus.com/dxl" version="12.0" maintenanceversion="0.0" replicaid="0000000000000000">
+  <databaseinfo dbid="DotNetToDominoTest" odsversion="52"/>
+  <note class="form" default="true">
+    <noteinfo noteid="00000001" unid="00000000000000000000000000000001" sequence="1"/>
+    <item name="$TITLE"><text>DotNetToDominoTestForm</text></item>
+    <item name="$Flags"><text>g</text></item>
+    <item name="$Body"><richtext><pardef id="1"/><par def="1"><run>DotNetToDomino test form</run></par></richtext></item>
+  </note>
+  <note class="document">
+    <noteinfo noteid="00000002" unid="00000000000000000000000000000002" sequence="1"/>
+    <item name="Form"><text>DotNetToDominoTestForm</text></item>
+    <item name="Subject"><text>DotNetToDomino test document</text></item>
+    <item name="Status"><text>STATUS OK</text></item>
+  </note>
+  <note class="agent">
+    <noteinfo noteid="00000003" unid="00000000000000000000000000000003" sequence="1"/>
+    <item name="$TITLE"><text>DotNetToDominoTestAgent</text></item>
+    <item name="$AssistType"><number>1</number></item>
+    <item name="$AssistTrigger"><number>1</number></item>
+    <item name="$AssistFlags"><text>0</text></item>
+    <item name="$AssistQuery"><formula>@All</formula></item>
+    <code event="initialize" language="lotusscript"><![CDATA[Sub Initialize
+    Print "STATUS OK"
+End Sub]]></code>
+  </note>
+</database>
