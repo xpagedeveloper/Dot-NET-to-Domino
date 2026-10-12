@@ -1,0 +1,53 @@
+{
+  "reference": "HCL Domino Designer LotusScript Notes classes, cross-checked with local XPscript Notes runtime sources",
+  "generatedFrom": [
+    "../XPscript/src/XPScript.Compiler/Notes*Source.cs",
+    "../XPscript/src/XPScript.Compiler/*LotusScript*SurfacePostProcessor.cs",
+    "docs/xpscript-missing-notes-surface.md"
+  ],
+  "statusDefinitions": {
+    "implemented": "Public C# surface exists; local/static checks passed.",
+    "partial": "Surface exists but one or more members, semantics, or ABI paths remain incomplete.",
+    "missing": "LotusScript target member/object has not been exposed in this repository.",
+    "runtimeRequired": "Local implementation review is possible, but behavior needs a real Notes/Domino runtime."
+  },
+  "objects": [
+    { "lotusScript": "NotesSession", "csharp": "NotesSession", "status": "runtimeRequired", "gaps": ["live initialization", "thread affinity", "environment and NotesIni behavior"] },
+    { "lotusScript": "NotesDatabase", "csharp": "NotesDatabase", "status": "partial", "gaps": ["complete member sweep", "full-text/design/alias edge cases", "live metadata semantics"] },
+    { "lotusScript": "NotesDbDirectory", "csharp": "NotesDBDirectory", "status": "runtimeRequired", "gaps": ["enumeration filters", "remote server behavior"] },
+    { "lotusScript": "NotesDatabaseACL", "csharp": "NotesDatabaseAccess", "status": "runtimeRequired", "gaps": ["live ACL verification", "entry and role edge cases"] },
+    { "lotusScript": "NotesDocument", "csharp": "NotesDocument", "status": "partial", "gaps": ["complete overload sweep", "error parity", "document lifecycle under failed native calls"] },
+    { "lotusScript": "NotesDocumentCollection", "csharp": "NotesDocumentCollection", "status": "partial", "gaps": ["provenance edge cases", "live bulk operation behavior"] },
+    { "lotusScript": "NotesNoteCollection", "csharp": "NotesNoteCollection", "status": "partial", "gaps": ["selection/provenance edge cases", "live bulk operation behavior"] },
+    { "lotusScript": "NotesItem", "csharp": "NotesItem", "status": "partial", "gaps": ["complete item type matrix", "native list and attachment edge cases"] },
+    { "lotusScript": "NotesRichTextItem", "csharp": "NotesRichTextItem", "status": "partial", "gaps": ["AppendParagraphStyle", "native composite edge cases", "live attachment verification"] },
+    { "lotusScript": "NotesRichTextNavigator/Range", "csharp": "NotesRichTextNavigator/Range", "status": "partial", "gaps": ["complete structural-write parity", "corrupt record behavior"] },
+    { "lotusScript": "NotesMIMEEntity", "csharp": "NotesMIMEEntity", "status": "partial", "gaps": ["AppendChildEntity", "child content mutation", "child removal"] },
+    { "lotusScript": "NotesMIMEHeader", "csharp": "NotesMIMEHeader", "status": "partial", "gaps": ["child header creation/mutation/removal", "nested multipart runtime verification"] },
+    { "lotusScript": "NotesMail", "csharp": "NotesMail", "status": "runtimeRequired", "gaps": ["all delivery options against Domino", "live error paths"] },
+    { "lotusScript": "NotesView/NotesViewNavigator", "csharp": "NotesView/NotesViewNavigator", "status": "runtimeRequired", "gaps": ["history semantics", "column behavior", "navigation edge cases"] },
+    { "lotusScript": "NotesViewEntry/NotesViewEntryCollection", "csharp": "NotesViewEntry/NotesViewEntryCollection", "status": "partial", "gaps": ["live hierarchy and history behavior"] },
+    { "lotusScript": "NotesAgent", "csharp": "NotesAgent", "status": "runtimeRequired", "gaps": ["live agent execution and returned output"] },
+    { "lotusScript": "NotesForm", "csharp": "NotesForm", "status": "partial", "gaps": ["complete design-note member sweep"] },
+    { "lotusScript": "NotesEmbeddedObject", "csharp": "NotesEmbeddedObject", "status": "partial", "gaps": ["all object types", "byte-array/extract lifecycle runtime tests"] },
+    { "lotusScript": "NotesStream", "csharp": "NotesStream", "status": "runtimeRequired", "gaps": ["native stream boundary behavior", "charset semantics"] },
+    { "lotusScript": "NotesName", "csharp": "NotesName", "status": "partial", "gaps": ["all parsed name components", "international name edge cases"] },
+    { "lotusScript": "NotesDateTime", "csharp": "NotesDateTime", "status": "runtimeRequired", "gaps": ["wildcards, zones, DST and formatting against Domino"] },
+    { "lotusScript": "NotesRichTextStyle/ParagraphStyle", "csharp": "NotesRichTextStyle/NotesRichTextParagraphStyle", "status": "partial", "gaps": ["native paragraph composite writes"] },
+    { "lotusScript": "NotesDXLImporter/Exporter", "csharp": "NotesDXLImporter/NotesDXLExporter", "status": "runtimeRequired", "gaps": ["result properties and overloads", "live DXL import/export"] }
+  ],
+  "localOnlyChecks": [
+    "reflection inventory and public C# type mapping",
+    "nullable metadata and return types",
+    "native delegate signature review",
+    "offline MIME/rich-text/parser tests",
+    "package and XML documentation tests"
+  ],
+  "requiresNotesRuntime": [
+    "session initialization and username conversion",
+    "database/document/view/agent behavior",
+    "mail delivery",
+    "MIME child mutation",
+    "rich-text native record writes"
+  ]
+}
