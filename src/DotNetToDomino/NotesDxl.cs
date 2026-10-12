@@ -95,6 +95,8 @@ public sealed class NotesDXLExporter : NotesObject
     public void ExportDatabaseDesign(NotesDatabase database, string filePath)
     {
         ArgumentNullException.ThrowIfNull(database);
+        ArgumentException.ThrowIfNullOrWhiteSpace(filePath);
+        filePath = filePath.Trim();
         var bytes = Session.Api.ExportDxlDesign(_handle, database.Handle);
         if (!ExportDesignToFolders) { Write(filePath, bytes); return; }
         WriteDesignFolders(filePath, bytes);
