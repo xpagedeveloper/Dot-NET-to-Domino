@@ -14,6 +14,7 @@ Optional:
 - `NOTES_TEST_PASSWORD`: harmless password used only for HashPassword/VerifyPassword.
 - `NOTES_TEST_MAIL_TO`: recipient used only by the opt-in live NotesMail matrix.
 - `NOTES_TEST_MAIL_LIVE=1`: explicitly enables nine live delivery tests (three priorities × three reports); it sends real mail and must never be enabled against production recipients accidentally.
+- `NOTES_TEST_AGENT`: optional agent name; when set, FullTestCli runs it and requires `NotesAgentResult.Output == "STATUS OK"`.
 
 Run with:
 

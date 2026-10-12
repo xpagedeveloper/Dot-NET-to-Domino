@@ -239,6 +239,15 @@ else
                 mail.Send();
             }
         });
+    var testAgentName = Environment.GetEnvironmentVariable("NOTES_TEST_AGENT");
+    if (!string.IsNullOrWhiteSpace(databasePath) && !string.IsNullOrWhiteSpace(testAgentName))
+        Check("agent output", () =>
+        {
+            using var database = session.GetDatabase(server, databasePath, false) ?? throw new InvalidOperationException("Database not found.");
+            using var result = database.RunAgent(testAgentName.Trim());
+            if (!result.Success || result.Status != 0 || !string.Equals(result.Output.Trim(), "STATUS OK", StringComparison.Ordinal))
+                throw new InvalidOperationException($"Unexpected agent result: Success={result.Success}, Status={result.Status}, Output='{result.Output}'.");
+        });
     Check("password round trip", () => { const string password = "DotNetToDomino-FullTest"; var digest = session.HashPassword(password); if (!session.VerifyPassword(password, digest)) throw new InvalidOperationException("Password verification failed."); });
     Check("address book and directory", () => { foreach (var book in session.AddressBooks) using (book) { _ = book.Server; _ = book.FilePath; } using var directory = session.GetDbDirectory(server); _ = directory.Name; using var database = directory.GetFirstDatabase(NotesConst.DATABASE); if (database is not null) { _ = database.FilePath; _ = database.FileName; } using var next = directory.GetNextDatabase(); if (next is not null) { _ = next.FilePath; _ = next.FileName; } });
     if (!string.IsNullOrWhiteSpace(databasePath)) Check("rich text range surface", () =>
