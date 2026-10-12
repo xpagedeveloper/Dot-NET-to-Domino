@@ -34,7 +34,7 @@ public sealed class NotesAgent : NotesObject
     public string ServerName
     {
         get { EnsureAlive(); return _pendingServerName ?? ReadText("$MachineName"); }
-        set { EnsureAlive(); _pendingServerName = value?.Trim() ?? string.Empty; }
+        set { EnsureAlive(); ArgumentNullException.ThrowIfNull(value); _pendingServerName = value.Trim(); }
     }
     public string ParameterDocID { get { EnsureAlive(); return _parameterDocId; } }
     public bool IsNotesAgent { get { EnsureAlive(); return true; } }
