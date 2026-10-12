@@ -34,13 +34,13 @@ This is the current implementation queue. Older repeated sections in this file a
 ### Remaining object parity audits
 
 - [~] Complete `NotesDocumentCollection`/`NotesNoteCollection` provenance and bulk-operation parity; clone/membership, navigation, set operations, stamping, read-state, folder, removal, `SinceTime`, and source-document item copying are implemented, while exact live Domino provenance semantics remain to be verified.
-- [ ] Complete the remaining `NotesDatabase` full-text, design, metadata, and alias edge-case sweep.
-- [~] Complete `NotesView`/`NotesViewNavigator` history and column edge-case parity; cache, max-level, reverse navigation, factories, and bulk operations are implemented.
+- [~] Complete the remaining `NotesDatabase` full-text, design, metadata, and alias edge-case sweep; the public member inventory and local argument/range validation are covered, while native HCL behavior still requires live runtime verification.
+- [~] Complete `NotesView`/`NotesViewNavigator` history and column edge-case parity; cache/max-level/position validation, reverse navigation, factories, and bulk operations are covered locally, while live history/column behavior still requires HCL runtime verification.
 - [ ] Complete the remaining Notes object/member inventory against the current XPScript surface.
 
 ### Runtime verification
 
-- [ ] Run native Domino tests for ACL, `OpenByReplicaID`, `ConvertMIME`, MIME multipart, and handle lifecycle behavior.
+- [ ] Run native Domino tests for ACL, `OpenByReplicaID`, `ConvertMIME`, MIME multipart, and handle lifecycle behavior; this environment has no `NOTES_RUNTIME` configured.
 - [ ] Inspect and record the exact final-head CI result for the completed parity branch.
 
 ## Rules for this work
