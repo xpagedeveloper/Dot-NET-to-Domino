@@ -185,7 +185,11 @@ public sealed class NotesViewEntry : NotesObject
     public bool IsCategory => Row.Kind == NotesViewEntryKind.Category;
     public bool IsTotal => Row.Kind == NotesViewEntryKind.Total;
     public bool IsValid => !IsRecycled && _row is not null;
-    public string GetPosition(string separator = ".") => separator == "." ? Row.Position : Row.Position.Replace(".", separator ?? string.Empty, StringComparison.Ordinal);
+    public string GetPosition(string separator = ".")
+    {
+        ArgumentNullException.ThrowIfNull(separator);
+        return separator == "." ? Row.Position : Row.Position.Replace(".", separator, StringComparison.Ordinal);
+    }
     public bool GetRead(string? userName = null)
     {
         EnsureAlive();
