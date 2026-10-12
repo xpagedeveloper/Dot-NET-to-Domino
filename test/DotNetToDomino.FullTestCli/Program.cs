@@ -336,6 +336,16 @@ else
         var agent = database.Agents.FirstOrDefault();
         if (agent is not null) ExpectException<ArgumentNullException>("ServerName null", () => agent.ServerName = null!);
     });
+    if (!string.IsNullOrWhiteSpace(databasePath)) Check("DXL argument traps", () =>
+    {
+        using var database = session.GetDatabase(server, databasePath, false) ?? throw new InvalidOperationException("Database not found.");
+        using var importer = session.CreateDXLImporter();
+        using var exporter = session.CreateDXLExporter();
+        ExpectException<ArgumentNullException>("DXL import path null", () => importer.Import((string)null!, database));
+        ExpectException<ArgumentNullException>("DXL design name null", () => exporter.ExportDesignElement(database, null!, "form"));
+        ExpectException<ArgumentNullException>("DXL design type null", () => exporter.ExportDesignElement(database, "Main", null!));
+        ExpectException<ArgumentNullException>("DXL export path null", () => exporter.ExportDatabaseDesign(database, null!));
+    });
     Check("exception trapping", () =>
     {
         ExpectException<ArgumentNullException>("null password is trapped", () => session.HashPassword(null!));
