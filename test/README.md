@@ -12,6 +12,8 @@ Optional:
 - `NOTES_TEST_SERVER`: server name; empty means local.
 - `NOTES_TEST_REPLICA_ID`: replica ID for OpenByReplicaID.
 - `NOTES_TEST_PASSWORD`: harmless password used only for HashPassword/VerifyPassword.
+- `NOTES_TEST_MAIL_TO`: recipient used only by the opt-in live NotesMail matrix.
+- `NOTES_TEST_MAIL_LIVE=1`: explicitly enables nine live delivery tests (three priorities × three reports); it sends real mail and must never be enabled against production recipients accidentally.
 
 Run with:
 
@@ -39,3 +41,5 @@ dotnet run --project test/DotNetToDomino.FullTestCli/DotNetToDomino.FullTestCli.
 ```
 
 Optionally set `NOTES_TEST_DATABASE` and `NOTES_TEST_SERVER` for database/document tests. The CLI fails when `NOTES_RUNTIME` is missing so an accidental non-native run cannot be reported as a successful full test.
+
+The live NotesMail matrix is skipped unless both `NOTES_TEST_MAIL_LIVE=1` and `NOTES_TEST_MAIL_TO` are set. It verifies `H/N/L` delivery priority, `N/B/C` delivery report, and requests a return receipt for the confirmation case.
