@@ -286,15 +286,15 @@ public sealed class NotesMail : NotesObject
         return result;
     }
 
-    private static string NormalizePriority(string? value) => (value ?? string.Empty).Trim().ToUpperInvariant() switch
+    private static string NormalizePriority(string? value) { ArgumentNullException.ThrowIfNull(value); return value.Trim().ToUpperInvariant() switch
     {
         "H" or "HIGH" => "H", "L" or "LOW" => "L", "N" or "NORMAL" or "" => "N",
         _ => throw new ArgumentOutOfRangeException(nameof(value), value, "NotesMail.DeliveryPriority must be High/H, Normal/N, or Low/L.")
-    };
+    }; }
 
-    private static string NormalizeReport(string? value) => (value ?? string.Empty).Trim().ToUpperInvariant() switch
+    private static string NormalizeReport(string? value) { ArgumentNullException.ThrowIfNull(value); return value.Trim().ToUpperInvariant() switch
     {
         "N" or "NONE" or "0" or "" => "N", "B" or "FAILURE" or "FAILUREONLY" or "1" => "B", "C" or "CONFIRM" or "CONFIRMDELIVERY" or "2" => "C",
         _ => throw new ArgumentOutOfRangeException(nameof(value), value, "NotesMail.DeliveryReport must be None/N, Failure/B, or Confirm/C.")
-    };
+    }; }
 }

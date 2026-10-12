@@ -21,7 +21,7 @@ public sealed class NotesDocument : NotesObject
     }
 
     public NotesDatabase ParentDatabase { get; } public NotesDatabase Parent => ParentDatabase; public uint NoteId { get; private set; } public string NoteIdHex => NoteId.ToString("X8", CultureInfo.InvariantCulture); public string NoteID => NoteIdHex;
-    public string UniversalId { get { EnsureAlive(); return _handle == 0 ? _knownUniversalId : Session.Api.GetUnid(_handle); } set { EnsureOpen(); Session.Api.SetUnid(_handle, value); _knownUniversalId = value; } } public string UniversalID { get => UniversalId; set => UniversalId = value; }
+    public string UniversalId { get { EnsureAlive(); return _handle == 0 ? _knownUniversalId : Session.Api.GetUnid(_handle); } set { EnsureOpen(); ArgumentNullException.ThrowIfNull(value); Session.Api.SetUnid(_handle, value); _knownUniversalId = value; } } public string UniversalID { get => UniversalId; set => UniversalId = value; }
     public IReadOnlyList<NotesItem> Items { get { EnsureOpen(); return Session.Api.GetAllItemNames(_handle).Select(GetFirstItem).Where(x => x is not null).Cast<NotesItem>().ToArray(); } }
     public IReadOnlyList<string> Authors { get { EnsureAlive(); if (_handle == 0 || !HasItem("$UpdatedBy")) return []; return GetItemValue("$UpdatedBy").Select(v => Convert.ToString(v, CultureInfo.InvariantCulture) ?? string.Empty).ToArray(); } }
     public bool SentByAgent { get { EnsureAlive(); return _handle != 0 && HasItem("$AssistMail") && GetItemValue("$AssistMail").Any(v => Convert.ToString(v, CultureInfo.InvariantCulture)?.Trim() == "1"); } }
