@@ -94,7 +94,9 @@ public sealed class NotesRichTextItem : NotesItem
     public bool SaveAttachment(string attachmentName, string outputPath)
     {
         EnsureItemAlive();
-        return Session.Api.SaveRichTextAttachment(Parent.Handle, Name, attachmentName, outputPath);
+        ArgumentException.ThrowIfNullOrWhiteSpace(attachmentName);
+        ArgumentException.ThrowIfNullOrWhiteSpace(outputPath);
+        return Session.Api.SaveRichTextAttachment(Parent.Handle, Name, attachmentName.Trim(), outputPath.Trim());
     }
 
     /// <summary>Embeds a file attachment in this rich-text item.</summary>
@@ -143,7 +145,7 @@ public sealed class NotesRichTextItem : NotesItem
     public NotesEmbeddedObject? GetEmbeddedObject(string name)
     {
         EnsureItemAlive();
-        if (string.IsNullOrWhiteSpace(name)) return null;
+        ArgumentException.ThrowIfNullOrWhiteSpace(name);
         return Session.Api.TryGetRichTextAttachmentMetadata(Parent.Handle, Name, name.Trim(), out var metadata)
             ? new NotesEmbeddedObject(Session, this, metadata)
             : null;
