@@ -38,7 +38,7 @@ public class NotesItem : NotesObject
     public string Text { get { EnsureItemAlive(); return Session.Api.ConvertItemToText(Parent.Handle, Name); } }
     public int Type => MapType(Metadata);
     public long ValueLength => Metadata.ValueLength;
-    public object?[] Values { get { EnsureItemAlive(); return Parent.GetItemValue(Name); } set { EnsureItemAlive(); Session.Api.SetItemValues(Parent.Handle, Name, value); } }
+    public object?[] Values { get { EnsureItemAlive(); return Parent.GetItemValue(Name); } set { EnsureItemAlive(); ArgumentNullException.ThrowIfNull(value); Session.Api.SetItemValues(Parent.Handle, Name, value); } }
     public NotesRichTextItem? GetRichTextItem()
     {
         EnsureItemAlive();
@@ -112,7 +112,8 @@ public sealed class NotesRichTextItem : NotesItem
     public void AppendText(string value)
     {
         EnsureItemAlive();
-        var text = value ?? string.Empty;
+        ArgumentNullException.ThrowIfNull(value);
+        var text = value;
         if (_appendStyleState is NotesRichTextStyleState style) Session.Api.AppendRichTextStyled(Parent.Handle, Name, text, style);
         else Session.Api.AppendRichText(Parent.Handle, Name, text);
         _richTextRevision++;
