@@ -32,17 +32,17 @@ public sealed class NotesMail : NotesObject
     /// <summary>Blind-carbon-copy recipients.</summary>
     public IReadOnlyList<string> BlindCopyTo { get { EnsureAlive(); return _blindCopyTo; } set => _blindCopyTo = NormalizeRecipients(value, nameof(BlindCopyTo), true); }
     /// <summary>Sender address. Defaults to the session user.</summary>
-    public string From { get { EnsureAlive(); return _from; } set { EnsureAlive(); _from = (value ?? string.Empty).Trim(); } }
+    public string From { get { EnsureAlive(); return _from; } set { EnsureAlive(); ArgumentNullException.ThrowIfNull(value); _from = value.Trim(); } }
     /// <summary>Effective sender from the owning session.</summary>
     public string Sender { get { EnsureAlive(); return Session.UserName; } }
     /// <summary>Reply-to address.</summary>
-    public string ReplyTo { get { EnsureAlive(); return _replyTo; } set { EnsureAlive(); _replyTo = (value ?? string.Empty).Trim(); } }
+    public string ReplyTo { get { EnsureAlive(); return _replyTo; } set { EnsureAlive(); ArgumentNullException.ThrowIfNull(value); _replyTo = value.Trim(); } }
     /// <summary>Principal used for delegated mail.</summary>
-    public string Principal { get { EnsureAlive(); return _principal; } set { EnsureAlive(); _principal = (value ?? string.Empty).Trim(); } }
+    public string Principal { get { EnsureAlive(); return _principal; } set { EnsureAlive(); ArgumentNullException.ThrowIfNull(value); _principal = value.Trim(); } }
     /// <summary>Alias for Principal.</summary>
     public string OnBehalfOf { get { EnsureAlive(); return Principal; } set => Principal = value; }
     /// <summary>Message subject.</summary>
-    public string Subject { get { EnsureAlive(); return _subject; } set { EnsureAlive(); _subject = value ?? string.Empty; } }
+    public string Subject { get { EnsureAlive(); return _subject; } set { EnsureAlive(); ArgumentNullException.ThrowIfNull(value); _subject = value; } }
     /// <summary>Plain-text message body.</summary>
     public string Body { get { EnsureAlive(); return _body; } set => SetBodyText(value); }
     /// <summary>Normalized delivery priority: H, N, or L.</summary>
