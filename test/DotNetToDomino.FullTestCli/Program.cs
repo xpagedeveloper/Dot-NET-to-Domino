@@ -268,6 +268,12 @@ else
             {
                 using var first = view.GetFirstDocument();
                 using var last = view.GetLastDocument();
+                ExpectException<ArgumentOutOfRangeException>("Negative view max level", () => view.CreateViewNavMaxLevel(-1));
+                using var navigator = view.CreateViewNav(0);
+                ExpectException<ArgumentOutOfRangeException>("Negative view cache size", () => navigator.BufferMaxEntries = -1);
+                ExpectException<ArgumentOutOfRangeException>("Oversized view cache size", () => navigator.BufferMaxEntries = 513);
+                ExpectException<ArgumentException>("Blank view position", () => navigator.GetPos("   "));
+                ExpectException<ArgumentNullException>("Null view position separator", () => navigator.GetPos("1", null!));
                 if (last is not null)
                 {
                     using var previous = view.GetPrevDocument(last);

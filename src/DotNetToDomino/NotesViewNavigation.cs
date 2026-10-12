@@ -24,7 +24,7 @@ public static class NotesViewNavigationExtensions
     public static NotesViewNavigator CreateViewNavMaxLevel(this NotesView view, int maxLevel)
     {
         ArgumentNullException.ThrowIfNull(view);
-        maxLevel = Math.Max(0, maxLevel);
+        if (maxLevel < 0) throw new ArgumentOutOfRangeException(nameof(maxLevel), maxLevel, "'maxLevel' cannot be negative.");
         return new NotesViewNavigator(view.Parent.Parent, view, view.Parent, ReadRows(view).Where(r => r.Level <= maxLevel));
     }
 
@@ -421,6 +421,7 @@ public sealed class NotesViewNavigator : NotesObject
         _database = database;
         _rows = rows.ToArray();
         _replicaId = session.Api.GetDatabaseReplicaId(database.Handle);
+        if (cacheSize < 0 || cacheSize > 512) throw new ArgumentOutOfRangeException(nameof(cacheSize), cacheSize, "'cacheSize' must be between 0 and 512.");
         _bufferMaxEntries = cacheSize;
         _cacheSize = Math.Clamp(cacheSize, 0, 512);
     }
@@ -430,7 +431,7 @@ public sealed class NotesViewNavigator : NotesObject
     public int BufferMaxEntries
     {
         get { EnsureAlive(); _bufferMaxEntries = Math.Clamp(_bufferMaxEntries, 0, 512); return _bufferMaxEntries; }
-        set { EnsureAlive(); _bufferMaxEntries = value; _cacheSize = Math.Clamp(value, 0, 512); }
+        set { EnsureAlive(); if (value < 0 || value > 512) throw new ArgumentOutOfRangeException(nameof(value), value, "'BufferMaxEntries' must be between 0 and 512."); _bufferMaxEntries = value; _cacheSize = value; }
     }
     public int CacheSize { get => BufferMaxEntries; set => BufferMaxEntries = value; }
     public int MaxLevel { get { EnsureAlive(); return _maxLevel == int.MaxValue ? 30 : _maxLevel; } set { EnsureAlive(); _maxLevel = Math.Max(0, value); NormalizeCurrent(); } }
@@ -495,7 +496,8 @@ public sealed class NotesViewNavigator : NotesObject
     public NotesViewEntry? GetPos(string position, string separator = ".")
     {
         EnsureAlive();
-        position ??= string.Empty;
+        ArgumentException.ThrowIfNullOrWhiteSpace(position);
+        ArgumentNullException.ThrowIfNull(separator);
         if (!string.IsNullOrEmpty(separator) && separator != ".") position = position.Replace(separator, ".", StringComparison.Ordinal);
         var index = Array.FindIndex(_rows, r => IsVisible(r) && string.Equals(r.Position, position, StringComparison.Ordinal));
         return OpenAt(index, index >= 0);
