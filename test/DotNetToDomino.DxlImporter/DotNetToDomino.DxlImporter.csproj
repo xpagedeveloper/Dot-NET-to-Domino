@@ -7,7 +7,6 @@
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
   </PropertyGroup>
   <ItemGroup>
-    <!-- Always consume the newest locally packed prerelease. -->
-    <PackageReference Include="DotNetToDomino" Version="0.1.0-alpha.*" />
+    <ProjectReference Include="../../src/DotNetToDomino/DotNetToDomino.csproj" />
   </ItemGroup>
 </Project>

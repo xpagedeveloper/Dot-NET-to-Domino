@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "DotNetToDomino.DxlImporter": {
+      "commandName": "Project",
+      "commandLineArgs": "\"d:\\Program Files\\HCL\\Notes\" \"D:\\VisualStudio\\VisualStudio git\\Dot-NET-to-Domino\\test\\DotNetToDomino.DxlImporter\\fixtures\\DotNetToDominoTest.dxl\" \"test.nsf\" \"\" \"d:\\Program Files\\HCL\\Notes\\notes.ini\""
+    }
+  }
+}

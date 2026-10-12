@@ -3,10 +3,10 @@ namespace DotNetToDomino;
 /// <summary>Represents a Notes view collection.</summary>
 public sealed class NotesView : NotesObject
 {
-    private nint _handle;
+    private ushort _handle;
     private readonly NotesDatabase _parent;
 
-    internal NotesView(NotesSession session, NotesDatabase parent, nint handle, string name) : base(session)
+    internal NotesView(NotesSession session, NotesDatabase parent, ushort handle, string name) : base(session)
     {
         _parent = parent;
         _handle = handle;
@@ -28,7 +28,7 @@ public sealed class NotesView : NotesObject
     }
     public bool AutoUpdate { get; set; } = true;
     public NotesViewEntryCollection AllEntries => CreateViewEntryCollection();
-    internal nint Handle { get { EnsureOpen(); return _handle; } }
+    internal ushort Handle { get { EnsureOpen(); return _handle; } }
 
     public NotesDocument? GetFirstDocument()
     {
@@ -112,7 +112,7 @@ public sealed class NotesView : NotesObject
         var handle = _handle;
         _handle = 0;
         try { if (handle != 0 && Session.Api.IsInitialized) Session.Api.CloseView(handle); }
-        finally { Parent.UnregisterChild(this); }
+        finally { _parent.UnregisterChild(this); }
     }
 
     private IReadOnlyList<uint> SnapshotIds(int maximum = 0)

@@ -2,8 +2,13 @@ using System.Reflection;
 using DotNetToDomino;
 
 var failures = new List<string>();
+var executedChecks = 0;
 void Check(string name, Action action)
 {
+    var filter = Environment.GetEnvironmentVariable("NOTES_TEST_FILTER");
+    if (!string.IsNullOrWhiteSpace(filter) && !filter.Split(';').Any(part => name.Contains(part, StringComparison.OrdinalIgnoreCase))) return;
+    Console.WriteLine($"RUN {name}");
+    executedChecks++;
     try { action(); Console.WriteLine($"PASS {name}"); }
     catch (Exception ex) { failures.Add($"{name}: {ex.GetType().FullName}: {ex.Message}"); Console.Error.WriteLine($"FAIL {failures[^1]}"); }
 }
@@ -219,7 +224,18 @@ else
 {
     var server = Environment.GetEnvironmentVariable("NOTES_TEST_SERVER") ?? string.Empty;
     var databasePath = Environment.GetEnvironmentVariable("NOTES_TEST_DATABASE");
-    using var session = new NotesSession(runtime);
+    using var session = new NotesSession(runtime,
+        Environment.GetEnvironmentVariable("NOTES_TEST_INI"),
+        Environment.GetEnvironmentVariable("NOTES_TEST_ID_PASSWORD"));
+    // Run the previously crashing ACL path before broader object tests.
+    if (!string.IsNullOrWhiteSpace(databasePath)) Check("ACL native regression", () =>
+    {
+        using var database = session.GetDatabase(server, databasePath, false) ?? throw new InvalidOperationException("Database not found.");
+        using var access = database.QueryAccess();
+        if (access.NamesList.Length == 0 || access.Level < 0 || access.Level > 6) throw new InvalidOperationException("Invalid ACL result.");
+    });
+    ObjectPropertySmokeTests.RoundTrips(session, server, databasePath, Check);
+    ObjectPropertySmokeTests.Run(session, server, databasePath, Check);
     Check("session properties", () => { _ = session.UserName; _ = session.CommonUserName; _ = session.Platform; _ = session.NotesVersion; _ = session.NotesBuildVersion; _ = session.DataDir; });
     Check("session factories", () => { using var name = session.CreateName(session.UserName); using var date = session.CreateDateTimeNow(); date.SetNow(); date.ConvertToZone(date.TimeZone); if (date.TimeDifferenceDouble(date) != 0) throw new InvalidOperationException("Date/time self difference was not zero."); using var stream = session.CreateStream(); using var importer = session.CreateDXLImporter(); using var exporter = session.CreateDXLExporter(); using var style = session.CreateRichTextStyle(); using var paragraph = session.CreateRichTextParagraphStyle(); using var mail = session.CreateMail(); ExpectException<ArgumentOutOfRangeException>("Negative stream read", () => stream.Read(-1)); ExpectException<ArgumentOutOfRangeException>("Invalid DXL importer option", () => importer.ACLImportOption = 3); ExpectException<ArgumentOutOfRangeException>("Invalid DXL exporter option", () => exporter.RichTextOption = 2); ExpectException<ArgumentOutOfRangeException>("Invalid rich text effects", () => style.Effects = 6); ExpectException<ArgumentOutOfRangeException>("Invalid rich text font size", () => style.FontSize = 251); ExpectException<ArgumentOutOfRangeException>("Invalid rich text color", () => style.NotesColor = 256); ExpectException<ArgumentOutOfRangeException>("Invalid rich text font", () => style.NotesFont = 256); ExpectException<ArgumentOutOfRangeException>("Invalid paragraph alignment", () => paragraph.Alignment = 5); ExpectException<ArgumentOutOfRangeException>("Invalid paragraph pagination", () => paragraph.Pagination = 3); ExpectException<ArgumentOutOfRangeException>("Negative paragraph margin", () => paragraph.LeftMargin = -1); ExpectException<NotesException>("Mail send without recipients", () => mail.Send()); try { mail.SendTo = null!; throw new InvalidOperationException("Null SendTo was accepted."); } catch (ArgumentNullException ex) when (ex.ParamName == "SendTo") { } try { mail.DeliveryPriority = "X"; throw new InvalidOperationException("Invalid DeliveryPriority was accepted."); } catch (ArgumentOutOfRangeException ex) when (ex.ParamName == "value") { } ExpectException<ArgumentNullException>("Null From", () => mail.From = null!); ExpectException<ArgumentNullException>("Null ReplyTo", () => mail.ReplyTo = null!); ExpectException<ArgumentNullException>("Null Principal", () => mail.Principal = null!); ExpectException<ArgumentNullException>("Null Subject", () => mail.Subject = null!); ExpectException<ArgumentNullException>("Null DeliveryPriority", () => mail.DeliveryPriority = null!); ExpectException<ArgumentNullException>("Null DeliveryReport", () => mail.DeliveryReport = null!); });
     var liveMailTo = Environment.GetEnvironmentVariable("NOTES_TEST_MAIL_TO");
@@ -288,10 +304,12 @@ else
             range.SetBegin(navigator);
             range.SetEnd(navigator);
             using var style = session.CreateRichTextStyle();
-            style.Bold = 1;
+            style.Bold = -1;
             range.SetStyle(style);
         }
     });
+    NotesItemRegressionTests.Run(session, server, databasePath, Check);
+    NotesItemCryptoTests.Run(session, server, databasePath, Check);
     if (!string.IsNullOrWhiteSpace(databasePath)) Check("item surface", () =>
     {
         using var database = session.GetDatabase(server, databasePath, false) ?? throw new InvalidOperationException("Database not found.");
@@ -418,7 +436,7 @@ else
         ExpectException<ArgumentNullException>("null replica ID is trapped", () => session.OpenByReplicaID(server, null!));
         Console.WriteLine("PASS exception trapping continued after invalid calls");
     });
-    if (!string.IsNullOrWhiteSpace(databasePath)) Check("database and document surface", () => { using var database = session.GetDatabase(server, databasePath, false) ?? throw new InvalidOperationException("Database not found."); if (!database.IsOpen) throw new InvalidOperationException(database.OpenError); _ = database.Title; _ = database.Categories; _ = database.TemplateName; _ = database.DesignTemplateName; _ = database.ReplicaID; _ = database.Size; _ = database.PercentUsed; _ = database.CurrentAccessLevel; _ = database.Created; _ = database.LastModified; _ = database.FileFormat; using var access = database.QueryAccess(); _ = access.Level; _ = access.LevelName; _ = access.AccessFlags; _ = access.NamesList; _ = access.Groups; _ = access.Roles; using var document = database.CreateDocument(); document.ReplaceItemValue("Form", "FullTest").Recycle(); document.ReplaceItemValue("Subject", "Full test").Recycle(); if (!document.HasItem("Subject") || document.GetString("Subject") != "Full test") throw new InvalidOperationException("Document item round trip failed."); using var mime = document.CreateMIMEEntity(); _ = mime.GetChildren(); _ = mime.GetHeaders(); using var content = session.CreateStream(); content.WriteText("MIME full test"); mime.SetContentFromText(content, "text/plain; charset=utf-8", 1727); try { mime.EncodeContent(11); throw new InvalidOperationException("Invalid MIME encoding was accepted."); } catch (ArgumentOutOfRangeException ex) when (ex.ParamName == "encoding") { } });
+    if (!string.IsNullOrWhiteSpace(databasePath)) Check("database and document surface", () => { using var database = session.GetDatabase(server, databasePath, false) ?? throw new InvalidOperationException("Database not found."); if (!database.IsOpen) throw new InvalidOperationException(database.OpenError); _ = database.Title; _ = database.Categories; _ = database.TemplateName; _ = database.DesignTemplateName; _ = database.ReplicaID; _ = database.Size; _ = database.PercentUsed; _ = database.CurrentAccessLevel; _ = database.Created; _ = database.LastModified; _ = database.FileFormat; using var access = database.QueryAccess(); _ = access.Level; _ = access.LevelName; _ = access.AccessFlags; _ = access.NamesList; _ = access.Groups; _ = access.Roles; using var document = database.CreateDocument(); document.ReplaceItemValue("Form", "FullTest").Recycle(); document.ReplaceItemValue("Subject", "Full test").Recycle(); if (!document.HasItem("Subject") || document.GetString("Subject") != "Full test") throw new InvalidOperationException("Document item round trip failed."); using var mime = document.CreateMIMEEntity(); _ = mime.GetChildren(); _ = mime.GetHeaders(); using var content = session.CreateStream(); content.WriteText("MIME full test"); content.Position = 0; mime.SetContentFromText(content, "text/plain; charset=utf-8", 1727); try { mime.EncodeContent(11); throw new InvalidOperationException("Invalid MIME encoding was accepted."); } catch (ArgumentOutOfRangeException ex) when (ex.ParamName == "encoding") { } });
     if (!string.IsNullOrWhiteSpace(databasePath)) Check("nested MIME child guards", () =>
     {
         using var database = session.GetDatabase(server, databasePath, false) ?? throw new InvalidOperationException("Database not found.");
@@ -427,7 +445,9 @@ else
         const string boundary = "dotnet-child-test";
         var raw = "--" + boundary + "\r\nContent-Type: text/plain\r\n\r\nfirst\r\n--" + boundary + "\r\nContent-Type: text/plain\r\n\r\nsecond\r\n--" + boundary + "--\r\n";
         using var stream = session.CreateStream();
+        stream.Charset = "UTF-8";
         stream.WriteText(raw);
+        stream.Position = 0;
         mime.SetContentFromBytes(stream, "multipart/mixed; boundary=\"" + boundary + "\"", 1725);
         var children = mime.GetChildren();
         if (children.Count != 2) throw new InvalidOperationException($"Expected two MIME child entities, found {children.Count}.");
@@ -443,4 +463,6 @@ else
     });
 }
 
-if (failures.Count != 0) { Console.Error.WriteLine($"FULL TEST FAILED ({failures.Count} error(s))"); Environment.ExitCode = 1; } else Console.WriteLine("FULL TEST PASSED");
+if (executedChecks == 0) failures.Add("No test groups matched NOTES_TEST_FILTER.");
+var runLabel = string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("NOTES_TEST_FILTER")) ? "FULL TEST" : "SELECTED TESTS";
+if (failures.Count != 0) { Console.Error.WriteLine($"{runLabel} FAILED ({failures.Count} error(s), {executedChecks} checks)"); Environment.ExitCode = 1; } else Console.WriteLine($"{runLabel} PASSED ({executedChecks} checks)");

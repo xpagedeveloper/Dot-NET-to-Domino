@@ -1,4 +1,6 @@
 using System.Reflection;
+using System.Runtime.InteropServices;
+using DotNetToDomino.Internal;
 using DotNetToDomino;
 using DotNetToDomino.Interop;
 
@@ -10,6 +12,55 @@ void Throws<T>(Action action) where T : Exception
     try { action(); throw new InvalidOperationException($"Expected {typeof(T).Name}."); }
     catch (T) { }
 }
+
+Test("native export cache keeps delegate types separate", () =>
+{
+    if (!OperatingSystem.IsWindows()) return;
+    var handle = NativeLibrary.Load("kernel32.dll");
+    using var runtime = (NotesRuntimeLibrary)Activator.CreateInstance(typeof(NotesRuntimeLibrary),
+        BindingFlags.Instance | BindingFlags.NonPublic, null, new object[] { "", "kernel32.dll", handle }, null)!;
+    var api = new NotesNativeApi(runtime);
+    var first = api.Resolve<ProcessIdDelegateA>("GetCurrentProcessId");
+    var second = api.Resolve<ProcessIdDelegateB>("GetCurrentProcessId");
+    Assert(first() == Environment.ProcessId && second() == Environment.ProcessId, "Native delegates returned the wrong process ID.");
+    Assert(ReferenceEquals(first, api.Resolve<ProcessIdDelegateA>("GetCurrentProcessId")), "The typed delegate was not cached.");
+});
+
+Test("BLOCKID reads a native 32-bit pool and block offset", () =>
+{
+    var pointer = Marshal.AllocHGlobal(Marshal.SizeOf<NotesNativeApi.NotesBlockId>());
+    try
+    {
+        for (var i = 0; i < Marshal.SizeOf<NotesNativeApi.NotesBlockId>(); i++) Marshal.WriteByte(pointer, i, 0);
+        Marshal.WriteInt32(pointer, 0, 1234);
+        Marshal.WriteInt16(pointer, 4, 42);
+        var block = Marshal.PtrToStructure<NotesNativeApi.NotesBlockId>(pointer);
+        Assert(block.Pool == 1234 && block.Block == 42, "Native BLOCKID fields were read at the wrong offsets.");
+    }
+    finally { Marshal.FreeHGlobal(pointer); }
+});
+
+Test("database recycling advances past an already recycled child", () =>
+{
+    if (!OperatingSystem.IsWindows()) return;
+    using var runtime = (NotesRuntimeLibrary)Activator.CreateInstance(typeof(NotesRuntimeLibrary),
+        BindingFlags.Instance | BindingFlags.NonPublic, null,
+        new object[] { "", "kernel32.dll", NativeLibrary.Load("kernel32.dll") }, null)!;
+    var session = (NotesSession)System.Runtime.CompilerServices.RuntimeHelpers.GetUninitializedObject(typeof(NotesSession));
+    void SetField(string name, object value) => typeof(NotesSession).GetField(name, BindingFlags.NonPublic | BindingFlags.Instance)!.SetValue(session, value);
+    SetField("_childrenGate", new object());
+    SetField("_children", new List<NotesObject>());
+    SetField("_runtime", runtime);
+    SetField("_api", new NotesNativeApi(runtime));
+    using (session)
+    {
+        var database = new NotesDatabase(session, 0, "", "recycle-test.nsf");
+        var child = database.Own(new RegressionChild(session));
+        child.Recycle();
+        Assert(Task.Run(database.Recycle).Wait(TimeSpan.FromSeconds(2)), "Database recycling hung on an already recycled child.");
+        Assert(database.IsRecycled && child.ReleaseCount == 1, "Recycling released the child twice.");
+    }
+});
 
 Test("record order and identity", () =>
 {
@@ -87,3 +138,14 @@ foreach (var (name, test) in tests)
     try { test(); Console.WriteLine($"PASS {name}"); } catch (Exception ex) { failures.Add($"{name}: {ex.Message}"); Console.Error.WriteLine($"FAIL {failures[^1]}"); }
 Console.WriteLine($"Offline tests: {tests.Count - failures.Count}/{tests.Count} passed.");
 Environment.ExitCode = failures.Count == 0 ? 0 : 1;
+
+[UnmanagedFunctionPointer(CallingConvention.Winapi)]
+internal delegate uint ProcessIdDelegateA();
+[UnmanagedFunctionPointer(CallingConvention.Winapi)]
+internal delegate uint ProcessIdDelegateB();
+
+internal sealed class RegressionChild(NotesSession session) : NotesObject(session)
+{
+    internal int ReleaseCount { get; private set; }
+    protected override void ReleaseNative() => ReleaseCount++;
+}

@@ -98,19 +98,21 @@ public sealed class NotesDateTime : NotesObject
     internal static NotesDateTime FromNative(NotesSession session, NotesTimeDate value) => new(session, value);
     internal NotesTimeDate NativeValue { get { EnsureAlive(); return _value; } }
     public NotesSession Parent => Session;
-    public bool IsValidDate { get { EnsureAlive(); return true; } }
-    public bool IsDST { get { EnsureAlive(); return Session.Api.ExpandTimeDate(_value).Dst != 0; } }
-    public int TimeZone { get { EnsureAlive(); return Session.Api.ExpandTimeDate(_value).Zone; } }
+    public bool IsValidDate { get { EnsureAlive(); return !IsEmpty(); } }
+    public bool IsDST { get { EnsureAlive(); return !IsEmpty() && !IsAnyDate() && !IsAnyTime() && Session.Api.ExpandTimeDate(_value).Dst != 0; } }
+    public int TimeZone { get { EnsureAlive(); return IsEmpty() || IsAnyDate() || IsAnyTime() ? 0 : Session.Api.ExpandTimeDate(_value).Zone; } }
     public string Text => LocalTime;
     public string LocalTime { get { EnsureAlive(); return Session.Api.FormatTimeDate(_value); } }
-    public string GMTTime { get { EnsureAlive(); return IsWildcard() ? "AnyDay AllDay" : FormatExpanded(Session.Api.ExpandTimeDateGmt(_value)); } }
-    public string ZoneTime { get { EnsureAlive(); return IsWildcard() ? "AnyDay AllDay" : FormatExpanded(Session.Api.ExpandTimeDate(_value)); } }
-    public string DateOnly { get { EnsureAlive(); var v = Session.Api.ExpandTimeDate(_value); return IsAnyDate() ? "AnyDay" : $"{v.Year:D4}-{v.Month:D2}-{v.Day:D2}"; } }
-    public string TimeOnly { get { EnsureAlive(); var v = Session.Api.ExpandTimeDate(_value); return IsAnyTime() ? "AllDay" : $"{v.Hour:D2}:{v.Minute:D2}:{v.Second:D2}"; } }
+    public string GMTTime { get { EnsureAlive(); return IsEmpty() ? string.Empty : IsAnyDate() || IsAnyTime() ? LocalTime : FormatExpanded(Session.Api.ExpandTimeDateGmt(_value)); } }
+    public string ZoneTime { get { EnsureAlive(); return IsEmpty() ? string.Empty : IsAnyDate() || IsAnyTime() ? LocalTime : FormatExpanded(Session.Api.ExpandTimeDate(_value)); } }
+    public string DateOnly { get { EnsureAlive(); if (IsEmpty()) return string.Empty; if (IsAnyDate()) return "AnyDay"; var v = Session.Api.ExpandTimeDate(_value); return $"{v.Year:D4}-{v.Month:D2}-{v.Day:D2}"; } }
+    public string TimeOnly { get { EnsureAlive(); if (IsEmpty()) return string.Empty; if (IsAnyTime()) return "AllDay"; var v = Session.Api.ExpandTimeDate(_value); return $"{v.Hour:D2}:{v.Minute:D2}:{v.Second:D2}"; } }
     public DateTimeOffset? Value
     {
         get
         {
+            EnsureAlive();
+            if (IsEmpty() || IsAnyDate() || IsAnyTime()) return null;
             var v = Session.Api.ExpandTimeDate(_value);
             try { return new DateTimeOffset(v.Year, v.Month, v.Day, v.Hour, v.Minute, v.Second, TimeSpan.Zero); }
             catch { return null; }
@@ -166,5 +168,6 @@ public sealed class NotesDateTime : NotesObject
     private bool IsAnyDate() { var wildcard = Session.Api.TimeDateWildcard(); return (_value.Innards1 & 0x00FFFFFFu) == (wildcard.Innards1 & 0x00FFFFFFu); }
     private bool IsAnyTime() => _value.Innards0 == Session.Api.TimeDateWildcard().Innards0;
     private bool IsWildcard() => IsAnyDate() && IsAnyTime();
+    private bool IsEmpty() => _value.Innards0 == 0 && _value.Innards1 == 0;
     protected override void ReleaseNative() => _value = default;
 }

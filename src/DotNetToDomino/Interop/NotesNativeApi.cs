@@ -14,7 +14,7 @@ internal sealed partial class NotesNativeApi
     private static int _threadScopeDepth;
 
     private readonly NotesRuntimeLibrary _runtime;
-    private readonly Dictionary<string, Delegate> _delegates = new(StringComparer.Ordinal);
+    private readonly Dictionary<(string ExportName, Type DelegateType), Delegate> _delegates = new();
     private bool _initialized;
     private int _initializationThreadId;
 
@@ -164,12 +164,13 @@ internal sealed partial class NotesNativeApi
 
     internal TDelegate Resolve<TDelegate>(string exportName) where TDelegate : Delegate
     {
-        if (_delegates.TryGetValue(exportName, out var existing))
+        var key = (exportName, typeof(TDelegate));
+        if (_delegates.TryGetValue(key, out var existing))
             return (TDelegate)existing;
 
         var address = _runtime.GetExport(exportName);
         var resolved = Marshal.GetDelegateForFunctionPointer<TDelegate>(address);
-        _delegates.Add(exportName, resolved);
+        _delegates.Add(key, resolved);
         return resolved;
     }
 
@@ -190,6 +191,16 @@ internal sealed partial class NotesNativeApi
             idFile = GetEnvironmentString("ServerKeyFileName");
         if (idFile.Length == 0)
             throw new NotesException("Unable to determine the Notes/Domino ID file from KeyFileName or ServerKeyFileName.");
+
+        // KeyFileName is relative to the Notes data directory, while the native
+        // loader changes the process working directory to the program directory.
+        if (!Path.IsPathRooted(idFile))
+        {
+            var dataDirectory = GetEnvironmentString("Directory");
+            if (string.IsNullOrWhiteSpace(dataDirectory)) dataDirectory = _runtime.RuntimeDirectory;
+            if (!Path.IsPathRooted(dataDirectory)) dataDirectory = Path.Combine(_runtime.RuntimeDirectory, dataDirectory);
+            idFile = Path.GetFullPath(Path.Combine(dataDirectory, idFile));
+        }
 
         using var idFileText = ToLmbcs(idFile);
         using var passwordText = ToLmbcs(password);

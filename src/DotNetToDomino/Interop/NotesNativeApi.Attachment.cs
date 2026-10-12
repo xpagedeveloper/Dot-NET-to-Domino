@@ -156,8 +156,8 @@ internal sealed partial class NotesNativeApi
     [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate ushort Attachment_NSFItemInfo(nint note, nint itemName, ushort nameLength, out NotesBlockId itemBlock, out ushort dataType, out NotesBlockId valueBlock, out uint valueLength);
     [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate ushort Attachment_NSFItemInfoNext(nint note, NotesBlockId itemBlock, nint itemName, ushort nameLength, out NotesBlockId nextItem, out ushort dataType, out NotesBlockId valueBlock, out uint valueLength);
     [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate ushort Attachment_NSFNoteExtractFile(nint note, NotesBlockId itemBlock, nint fileName, nint decryptionKey);
-    [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate nint Attachment_OSLockObject(nint handle);
-    [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate void Attachment_OSUnlockObject(nint handle);
+    [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate nint Attachment_OSLockObject(uint handle);
+    [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate void Attachment_OSUnlockObject(uint handle);
     [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate ushort Attachment_EnumCompositeBuffer(NotesBlockId itemValue, uint itemValueLength, Attachment_EnumCompositeAction action, nint context);
     [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate ushort Attachment_EnumCompositeAction(nint record, ushort signature, uint recordLength, nint context);
 }

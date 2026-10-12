@@ -7,8 +7,9 @@ public sealed class NotesMIMEEntity : NotesObject
 {
     private readonly NotesDocument _document;
     private readonly string _itemName;
-    private readonly NotesMimeDirectoryOwner _owner;
-    private readonly nint _nativeEntity;
+    private NotesMimeDirectoryOwner _owner;
+    private nint _nativeEntity;
+    private readonly bool _isRoot;
 
     internal NotesMIMEEntity(NotesSession session, NotesDocument document, string itemName) : base(session)
     {
@@ -18,10 +19,11 @@ public sealed class NotesMIMEEntity : NotesObject
             throw new NotSupportedException("Native NotesMIMEEntity directory access currently supports the Body item only; MIMEOpenDirectory is note-level.");
         _owner = document.GetMimeDirectoryOwner();
         _nativeEntity = _owner.RootEntity;
+        _isRoot = true;
     }
 
     private NotesMIMEEntity(NotesSession session, NotesDocument document, string itemName, NotesMimeDirectoryOwner owner, nint entity) : base(session)
-    { _document = document; _itemName = itemName; _owner = owner; _nativeEntity = entity; }
+    { _document = document; _itemName = itemName; _owner = owner; _nativeEntity = entity; _isRoot = entity == owner.RootEntity; }
 
     public NotesDocument Parent { get { EnsureEntityAlive(); return _document; } }
     public string BoundaryStart { get { var b = TypeParam(NotesConst.MIME_SYMBOL_BOUNDARY); return b.Length == 0 ? string.Empty : "--" + b; } }
@@ -179,7 +181,7 @@ public sealed class NotesMIMEEntity : NotesObject
         var rewritten = new byte[headerBytes.Length + encoded.Length];
         Buffer.BlockCopy(headerBytes, 0, rewritten, 0, headerBytes.Length);
         Buffer.BlockCopy(encoded, 0, rewritten, headerBytes.Length, encoded.Length);
-        Session.Api.WriteMimeStream(_document.Handle, _itemName, rewritten);
+        Session.Api.WriteMimeStream(_document.ParentDatabase.Handle, _document.Handle, _itemName, rewritten);
         _document.InvalidateMimeDirectory();
     }
 
@@ -209,7 +211,7 @@ public sealed class NotesMIMEEntity : NotesObject
         Buffer.BlockCopy(prefix, 0, rewritten, 0, prefix.Length);
         Buffer.BlockCopy(preamble, 0, rewritten, prefix.Length, preamble.Length);
         Buffer.BlockCopy(suffix, 0, rewritten, prefix.Length + preamble.Length, suffix.Length);
-        Session.Api.WriteMimeStream(_document.Handle, _itemName, rewritten);
+        Session.Api.WriteMimeStream(_document.ParentDatabase.Handle, _document.Handle, _itemName, rewritten);
         _document.InvalidateMimeDirectory();
     }
 
@@ -389,7 +391,7 @@ public sealed class NotesMIMEEntity : NotesObject
         var rewritten = new byte[headerBytes.Length + body.Length];
         Buffer.BlockCopy(headerBytes, 0, rewritten, 0, headerBytes.Length);
         Buffer.BlockCopy(body, 0, rewritten, headerBytes.Length, body.Length);
-        Session.Api.WriteMimeStream(_document.Handle, _itemName, rewritten);
+        Session.Api.WriteMimeStream(_document.ParentDatabase.Handle, _document.Handle, _itemName, rewritten);
         _document.InvalidateMimeDirectory();
     }
 
@@ -471,7 +473,14 @@ public sealed class NotesMIMEEntity : NotesObject
     private string TypeParam(int symbol) { EnsureEntityAlive(); return _owner.TypeParam(_nativeEntity, symbol); }
     private nint CheckedEntity() { EnsureEntityAlive(); return _nativeEntity; }
     private NotesMIMEEntity? Wrap(nint entity) => entity == 0 ? null : new NotesMIMEEntity(Session, _document, _itemName, _owner, entity);
-    private void EnsureEntityAlive() { EnsureAlive(); _ = _document.Handle; if (!_owner.IsAlive) throw new ObjectDisposedException(nameof(NotesMIMEEntity)); }
+    private void EnsureEntityAlive()
+    {
+        EnsureAlive(); _ = _document.Handle;
+        if (_owner.IsAlive) return;
+        if (!_isRoot) throw new ObjectDisposedException(nameof(NotesMIMEEntity));
+        _owner = _document.GetMimeDirectoryOwner();
+        _nativeEntity = _owner.RootEntity;
+    }
     private static NotSupportedException Unsupported(string member) => new($"NotesMIMEEntity.{member} requires verified Domino native per-entity MIME data/header support; managed root-stream parsing is intentionally not used.");
     protected override void ReleaseNative() { }
 

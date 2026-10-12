@@ -20,5 +20,5 @@ public sealed class NotesForm : NotesObject
     public string NoteID { get { EnsureAlive(); return _noteId.ToString("X", CultureInfo.InvariantCulture); } }
     public string NotesURL { get { EnsureAlive(); return $"notes://{Parent.Server}/{Parent.FilePath}/0/{_noteId:X8}"; } }
 
-    protected override void ReleaseNative() => Parent.UnregisterChild(this);
+    protected override void ReleaseNative() => _parent.UnregisterChild(this);
 }

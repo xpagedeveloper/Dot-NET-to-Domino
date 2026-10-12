@@ -152,8 +152,8 @@ public sealed class NotesDocumentCollection : NotesObject, IReadOnlyCollection<u
         foreach (var noteId in _noteIds.ToArray()) using (var document = Parent.GetDocumentByID(noteId) ?? throw new NotesException(4091, $"NotesDocument {noteId:X8} could not be opened while stamping.")) { document.SetValue(itemName.Trim(), value); document.Save(); }
     }
 
-    public void MarkAllRead(string? userName = null) { EnsureAlive(); foreach (var id in _noteIds) Session.Api.SetDocumentUnread(Parent.Handle, id, string.IsNullOrWhiteSpace(userName) ? Session.Username : userName, false); }
-    public void MarkAllUnread(string? userName = null) { EnsureAlive(); foreach (var id in _noteIds) Session.Api.SetDocumentUnread(Parent.Handle, id, string.IsNullOrWhiteSpace(userName) ? Session.Username : userName, true); }
+    public void MarkAllRead(string? userName = null) { EnsureAlive(); foreach (var id in _noteIds) Session.Api.SetDocumentUnread(Parent.Handle, id, string.IsNullOrWhiteSpace(userName) ? Session.UserName : userName, false); }
+    public void MarkAllUnread(string? userName = null) { EnsureAlive(); foreach (var id in _noteIds) Session.Api.SetDocumentUnread(Parent.Handle, id, string.IsNullOrWhiteSpace(userName) ? Session.UserName : userName, true); }
     public void PutAllInFolder(string folderName, bool createOnFail = false) { EnsureAlive(); ArgumentException.ThrowIfNullOrWhiteSpace(folderName); foreach (var id in _noteIds) Session.Api.PutDocumentInFolder(Parent.Handle, id, folderName.Trim(), createOnFail); ResetCursor(); }
     public void RemoveAllFromFolder(string folderName) { EnsureAlive(); ArgumentException.ThrowIfNullOrWhiteSpace(folderName); foreach (var id in _noteIds) Session.Api.RemoveDocumentFromFolder(Parent.Handle, id, folderName.Trim()); ResetCursor(); }
     public void RemoveAll(bool force = false) { EnsureAlive(); _noteIds = _noteIds.Where(id => !Session.Api.DeleteNote(Parent.Handle, id, force)).ToArray(); ResetCursor(); }
@@ -183,7 +183,7 @@ public sealed class NotesDocumentCollection : NotesObject, IReadOnlyCollection<u
         _designNoteIds = null;
         _hasModifiedMetadata = false;
         ResetCursor();
-        Parent.UnregisterChild(this);
+        _parent.UnregisterChild(this);
     }
 
     private NotesDocumentCollection CreateModifiedSubset(uint[] noteIds, bool documents)
@@ -335,7 +335,7 @@ public sealed class NotesNoteCollection : NotesObject, IReadOnlyCollection<uint>
     {
         _noteIds = [];
         _built = false;
-        Parent.UnregisterChild(this);
+        _parent.UnregisterChild(this);
     }
 
     private uint BuildSelectionMask()

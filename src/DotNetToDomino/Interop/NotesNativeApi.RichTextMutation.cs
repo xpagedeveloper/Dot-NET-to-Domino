@@ -122,7 +122,12 @@ internal sealed partial class NotesNativeApi
         if (count <= 0) return;
         using var name = ToLmbcs(itemName);
         for (var i = 0; i < count; i++)
-            CheckStatus(Resolve<Mutation_NSFItemDelete>("NSFItemDelete")(note, name.Pointer, checked((ushort)name.Length)), "NSFItemDelete(rich text rewrite)");
+        {
+            var status = Resolve<Mutation_NSFItemDelete>("NSFItemDelete")(note, name.Pointer, checked((ushort)name.Length));
+            // Notes may remove all same-name segments in the first deletion.
+            if ((status & ErrMask) == ErrItemNotFound) break;
+            CheckStatus(status, "NSFItemDelete(rich text rewrite)");
+        }
     }
 
     private void WriteCompositeRecordsForRewrite(nint note, string itemName, IReadOnlyList<NotesRichTextRecordRewrite> records)

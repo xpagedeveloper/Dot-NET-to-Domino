@@ -23,11 +23,12 @@ public sealed class NotesSession : IDisposable
         lock (SessionGate)
         {
             if (_activeSession is { IsRecycled: false }) throw new InvalidOperationException("Only one NotesSession may be active in a process at a time.");
+            NotesIni = string.IsNullOrWhiteSpace(notesIni) ? string.Empty : Path.GetFullPath(notesIni);
             _runtime = NotesRuntimeLibrary.Load(runtimeDirectory); _api = new NotesNativeApi(_runtime); RuntimeDirectory = _runtime.RuntimeDirectory;
-            NotesIni = string.IsNullOrWhiteSpace(notesIni) ? string.Empty : Path.GetFullPath(notesIni); var ini = ResolveNotesIniPath(RuntimeDirectory, NotesIni);
+            var ini = ResolveNotesIniPath(RuntimeDirectory, NotesIni);
             IniDir = ini.Length == 0 ? string.Empty : Path.GetDirectoryName(ini) ?? string.Empty; DataDir = ini.Length == 0 ? string.Empty : ReadNotesIniDataDirectory(ini, IniDir);
             Platform = ResolvePlatform(); NotesVersion = ResolveNotesVersion(_runtime.LibraryPath); NotesBuildVersion = ResolveBuildVersion(_runtime.LibraryPath);
-            try { _api.Initialize(NotesIni.Length == 0 ? null : NotesIni, idPassword); Username = _api.GetUserName(); CommonUsername = ExtractCommonName(_api.CanonicalizeName(Username)); _activeSession = this; }
+            try { _api.Initialize(NotesIni.Length == 0 ? null : NotesIni, idPassword); UserName = _api.GetUserName(); CommonUserName = ExtractCommonName(_api.CanonicalizeName(UserName)); _activeSession = this; }
             catch { try { _api.Terminate(); } catch { } _runtime.Dispose(); throw; }
         }
     }
@@ -37,10 +38,8 @@ public sealed class NotesSession : IDisposable
     public string NotesIni { get; }
     public string IniDir { get; }
     public string DataDir { get; }
-    public string Username { get; }
-    public string UserName => Username;
-    public string CommonUsername { get; }
-    public string CommonUserName => CommonUsername;
+    public string UserName { get; }
+    public string CommonUserName { get; }
     public string NotesVersion { get; }
     public long NotesBuildVersion { get; }
     public string Platform { get; }
@@ -69,7 +68,7 @@ public sealed class NotesSession : IDisposable
     public NotesRichTextStyle CreateRichTextStyle() { EnsureAlive(); return new NotesRichTextStyle(this); }
     public NotesRichTextParagraphStyle CreateRichTextParagraphStyle() { EnsureAlive(); return new NotesRichTextParagraphStyle(this, _api.GetDefaultRichTextParagraphStyle()); }
 
-    public void Recycle() { lock (SessionGate) { if (_recycled || _recycling) return; _recycling = true; try { while (true) { NotesObject? child; lock (_childrenGate) child = _children.Count == 0 ? null : _children[^1]; if (child is null) break; try { child.Recycle(); } catch { Unregister(child); } } _api.Terminate(); _recycled = true; } finally { _runtime.Dispose(); _recycling = false; if (ReferenceEquals(_activeSession, this)) _activeSession = null; } GC.SuppressFinalize(this); } }
+    public void Recycle() { lock (SessionGate) { if (_recycled || _recycling) return; _recycling = true; try { while (true) { NotesObject? child; lock (_childrenGate) { child = _children.Count == 0 ? null : _children[^1]; if (child is not null) _children.RemoveAt(_children.Count - 1); } if (child is null) break; try { child.Recycle(); } catch { Unregister(child); } } _api.Terminate(); _recycled = true; } finally { _runtime.Dispose(); _recycling = false; if (ReferenceEquals(_activeSession, this)) _activeSession = null; } GC.SuppressFinalize(this); } }
     public void Dispose() => Recycle();
     internal void Register(NotesObject value) { EnsureAlive(); lock (_childrenGate) _children.Add(value); }
     internal void Unregister(NotesObject value) { lock (_childrenGate) _children.Remove(value); }

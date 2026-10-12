@@ -66,12 +66,12 @@ internal sealed class NotesViewRow
 internal sealed partial class NotesNativeApi
 {
     private const uint ViewReadMaskIndentLevels = 0x00000080;
-    private const uint ViewReadMaskIndexPosition = 0x00000800;
-    private const uint ViewReadMaskSummaryValues = 0x00001000;
+    private const uint ViewReadMaskIndexPosition = 0x00004000;
+    private const uint ViewReadMaskSummaryValues = 0x00002000;
     private const uint ViewNoteIdCategory = 0x80000000u;
     private const uint ViewNoteIdCategoryTotal = 0xC0000000u;
 
-    internal NotesViewRow[] ReadViewRows(nint collection, NotesDatabase database, string viewName, NotesSession session)
+    internal NotesViewRow[] ReadViewRows(ushort collection, NotesDatabase database, string viewName, NotesSession session)
     {
         EnsureInitialized();
         using var thread = EnterThread();
@@ -91,13 +91,13 @@ internal sealed partial class NotesNativeApi
                 NavigateNext,
                 1,
                 NavigateNext,
-                uint.MaxValue,
+                1024,
                 ReadMaskNoteId | ViewReadMaskIndentLevels | ViewReadMaskIndexPosition,
                 out var buffer,
                 out var bufferLength,
                 out _,
                 out var returned,
-                out _), "NIFReadEntries(view rows)");
+                out var signalFlags), "NIFReadEntries(view rows)");
 
             if (buffer == 0 || returned == 0)
             {
@@ -143,6 +143,7 @@ internal sealed partial class NotesNativeApi
                 finally { Resolve<Search_OSUnlockObject>("OSUnlockObject")(buffer); }
             }
             finally { Resolve<Search_OSMemFree>("OSMemFree")(buffer); }
+            if ((signalFlags & 0x0020) == 0) break; // SIGNAL_MORE_TO_DO
         }
 
         return rows.ToArray();
@@ -157,7 +158,7 @@ internal sealed partial class NotesNativeApi
         finally { CloseView(collection); }
     }
 
-    private object?[] ReadViewRowColumnValuesCore(nint collection, string positionText, NotesSession session)
+    private object?[] ReadViewRowColumnValuesCore(ushort collection, string positionText, NotesSession session)
     {
         var position = ParseViewPosition(positionText);
         CheckStatus(Resolve<Search_NIFReadEntries>("NIFReadEntries")(
@@ -279,7 +280,7 @@ internal sealed partial class NotesNativeApi
     private static void EnsureViewBuffer(int bufferLength, int offset, int required)
     {
         if (offset < 0 || required < 0 || offset > bufferLength - required)
-            throw new NotesException("Truncated Notes view entry buffer.");
+            throw new NotesException($"Truncated Notes view entry buffer: length={bufferLength}, offset={offset}, required={required}.");
     }
 
     [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate int View_IDIsPresent(uint table, uint id);

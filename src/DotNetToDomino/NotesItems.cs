@@ -13,7 +13,14 @@ public class NotesItem : NotesObject
     public NotesDateTime? DateTimeValue
     {
         get { var info = Metadata; return info.DataType == NotesNativeApi.NotesTypeTime ? NotesDateTime.FromNative(Session, Session.Api.GetItemTime(Parent.Handle, Name)) : null; }
-        set { EnsureItemAlive(); ArgumentNullException.ThrowIfNull(value); Session.Api.SetItemTime(Parent.Handle, Name, value.NativeValue); }
+        set
+        {
+            EnsureItemAlive();
+            ArgumentNullException.ThrowIfNull(value);
+            var flags = Metadata.Flags;
+            Session.Api.SetItemTime(Parent.Handle, Name, value.NativeValue);
+            Session.Api.SetItemFlags(Parent.Handle, Name, flags);
+        }
     }
     public bool IsAuthors
     {

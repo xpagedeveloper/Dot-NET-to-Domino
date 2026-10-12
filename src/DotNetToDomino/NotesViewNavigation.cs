@@ -86,7 +86,7 @@ public static class NotesViewNavigationExtensions
     {
         ArgumentNullException.ThrowIfNull(view);
         var session = view.Parent.Parent;
-        var user = string.IsNullOrWhiteSpace(userName) ? session.Username : userName;
+        var user = string.IsNullOrWhiteSpace(userName) ? session.UserName : userName;
         return new NotesViewEntryCollection(session, view, view.Parent, ReadRows(view).Where(r => r.IsDocument && !session.Api.IsDocumentUnread(view.Parent.Handle, r.NoteId, user)));
     }
 
@@ -94,7 +94,7 @@ public static class NotesViewNavigationExtensions
     {
         ArgumentNullException.ThrowIfNull(view);
         var session = view.Parent.Parent;
-        var user = string.IsNullOrWhiteSpace(userName) ? session.Username : userName;
+        var user = string.IsNullOrWhiteSpace(userName) ? session.UserName : userName;
         return new NotesViewEntryCollection(session, view, view.Parent, ReadRows(view).Where(r => r.IsDocument && session.Api.IsDocumentUnread(view.Parent.Handle, r.NoteId, user)));
     }
 
@@ -102,7 +102,7 @@ public static class NotesViewNavigationExtensions
     {
         ArgumentNullException.ThrowIfNull(view);
         var session = view.Parent.Parent;
-        var user = string.IsNullOrWhiteSpace(userName) ? session.Username : userName;
+        var user = string.IsNullOrWhiteSpace(userName) ? session.UserName : userName;
         return new NotesViewNavigator(session, view, view.Parent, ReadRows(view).Where(r => r.IsDocument && session.Api.IsDocumentUnread(view.Parent.Handle, r.NoteId, user)));
     }
 
@@ -113,7 +113,7 @@ public static class NotesViewNavigationExtensions
     {
         ArgumentNullException.ThrowIfNull(view);
         var session = view.Parent.Parent;
-        var user = string.IsNullOrWhiteSpace(userName) ? session.Username : userName;
+        var user = string.IsNullOrWhiteSpace(userName) ? session.UserName : userName;
         foreach (var row in ReadRows(view))
             if (row.IsDocument) session.Api.SetDocumentUnread(view.Parent.Handle, row.NoteId, user, unread);
     }
@@ -194,7 +194,7 @@ public sealed class NotesViewEntry : NotesObject
     {
         EnsureAlive();
         if (!Row.IsDocument) return true;
-        var user = string.IsNullOrWhiteSpace(userName) ? Session.Username : userName;
+        var user = string.IsNullOrWhiteSpace(userName) ? Session.UserName : userName;
         return !Session.Api.IsDocumentUnread(_database.Handle, Row.NoteId, user);
     }
     protected override void ReleaseNative() => _row = null;
@@ -395,7 +395,7 @@ public sealed class NotesViewEntryCollection : NotesObject, IReadOnlyCollection<
     private void MarkAll(string? userName, bool unread)
     {
         EnsureAlive();
-        var user = string.IsNullOrWhiteSpace(userName) ? Session.Username : userName;
+        var user = string.IsNullOrWhiteSpace(userName) ? Session.UserName : userName;
         foreach (var row in _rows) Session.Api.SetDocumentUnread(_database.Handle, row.NoteId, user, unread);
         ResetCursor();
     }
@@ -597,7 +597,7 @@ public sealed class NotesViewNavigator : NotesObject
     private void MarkAll(string? userName, bool unread)
     {
         EnsureAlive();
-        var user = string.IsNullOrWhiteSpace(userName) ? Session.Username : userName;
+        var user = string.IsNullOrWhiteSpace(userName) ? Session.UserName : userName;
         foreach (var row in _rows) if (row.IsDocument) Session.Api.SetDocumentUnread(_database.Handle, row.NoteId, user, unread);
     }
 }

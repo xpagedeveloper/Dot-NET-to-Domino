@@ -39,8 +39,10 @@ internal sealed partial class NotesNativeApi
     internal byte[] ReadMimeStream(nint note, string itemName)
     {
         EnsureInitialized(); using var thread = EnterThread(); using var name = ToLmbcs(itemName);
-        const uint openRead = 0x00000001u, includeHeaders = 0x00000004u;
-        CheckStatus(Resolve<MIMEStreamOpenDelegate>("MIMEStreamOpen")(note, name.Pointer, checked((ushort)name.Length), openRead | includeHeaders, out var stream), "MIMEStreamOpen(read)");
+        const uint openRead = 0x00000001u, includeHeaders = 0x00000010u;
+        var status = Resolve<MIMEStreamOpenDelegate>("MIMEStreamOpen")(note, name.Pointer, checked((ushort)name.Length), openRead | includeHeaders, out var stream);
+        if ((status & ErrMask) == ErrMimeNoData) return [];
+        CheckStatus(status, "MIMEStreamOpen(read)");
         try
         {
             using var output = new MemoryStream(); const int capacity = 65536; var buffer = Marshal.AllocHGlobal(capacity);
@@ -60,25 +62,56 @@ internal sealed partial class NotesNativeApi
         finally { Resolve<MIMEStreamCloseDelegate>("MIMEStreamClose")(stream); }
     }
 
-    internal void WriteMimeStream(nint note, string itemName, byte[] data)
+    internal void WriteMimeStream(nint db, nint note, string itemName, byte[] data)
     {
         EnsureInitialized(); using var thread = EnterThread(); ArgumentException.ThrowIfNullOrWhiteSpace(itemName); ArgumentNullException.ThrowIfNull(data);
         const uint openWrite = 0x00000002u;
-        CheckStatus(Resolve<MIMEStreamOpenDelegate>("MIMEStreamOpen")(note, 0, 0, openWrite, out var stream), "MIMEStreamOpen(write)");
+        var temporaryNote = CreateNote(db);
         try
         {
-            var buffer = Marshal.AllocHGlobal(Math.Max(1, data.Length));
+            using var name = ToLmbcs(itemName);
+            CheckStatus(Resolve<MIMEStreamOpenDelegate>("MIMEStreamOpen")(temporaryNote, name.Pointer, checked((ushort)name.Length), openWrite, out var stream), "MIMEStreamOpen(write temp)");
             try
             {
-                if (data.Length != 0) Marshal.Copy(data, 0, buffer, data.Length);
-                if (Resolve<MIMEStreamWriteDelegate>("MIMEStreamWrite")(buffer, checked((uint)data.Length), stream) != 0) throw new NotesException("MIMEStreamWrite failed.");
-                using var name = ToLmbcs(itemName);
-                CheckStatus(Resolve<MIMEStreamItemizeDelegate>("MIMEStreamItemize")(note, name.Pointer, checked((ushort)name.Length), 0, stream), "MIMEStreamItemize");
+                for (var offset = 0; offset < data.Length;)
+                {
+                    var count = Math.Min(60000, data.Length - offset);
+                    var buffer = Marshal.AllocHGlobal(count);
+                    try
+                    {
+                        Marshal.Copy(data, offset, buffer, count);
+                        if (Resolve<MIMEStreamWriteDelegate>("MIMEStreamWrite")(buffer, checked((uint)count), stream) == 2) throw new NotesException("MIMEStreamWrite failed.");
+                    }
+                    finally { Marshal.FreeHGlobal(buffer); }
+                    offset += count;
+                }
+                CheckStatus(Resolve<MIMEStreamItemizeDelegate>("MIMEStreamItemize")(temporaryNote, name.Pointer, checked((ushort)name.Length), 0x00000006, stream), "MIMEStreamItemize(full temp)");
             }
-            finally { Marshal.FreeHGlobal(buffer); }
+            finally { Resolve<MIMEStreamCloseDelegate>("MIMEStreamClose")(stream); }
+            while (HasItem(note, itemName)) DeleteItem(note, itemName);
+            CopyMimeItemsByName(temporaryNote, note, itemName);
+            CopyMimeItemsByName(temporaryNote, note, "$FILE");
         }
-        finally { Resolve<MIMEStreamCloseDelegate>("MIMEStreamClose")(stream); }
+        finally { CloseNote(temporaryNote); }
     }
+
+    private void CopyMimeItemsByName(nint source, nint destination, string itemName)
+    {
+        using var name = ToLmbcs(itemName);
+        var status = Resolve<NSFItemInfoDelegate>("NSFItemInfo")(source, name.Pointer, checked((ushort)name.Length), out var block, out _, out _, out _);
+        if ((status & ErrMask) == ErrItemNotFound) return;
+        CheckStatus(status, "NSFItemInfo(MIME copy)");
+        while (true)
+        {
+            CheckStatus(Resolve<Mime_NSFItemCopy>("NSFItemCopy")(checked((uint)destination), block), "NSFItemCopy(MIME)");
+            status = Resolve<Attachment_NSFItemInfoNext>("NSFItemInfoNext")(source, block, name.Pointer, checked((ushort)name.Length), out var next, out _, out _, out _);
+            if ((status & ErrMask) == ErrItemNotFound) return;
+            CheckStatus(status, "NSFItemInfoNext(MIME copy)");
+            block = next;
+        }
+    }
+
+    [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate ushort Mime_NSFItemCopy(uint destination, NotesBlockId itemBlock);
 
     [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate ushort Mime_NSFItemAppendDelegate(nint note, ushort itemFlags, nint itemName, ushort itemNameLength, ushort itemType, nint itemValue, uint itemValueLength);
     [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate ushort MIMEStreamOpenDelegate(nint note, nint itemName, ushort itemNameLength, uint flags, out nint stream);

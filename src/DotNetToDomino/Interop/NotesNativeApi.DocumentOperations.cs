@@ -127,6 +127,8 @@ internal sealed partial class NotesNativeApi
         EnsureInitialized();
         using var thread = EnterThread();
         var info = GetItemMetadata(sourceNote, sourceName);
+        // Deleting a self-copy would invalidate the BLOCKID before copying it.
+        if (sourceNote == destinationNote && string.Equals(sourceName, destinationName, StringComparison.OrdinalIgnoreCase)) return;
         if (HasItem(destinationNote, destinationName)) DeleteItem(destinationNote, destinationName);
         using var newName = ToLmbcs(destinationName);
         CheckStatus(Resolve<Ops_NSFItemCopyAndRename>("NSFItemCopyAndRename")(

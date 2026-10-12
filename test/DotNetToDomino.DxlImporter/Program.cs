@@ -23,12 +23,15 @@ Console.WriteLine($"Exists: {runtimeInfo.Exists}, size: {runtimeInfo.FileSize}, 
 if (!runtimeInfo.Exists) throw new FileNotFoundException("The expected Notes native library was not found.", runtimeInfo.NativeLibraryPath);
 if (!runtimeInfo.ArchitectureMatches) throw new BadImageFormatException($"Native Notes runtime architecture '{runtimeInfo.FileArchitecture}' does not match process architecture '{runtimeInfo.ProcessArchitecture}'.");
 
-using var session = new NotesSession(runtime, notesIni);
+using var session = new NotesSession(runtime, notesIni, Environment.GetEnvironmentVariable("NOTES_TEST_ID_PASSWORD"));
 using var database = session.OpenDatabase(server, targetPath);
 if (!database.IsOpen)
 {
     database.Create(server, targetPath, open: true);
     if (!database.IsOpen) throw new NotesException($"Unable to create target database: {database.OpenError}");
+}
+foreach (NotesView v in database.Views) {
+    Console.WriteLine($"View: {v.Name}");
 }
 
 using var importer = session.CreateDXLImporter();

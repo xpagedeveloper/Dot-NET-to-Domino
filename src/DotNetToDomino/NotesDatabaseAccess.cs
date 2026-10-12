@@ -27,5 +27,5 @@ public sealed class NotesDatabaseAccess : NotesObject
     public bool IsPublicWriter => HasFlag(0x0400);
     public bool CannotReplicateOrCopy => HasFlag(0x1000);
     private bool HasFlag(int flag) { EnsureAlive(); return (_data.AccessFlags & flag) != 0; }
-    protected override void ReleaseNative() { }
+    protected override void ReleaseNative() => _database.UnregisterChild(this);
 }
