@@ -236,6 +236,10 @@ else
         catch (ArgumentNullException ex) when (ex.ParamName == "itemName") { }
         try { document.SetString(null!, "value"); throw new InvalidOperationException("Null SetString item name was accepted."); }
         catch (ArgumentNullException ex) when (ex.ParamName == "n") { }
+        document.SetString("EmptyStringItem", string.Empty);
+        document.SetValue("EmptyValueItem", string.Empty);
+        if (document.GetString("EmptyStringItem") != string.Empty || document.GetString("EmptyValueItem") != string.Empty)
+            throw new InvalidOperationException("Empty string item values did not round-trip.");
         document.ReplaceItemValue("FullTestItem", "value").Recycle();
         using var item = document.GetFirstItem("FullTestItem") ?? throw new InvalidOperationException("Item was not created.");
         if (item.Text != "value" || item.Values.Length != 1) throw new InvalidOperationException("Item value round trip failed.");
