@@ -47,12 +47,12 @@ The live NotesMail matrix is skipped unless both `NOTES_TEST_MAIL_LIVE=1` and `N
 
 ## Creating a native test database from DXL
 
-The fixture [`test/fixtures/DotNetToDominoTest.dxl`](fixtures/DotNetToDominoTest.dxl) contains a form, document, and `DotNetToDominoTestAgent` that prints `STATUS OK`. Build and run the importer on a Notes/Domino client:
+The fixture [`test/DotNetToDomino.DxlImporter/fixtures/DotNetToDominoTest.dxl`](DotNetToDomino.DxlImporter/fixtures/DotNetToDominoTest.dxl) contains a form, document, and `DotNetToDominoTestAgent` that prints `STATUS OK`. Build and run the importer on a Notes/Domino client:
 
 ```shell
 dotnet run --project test/DotNetToDomino.DxlImporter/DotNetToDomino.DxlImporter.csproj -- \
   "C:\Program Files\HCL\Notes" \
-  test/fixtures/DotNetToDominoTest.dxl \
+  test/DotNetToDomino.DxlImporter/fixtures/DotNetToDominoTest.dxl \
   "C:\Notes\Data\DotNetToDominoTest.nsf"
 ```
 
