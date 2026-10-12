@@ -222,6 +222,9 @@ else
         using var document = database.CreateDocument();
         using var richText = document.CreateRichTextItem("Body");
         richText.AppendText("Rich text full test");
+        using var paragraphStyle = session.CreateRichTextParagraphStyle();
+        ExpectException<NotSupportedException>("AppendParagraphStyle ABI guard", () => richText.AppendParagraphStyle(paragraphStyle));
+        ExpectException<ArgumentNullException>("Rich text attachment path null", () => richText.AttachFile(null!));
         using var navigator = richText.CreateNavigator();
         if (navigator.FindFirstElement(NotesRichTextNavigator.ElementTextRun))
         {
