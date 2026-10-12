@@ -62,8 +62,8 @@ public sealed class NotesStream : NotesObject
     public string ReadText(int length) => Encoding.GetString(Read(length));
     public void Write(ReadOnlySpan<byte> data) { EnsureAlive(); if (_readOnly) throw new InvalidOperationException("NotesStream is read-only."); Stream.Write(data); Stream.Flush(); }
     public void Write(byte[] data) { ArgumentNullException.ThrowIfNull(data); Write(data.AsSpan()); }
-    public void Write(string text) => Write(Encoding.GetBytes(text ?? string.Empty));
-    public void WriteText(string text) => Write(Encoding.GetBytes(text ?? string.Empty));
+    public void Write(string text) { ArgumentNullException.ThrowIfNull(text); Write(Encoding.GetBytes(text)); }
+    public void WriteText(string text) { ArgumentNullException.ThrowIfNull(text); Write(Encoding.GetBytes(text)); }
     public byte[] ToArray()
     {
         EnsureAlive();
