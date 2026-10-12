@@ -4,6 +4,16 @@ This is the member-level gap list for the LotusScript-compatible surface represe
 
 This list is the actionable companion to [lotusscript-api-inventory.json](lotusscript-api-inventory.json). It must not be interpreted as a complete HCL product inventory for Notes classes that neither this repository nor XPscript currently models.
 
+## Complexity scale
+
+| Step | Meaning |
+|---:|---|
+| 1 | Managed property, alias, validation, or simple C# mapping; no new native ABI. |
+| 2 | One small native wrapper or an already known native operation with clear ownership. |
+| 3 | Several native calls, metadata parsing, lifecycle handling, or multiple overloads. |
+| 4 | Composite records, MIME trees, callbacks, native handles, or ABI-sensitive ownership. |
+| 5 | Large Domino semantics, security/mail/database behavior, undocumented ABI, or mandatory live-runtime design. |
+
 ## NotesSession
 
 | Member | Status | Notes |
@@ -16,6 +26,8 @@ This list is the actionable companion to [lotusscript-api-inventory.json](lotuss
 | `LastExitStatus` | missing | No process/session exit-status property. |
 | `AddressBooks` | runtime | Public surface exists; live address-book parsing and wrapper behavior remain unverified. |
 | `ConvertMIME` | runtime | Public property exists; interaction with every document-open path needs live verification. |
+
+Complexity: `CurrentDatabase` 3, `CurrentAgent` 3, `DocumentContext` 3, `EffectiveUserName` 2, `International` 5, `LastExitStatus` 2, `AddressBooks` 3, `ConvertMIME` 3.
 
 ## NotesDatabase
 
@@ -34,6 +46,8 @@ This list is the actionable companion to [lotusscript-api-inventory.json](lotuss
 | `Views`, `Forms`, `Agents` | runtime | Collections exist; complete design inventory and aliases require runtime verification. |
 | `FTSearch`/full-text members | runtime | Implemented surface exists; index, ranking and edge behavior need runtime verification. |
 
+Complexity: `ACL` 4, `IsPrivateAddressBook` 3, `IsPublicAddressBook` 3, `IsTemplate` 2, `OpenIfModified` 3, `Compact` 5, `Fixup` 5, `CreateReplica` 5, `OpenMail` 3, metadata/design collections 3, full-text behavior 4.
+
 ## NotesDocument
 
 | Member | Status | Notes |
@@ -50,6 +64,8 @@ This list is the actionable companion to [lotusscript-api-inventory.json](lotuss
 | `Send` overloads | runtime | Overloads exist; recipient/default/error semantics need live verification. |
 | `CreateMIMEEntity` | partial | Root Body creation exists; child entity creation is not complete. |
 
+Complexity: `ParentDocument` 2, security/send flags 4, `Items` 3, `ComputeWithForm` 4, `Send` overloads 4, `CreateMIMEEntity` 4.
+
 ## NotesItem / NotesRichTextItem
 
 | Member | Status | Notes |
@@ -62,6 +78,8 @@ This list is the actionable companion to [lotusscript-api-inventory.json](lotuss
 | `AppendNotesURL` | missing | No public Notes URL append method. |
 | `Update` | missing | No explicit rich-text item update method; current operations use native mutation paths. |
 | attachment metadata edge cases | partial | Attachment extraction and byte-array mapping exist; all embedded object types remain to be verified. |
+
+Complexity: item flags 2, `AppendParagraphStyle` 4, `AppendTable` 4, `AppendDocLink` 4, `AppendObject` 5, `AppendNotesURL` 4, `Update` 3, attachment edge cases 4.
 
 ## MIME entities and headers
 
@@ -76,6 +94,8 @@ This list is the actionable companion to [lotusscript-api-inventory.json](lotuss
 | `SetHeaderVal`/`SetParamVal` on child | missing | Child-header mutation is not implemented. |
 | nested multipart write operations | missing | Parser/read traversal exists; safe native write support is missing. |
 
+Complexity: `AppendChildEntity` 5, `CreateChildEntity` 5, child text/bytes content 5, child `Remove` 5, child `CreateHeader` 4, child header setters 5, nested multipart writes 5.
+
 ## NotesMail
 
 | Member | Status | Notes |
@@ -85,6 +105,8 @@ This list is the actionable companion to [lotusscript-api-inventory.json](lotuss
 | `DeliveryPriority`, `DeliveryReport`, `ReturnReceipt` | runtime | Implemented and range-validated; all delivery combinations need live verification. |
 | child MIME composition | missing | Depends on MIME child-entity write support. |
 
+Complexity: recipient properties 2, default headers 3, delivery options 4, child MIME composition 5.
+
 ## NotesView / NotesViewNavigator
 
 | Member | Status | Notes |
@@ -93,6 +115,8 @@ This list is the actionable companion to [lotusscript-api-inventory.json](lotuss
 | column formula/value edge cases | runtime | Columns exist; type conversion and missing-value behavior need live tests. |
 | `Goto*`/`Get*` parity | runtime | Broad methods exist; all overloads and boundary positions need runtime verification. |
 | hierarchy edge cases | runtime | Parent/child/sibling behavior needs a real categorized view. |
+
+Complexity: history/current-entry semantics 4, column values 3, `Goto*`/`Get*` parity 3, hierarchy edge cases 4.
 
 ## NotesAgent / DXL / support objects
 
@@ -104,6 +128,8 @@ This list is the actionable companion to [lotusscript-api-inventory.json](lotuss
 | DXL exporter result members | runtime | Properties/overloads exist; exported XML and cleanup behavior need live verification. |
 | `NotesInternational` | missing | No public C# object. |
 | `NotesRichTextTab` | partial | Rich-text tab support exists as an internal linked object; complete LotusScript property parity needs review. |
+
+Complexity: agent run/result 4, DXL importer 4, DXL exporter 4, `NotesInternational` 5, `NotesRichTextTab` 3.
 
 ## Objects with no identified complete absence
 

@@ -6,6 +6,13 @@
     "docs/xpscript-missing-notes-surface.md"
   ],
   "memberGapDocument": "lotusscript-member-gaps.md",
+  "complexityScale": {
+    "1": "Managed property, alias, validation, or simple C# mapping.",
+    "2": "Small native wrapper with clear ownership.",
+    "3": "Several native calls, metadata parsing, or lifecycle handling.",
+    "4": "Composite records, MIME trees, callbacks, native handles, or ABI-sensitive ownership.",
+    "5": "Large Domino semantics, security/mail/database behavior, undocumented ABI, or mandatory live-runtime design."
+  },
   "statusDefinitions": {
     "implemented": "Public C# surface exists; local/static checks passed.",
     "partial": "Surface exists but one or more members, semantics, or ABI paths remain incomplete.",
