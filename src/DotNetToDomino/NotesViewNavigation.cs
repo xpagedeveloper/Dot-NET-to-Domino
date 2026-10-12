@@ -31,7 +31,8 @@ public static class NotesViewNavigationExtensions
     public static NotesViewNavigator CreateViewNavFromCategory(this NotesView view, string category)
     {
         ArgumentNullException.ThrowIfNull(view);
-        category ??= string.Empty;
+        ArgumentException.ThrowIfNullOrWhiteSpace(category);
+        category = category.Trim();
         var rows = ReadRows(view);
         var root = rows.FirstOrDefault(r => r.Kind == NotesViewEntryKind.Category && r.GetColumnValues().Any(v => string.Equals(Convert.ToString(v), category, StringComparison.OrdinalIgnoreCase)));
         return root is null
@@ -66,7 +67,8 @@ public static class NotesViewNavigationExtensions
     public static NotesViewEntry? GetEntryByKey(this NotesView view, string key)
     {
         ArgumentNullException.ThrowIfNull(view);
-        var ids = view.Parent.Parent.Api.FindViewByTextKey(view.Handle, key ?? string.Empty, 1, true);
+        ArgumentException.ThrowIfNullOrWhiteSpace(key);
+        var ids = view.Parent.Parent.Api.FindViewByTextKey(view.Handle, key.Trim(), 1, true);
         if (ids.Count == 0) return null;
         var row = ReadRows(view).FirstOrDefault(r => r.IsDocument && r.NoteId == ids[0]);
         return row is null ? null : new NotesViewEntry(view.Parent.Parent, view, view.Parent, row);
@@ -75,7 +77,8 @@ public static class NotesViewNavigationExtensions
     public static NotesViewEntryCollection GetAllEntriesByKey(this NotesView view, string key)
     {
         ArgumentNullException.ThrowIfNull(view);
-        var ids = new HashSet<uint>(view.Parent.Parent.Api.FindViewByTextKey(view.Handle, key ?? string.Empty, 0, true));
+        ArgumentException.ThrowIfNullOrWhiteSpace(key);
+        var ids = new HashSet<uint>(view.Parent.Parent.Api.FindViewByTextKey(view.Handle, key.Trim(), 0, true));
         return new NotesViewEntryCollection(view.Parent.Parent, view, view.Parent, ReadRows(view).Where(r => r.IsDocument && ids.Contains(r.NoteId)));
     }
 
@@ -269,7 +272,9 @@ public sealed class NotesViewEntryCollection : NotesObject, IReadOnlyCollection<
     public void FTSearch(string query, int maxDocs = 0)
     {
         EnsureAlive();
-        _query = query ?? string.Empty;
+        ArgumentException.ThrowIfNullOrWhiteSpace(query);
+        if (maxDocs < 0) throw new ArgumentOutOfRangeException(nameof(maxDocs), maxDocs, "'maxDocs' cannot be negative.");
+        _query = query.Trim();
         var ids = new HashSet<uint>(Session.Api.FullTextSearch(_database.Handle, _view.Handle, _query, maxDocs));
         _rows = _rows.Where(r => ids.Contains(r.NoteId)).ToArray();
         ResetCursor();
@@ -281,14 +286,16 @@ public sealed class NotesViewEntryCollection : NotesObject, IReadOnlyCollection<
     public void PutAllInFolder(string folderName, bool createOnFail = false)
     {
         EnsureAlive();
-        foreach (var row in _rows) Session.Api.PutDocumentInFolder(_database.Handle, row.NoteId, folderName, createOnFail);
+        ArgumentException.ThrowIfNullOrWhiteSpace(folderName);
+        foreach (var row in _rows) Session.Api.PutDocumentInFolder(_database.Handle, row.NoteId, folderName.Trim(), createOnFail);
         ResetCursor();
     }
 
     public void RemoveAllFromFolder(string folderName)
     {
         EnsureAlive();
-        foreach (var row in _rows) Session.Api.RemoveDocumentFromFolder(_database.Handle, row.NoteId, folderName);
+        ArgumentException.ThrowIfNullOrWhiteSpace(folderName);
+        foreach (var row in _rows) Session.Api.RemoveDocumentFromFolder(_database.Handle, row.NoteId, folderName.Trim());
         ResetCursor();
     }
 
