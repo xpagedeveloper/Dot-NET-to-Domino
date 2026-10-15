@@ -424,6 +424,14 @@ public sealed class NotesRichTextTable : NotesRichTextLinkedObject
         AcceptCurrentRevision();
     }
 
+    /// <summary>Appends multiple copies of the last direct table row.</summary>
+    public void AddRow(int count)
+    {
+        EnsureLinkedAlive();
+        if (count < 1) throw new ArgumentOutOfRangeException(nameof(count));
+        for (var i = 0; i < count; i++) AddRow();
+    }
+
     /// <summary>Removes one zero-based table row, including all rich-text records inside its cells.</summary>
     public void RemoveRow(int row)
     {

@@ -422,6 +422,13 @@ else
                 if (!nav.FindFirstElement(NotesRichTextNavigator.ElementTable)) throw new InvalidOperationException("Added-row table missing.");
                 using var table = nav.GetElement() as NotesRichTextTable ?? throw new InvalidOperationException("Unexpected added-row table type.");
                 if (table.RowCount != 4 || table.Cells.Count != 8) throw new InvalidOperationException("AddRow did not clone the final table row.");
+                table.AddRow(2);
+            }
+            using (var nav = body.CreateNavigator())
+            {
+                if (!nav.FindFirstElement(NotesRichTextNavigator.ElementTable)) throw new InvalidOperationException("Multi-added-row table missing.");
+                using var table = nav.GetElement() as NotesRichTextTable ?? throw new InvalidOperationException("Unexpected multi-added-row table type.");
+                if (table.RowCount != 6 || table.Cells.Count != 12) throw new InvalidOperationException("AddRow(count) did not append the requested rows.");
                 using (var editableCell = table.GetCell(1, 1) ?? throw new InvalidOperationException("Editable table cell missing."))
                 {
                     editableCell.SetBorder(7);
@@ -449,7 +456,7 @@ else
             using var savedNav = savedBody.CreateNavigator();
             if (!savedNav.FindFirstElement(NotesRichTextNavigator.ElementTable)) throw new InvalidOperationException("Row-removal saved table missing.");
             using var savedTable = savedNav.GetElement() as NotesRichTextTable ?? throw new InvalidOperationException("Unexpected saved row-removal table type.");
-            if (savedTable.RowCount != 3 || savedTable.ColumnCount != 2 || savedTable.Cells.Count != 6)
+            if (savedTable.RowCount != 5 || savedTable.ColumnCount != 2 || savedTable.Cells.Count != 10)
                 throw new InvalidOperationException($"RemoveRow produced {savedTable.RowCount}x{savedTable.ColumnCount} with {savedTable.Cells.Count} cells.");
             Console.WriteLine("VERIFIED rich-text table RemoveRow and native save/reopen");
         }
