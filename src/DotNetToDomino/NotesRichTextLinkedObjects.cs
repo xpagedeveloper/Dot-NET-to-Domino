@@ -342,9 +342,16 @@ public sealed class NotesRichTextTableCell : NotesRichTextLinkedObject
     internal NotesRichTextTableCell(NotesSession session, NotesRichTextItem item, NotesRichTextRecordData record) : base(session, item, record) { }
     public int Row { get { var data = PositionRecord().Data; return data.Length > 4 ? data[4] : 0; } }
     public int Column { get { var data = PositionRecord().Data; return data.Length > 5 ? data[5] : 0; } }
+    public int LeftMargin { get { var data = PositionRecord().Data; return data.Length >= 8 ? ReadUInt16(data, 6) : 0; } }
+    public int RightMargin { get { var data = PositionRecord().Data; return data.Length >= 10 ? ReadUInt16(data, 8) : 0; } }
+    public int FractionalWidth { get { var data = PositionRecord().Data; return data.Length >= 12 ? ReadUInt16(data, 10) : 0; } }
+    public int Border { get { var data = PositionRecord().Data; return data.Length > 12 ? data[12] : 0; } }
+    public int Flags { get { var data = PositionRecord().Data; return data.Length > 13 ? data[13] : 0; } }
+    public int BackgroundColor { get { var data = PositionRecord().Data; return data.Length >= 20 ? ReadUInt16(data, 18) : 0; } }
     public int RowSpan { get { var data = PositionRecord().Data; return data.Length >= 18 ? Math.Max(1, (int)data[16]) : 1; } }
     public int ColumnSpan { get { var data = PositionRecord().Data; return data.Length >= 18 ? Math.Max(1, (int)data[17]) : 1; } }
     public void Remove() { EnsureLinkedAlive(); RemoveRecordSpan(CurrentFlatIndex(Records()), CurrentFlatIndex(Records())); }
+    private static ushort ReadUInt16(byte[] data, int offset) => (ushort)(data[offset] | (data[offset + 1] << 8));
 }
 
 /// <summary>Represents a document link in Notes rich text.</summary>
