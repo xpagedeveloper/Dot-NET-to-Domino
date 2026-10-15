@@ -364,6 +364,8 @@ else
                 using var table = nav.GetElement() as NotesRichTextTable ?? throw new InvalidOperationException("Unexpected saved table type.");
                 if (table.RowCount != rows || table.ColumnCount != columns || table.Cells.Count != rows * columns)
                     throw new InvalidOperationException($"Saved table does not match {rows}x{columns}.");
+                if ((table.PreTableRowCount != 0 && table.PreTableRowCount != rows) || (table.PreTableColumnCount != 0 && table.PreTableColumnCount != columns))
+                    throw new InvalidOperationException("CDPRETABLEBEGIN dimensions disagree with the table cells.");
                 using var lastCell = table.GetCell(rows - 1, columns - 1) ?? throw new InvalidOperationException("Last saved cell missing.");
                 if (lastCell.Row != rows - 1 || lastCell.Column != columns - 1 ||
                     lastCell.LeftMargin != 120 + (columns - 1) * 480 || lastCell.RightMargin != 420 + (columns - 1) * 480 ||

@@ -248,6 +248,7 @@ public sealed class NotesRichTextSection : NotesRichTextLinkedObject
 /// <summary>Represents a table in Notes rich text.</summary>
 public sealed class NotesRichTextTable : NotesRichTextLinkedObject
 {
+    private const ushort PreTableBeginSignature = unchecked((ushort)-5);
     private const ushort TableEndSignature = 165;
     private const ushort NestedTableBeginSignature = 207;
     private const ushort NestedTableEndSignature = 209;
@@ -281,6 +282,14 @@ public sealed class NotesRichTextTable : NotesRichTextLinkedObject
     }
     public bool RightToLeft { get { var data = CurrentRecord().Data; return data.Length >= 14 && (ReadUInt16(data, 12) & TableRightToLeft) != 0; } }
     public int Style { get { var data = CurrentRecord().Data; return data.Length >= 14 ? ReadUInt16(data, 12) : 0; } }
+    /// <summary>Number of rows recorded in the optional CDPRETABLEBEGIN header.</summary>
+    public int PreTableRowCount => ReadPreTableByte(8);
+    /// <summary>Number of columns recorded in the optional CDPRETABLEBEGIN header.</summary>
+    public int PreTableColumnCount => ReadPreTableByte(9);
+    /// <summary>First RGB color from CDPRETABLEBEGIN, or zero when the optional header is absent.</summary>
+    public uint StyleColor1 => ReadPreTableUInt32(24);
+    /// <summary>Second RGB color from CDPRETABLEBEGIN, or zero when the optional header is absent.</summary>
+    public uint StyleColor2 => ReadPreTableUInt32(28);
     /// <summary>Sets the table direction flag in the CDTABLEBEGIN style word.</summary>
     public void SetRightToLeft(bool rightToLeft)
     {
@@ -438,6 +447,20 @@ public sealed class NotesRichTextTable : NotesRichTextLinkedObject
         return (maxRow + 1, maxColumn + 1);
     }
     private static ushort ReadUInt16(byte[] data, int offset) => (ushort)(data[offset] | (data[offset + 1] << 8));
+    private byte ReadPreTableByte(int offset) { var data = FindPreTable()?.Data; return data is not null && data.Length > offset ? data[offset] : (byte)0; }
+    private uint ReadPreTableUInt32(int offset)
+    {
+        var data = FindPreTable()?.Data;
+        return data is not null && data.Length >= offset + 4 ? (uint)(data[offset] | (data[offset + 1] << 8) | (data[offset + 2] << 16) | (data[offset + 3] << 24)) : 0;
+    }
+    private NotesRichTextRecordData? FindPreTable()
+    {
+        var records = Records();
+        var current = CurrentFlatIndex(records);
+        for (var i = current - 1; i >= 0 && current - i <= 3; i--)
+            if (records[i].Signature == PreTableBeginSignature) return records[i];
+        return null;
+    }
     private static void WriteUInt16(byte[] data, int offset, ushort value) { data[offset] = (byte)value; data[offset + 1] = (byte)(value >> 8); }
 }
 
