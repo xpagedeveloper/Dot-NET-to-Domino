@@ -387,6 +387,36 @@ else
             finally { if (!document.IsNewNote) document.Remove(true); }
         }
     });
+    if (!string.IsNullOrWhiteSpace(databasePath)) Check("rich text table colors native persistence", () =>
+    {
+        using var database = session.OpenDatabase(server, databasePath);
+        using var document = database.CreateDocument();
+        try
+        {
+            using (var body = document.CreateRichTextItem("Body")) body.AppendTable(2, 2);
+            document.Save();
+            using var reopened = database.GetDocumentByID(document.NoteId) ?? throw new InvalidOperationException("Color test document missing.");
+            using (var item = reopened.GetFirstItem("Body") ?? throw new InvalidOperationException("Color test Body missing."))
+            using (var body = item.GetRichTextItem() ?? throw new InvalidOperationException("Color test Body is not rich text."))
+            using (var navigator = body.CreateNavigator())
+            {
+                if (!navigator.FindFirstElement(NotesRichTextNavigator.ElementTable)) throw new InvalidOperationException("Color test table missing.");
+                using var table = navigator.GetElement() as NotesRichTextTable ?? throw new InvalidOperationException("Color test table type mismatch.");
+                table.SetColor(0x00112233);
+                table.SetAlternateColor(0x00445566);
+            }
+            reopened.Save();
+            using var saved = database.GetDocumentByID(document.NoteId) ?? throw new InvalidOperationException("Color test document did not reopen.");
+            using var savedItem = saved.GetFirstItem("Body") ?? throw new InvalidOperationException("Saved color Body missing.");
+            using var savedBody = savedItem.GetRichTextItem() ?? throw new InvalidOperationException("Saved color Body is not rich text.");
+            using var savedNavigator = savedBody.CreateNavigator();
+            if (!savedNavigator.FindFirstElement(NotesRichTextNavigator.ElementTable)) throw new InvalidOperationException("Saved color table missing.");
+            using var savedTable = savedNavigator.GetElement() as NotesRichTextTable ?? throw new InvalidOperationException("Saved color table type mismatch.");
+            if (savedTable.StyleColor1 != 0x00112233 || savedTable.StyleColor2 != 0x00445566)
+                throw new InvalidOperationException($"Table colors did not persist: {savedTable.StyleColor1:X8}/{savedTable.StyleColor2:X8}.");
+        }
+        finally { if (!document.IsNewNote) document.Remove(true); }
+    });
     if (!string.IsNullOrWhiteSpace(databasePath)) Check("rich text table row removal native DXL", () =>
     {
         using var database = session.OpenDatabase(server, databasePath);

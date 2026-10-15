@@ -98,7 +98,7 @@ internal sealed partial class NotesNativeApi
         {
             // Tables must be surrounded by paragraphs in a composite item.
             CheckStatus(Resolve<RichText_CompoundTextAddParagraphExt>("CompoundTextAddParagraphExt")(compound, 0xFFFFFFFFu, RichTextDefaultFontId, 0, 0, 0), "CompoundTextAddParagraphExt(table-before)");
-            AppendRichTextCdRecords(compound, new[] { BuildTableBegin() });
+            AppendRichTextCdRecords(compound, new[] { BuildPreTableBegin(rows, columns), BuildTableBegin() });
             for (var row = 0; row < rows; row++)
                 for (var column = 0; column < columns; column++)
                 {
@@ -200,6 +200,15 @@ internal sealed partial class NotesNativeApi
     {
         var data = new byte[14]; data[0] = 163; data[1] = 14;
         PutU16(data, 4, 90); PutU16(data, 6, 90); PutU16(data, 8, 90); PutU16(data, 10, 90);
+        return data;
+    }
+    private static byte[] BuildPreTableBegin(int rows, int columns)
+    {
+        // CDPRETABLEBEGIN is a 42-byte WSIG record. The extended fields are
+        // zero-initialized; the table dimensions are retained for Notes and
+        // the managed table surface to validate.
+        var data = new byte[42]; data[0] = 251; data[1] = 0xFF; PutU16(data, 2, 42);
+        data[8] = checked((byte)rows); data[9] = checked((byte)columns);
         return data;
     }
     private static byte[] BuildTableCell(int row, int column)
