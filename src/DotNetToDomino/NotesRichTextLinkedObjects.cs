@@ -381,6 +381,7 @@ public sealed class NotesRichTextTable : NotesRichTextLinkedObject
         EnsureLinkedAlive();
         var records = Records();
         var tableStart = CurrentFlatIndex(records);
+        var preTable = FindPreTable();
         var tableEnd = -1;
         var cells = new List<(int Index, int Row)>();
         var nestedDepth = 0;
@@ -419,7 +420,7 @@ public sealed class NotesRichTextTable : NotesRichTextLinkedObject
                 foreach (var clone in clones) rewritten.Add(new NotesRichTextRecordRewrite(0, nextIndex++, clone.Signature, clone.Data));
             var record = records[i];
             var original = (byte[])record.Data.Clone();
-            if (record.Signature == PreTableBeginSignature && original.Length > 8)
+            if (preTable is not null && record.SegmentIndex == preTable.SegmentIndex && record.RecordIndex == preTable.RecordIndex && original.Length > 8)
                 original[8] = checked((byte)(original[8] + 1));
             rewritten.Add(new NotesRichTextRecordRewrite(0, nextIndex++, record.Signature, original));
         }
@@ -442,6 +443,7 @@ public sealed class NotesRichTextTable : NotesRichTextLinkedObject
         if (row < 0) throw new ArgumentOutOfRangeException(nameof(row));
         var records = Records();
         var start = CurrentFlatIndex(records);
+        var preTable = FindPreTable();
         var cellIndexes = new List<int>();
         var nestedDepth = 0;
         var tableEnd = -1;
@@ -477,7 +479,7 @@ public sealed class NotesRichTextTable : NotesRichTextLinkedObject
         var rewritten = NotesRichTextCdTransform.Transform(records, record =>
         {
             if (remove.Contains((record.SegmentIndex, record.RecordIndex))) return null;
-            if (record.Signature == PreTableBeginSignature && record.Data.Length > 8)
+            if (preTable is not null && record.SegmentIndex == preTable.SegmentIndex && record.RecordIndex == preTable.RecordIndex && record.Data.Length > 8)
             {
                 var data = (byte[])record.Data.Clone();
                 if (data[8] > 0) data[8]--;
