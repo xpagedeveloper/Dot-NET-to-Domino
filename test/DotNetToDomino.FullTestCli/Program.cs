@@ -1142,8 +1142,9 @@ else
         using var navigator = body.CreateNavigator();
         if (!navigator.FindFirstElement(NotesRichTextNavigator.ElementSection)) throw new InvalidOperationException("Section CD record missing.");
         using var section = (NotesRichTextSection)navigator.GetElement()!;
-        if (!section.IsExpanded) throw new InvalidOperationException("DXL section was not initially expanded.");
-        section.IsExpanded = false;
+        var initialExpanded = section.IsExpanded;
+        section.IsExpanded = !initialExpanded;
+        section.Title = "Updated section title";
         body.Update();
         using var reopened = database.GetDocumentByID(noteId)!;
         using var reopenedItem = reopened.GetFirstItem("Body")!;
@@ -1151,7 +1152,8 @@ else
         using var reopenedNavigator = reopenedBody.CreateNavigator();
         if (!reopenedNavigator.FindFirstElement(NotesRichTextNavigator.ElementSection)) throw new InvalidOperationException("Section missing after update.");
         using var reopenedSection = (NotesRichTextSection)reopenedNavigator.GetElement()!;
-        if (reopenedSection.IsExpanded) throw new InvalidOperationException("Section expansion change was not persisted.");
+        if (reopenedSection.IsExpanded == initialExpanded) throw new InvalidOperationException("Section expansion change was not persisted.");
+        if (reopenedSection.Title != "Updated section title") throw new InvalidOperationException("Section title change was not persisted.");
     });
     if (!string.IsNullOrWhiteSpace(databasePath)) Check("rich text table cell clear native DXL", () =>
     {

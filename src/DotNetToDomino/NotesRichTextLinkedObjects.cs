@@ -125,6 +125,22 @@ public sealed class NotesRichTextSection : NotesRichTextLinkedObject
                 ? Session.Api.DecompileRichTextFormula(data, offset, data.Length - offset)
                 : Session.Api.DecodeRichTextText(data, offset, data.Length - offset).TrimEnd('\0');
         }
+        set
+        {
+            EnsureLinkedAlive();
+            ArgumentNullException.ThrowIfNull(value);
+            var current = CurrentRecord().Data;
+            if (current.Length < 12) throw new NotesException(91, "Invalid rich-text section header.");
+            if ((ReadUInt32(current, 4) & BarIsFormula) != 0)
+                throw new NotSupportedException("Changing a formula-based rich-text section title is not supported.");
+            var offset = 12;
+            if ((ReadUInt32(current, 4) & BarHasColor) != 0) offset += 2;
+            var encoded = Session.Api.EncodeRichTextText(value + "\0");
+            var data = new byte[offset + encoded.Length];
+            current.AsSpan(0, Math.Min(offset, current.Length)).CopyTo(data);
+            encoded.CopyTo(data, offset);
+            RewriteHeader(_ => data);
+        }
     }
     public NotesColorObject BarColor
     {
