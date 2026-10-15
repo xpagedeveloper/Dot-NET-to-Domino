@@ -324,6 +324,10 @@ public sealed class NotesRichTextTable : NotesRichTextLinkedObject
     public uint StyleColor1 => ReadPreTableUInt32(24);
     /// <summary>Second RGB color from CDPRETABLEBEGIN, or zero when the optional header is absent.</summary>
     public uint StyleColor2 => ReadPreTableUInt32(28);
+    /// <summary>Primary table color as a packed RGB value.</summary>
+    public uint Color => StyleColor1;
+    /// <summary>Alternate table color as a packed RGB value.</summary>
+    public uint AlternateColor => StyleColor2;
     /// <summary>Inner border color value from CDPRETABLEBEGIN, or zero when absent.</summary>
     public uint InnerBorderColor => ReadPreTableUInt32(32);
     /// <summary>Sets the primary table color in the CDPRETABLEBEGIN record.</summary>
