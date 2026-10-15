@@ -710,7 +710,7 @@ public sealed class NotesRichTextRange : NotesObject
             .ToHashSet();
         var rewritten = NotesRichTextCdTransform.Transform(records, record =>
         {
-            if (!selected.Contains((record.SegmentIndex, record.RecordIndex)) || record.Signature != 133 || record.Data.Length < 8)
+            if (!selected.Contains((record.SegmentIndex, record.RecordIndex)) || record.Signature != 0xFF85 || record.Data.Length < 8)
                 return NotesRichTextRecordRewrite.Preserve(record);
             var data = (byte[])record.Data.Clone();
             if (state.NotesFont != NotesRichTextStyle.StyleNoChange) data[4] = checked((byte)state.NotesFont);
