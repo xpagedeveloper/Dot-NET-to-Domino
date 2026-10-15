@@ -618,6 +618,33 @@ else
         body.AppendText("End");
         ExpectException<InvalidOperationException>("Stale table after append", () => _ = remaining.ColumnCount);
     });
+    if (!string.IsNullOrWhiteSpace(databasePath)) Check("rich text begin end insert native", () =>
+    {
+        using var database = session.OpenDatabase(server, databasePath);
+        using var document = database.CreateDocument();
+        try
+        {
+            using var body = document.CreateRichTextItem("Body");
+            body.AppendText("INSERT-A");
+            body.AppendText("-B");
+            using var navigator = body.CreateNavigator();
+            if (!navigator.FindFirstElement(NotesRichTextNavigator.ElementTextRun)) throw new InvalidOperationException("Text run fixture missing.");
+            body.BeginInsert(navigator);
+            body.AppendText("INSERT-X");
+            body.EndInsert();
+            document.Save();
+            using var exporter = session.CreateDXLExporter();
+            exporter.OutputDOCTYPE = false;
+            exporter.RichTextOption = 0;
+            using var dxl = exporter.Export(document);
+            var xml = System.Xml.Linq.XDocument.Load(new MemoryStream(dxl.ToArray()));
+            var value = xml.Root!.Value;
+            if (value.IndexOf("INSERT-X", StringComparison.Ordinal) < 0 || value.IndexOf("INSERT-X", StringComparison.Ordinal) > value.IndexOf("INSERT-A", StringComparison.Ordinal))
+                throw new InvalidOperationException("Inserted text was not placed before the navigator position.");
+            ExpectException<InvalidOperationException>("Duplicate rich-text EndInsert", body.EndInsert);
+        }
+        finally { if (!document.IsNewNote) document.Remove(true); }
+    });
     if (!string.IsNullOrWhiteSpace(databasePath)) Check("rich text paragraph style native DXL", () =>
     {
         using var database = session.OpenDatabase(server, databasePath);

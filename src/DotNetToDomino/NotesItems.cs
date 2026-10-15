@@ -100,6 +100,7 @@ public sealed class NotesRichTextItem : NotesItem
 {
     private NotesRichTextStyleState? _appendStyleState;
     private int _sectionDepth;
+    private int? _insertRecord;
     private long _preparedRevision = -1;
 
     internal NotesRichTextItem(NotesSession session, NotesDocument parent, string name) : base(session, parent, name) { }
@@ -138,9 +139,29 @@ public sealed class NotesRichTextItem : NotesItem
         EnsureItemAlive();
         ArgumentNullException.ThrowIfNull(value);
         var text = value;
-        if (_appendStyleState is NotesRichTextStyleState style) Session.Api.AppendRichTextStyled(Parent.Handle, Name, text, style);
-        else Session.Api.AppendRichText(Parent.Handle, Name, text);
-        Parent.AdvanceRichTextRevision(Name);
+        AppendWithInsertion(() =>
+        {
+            if (_appendStyleState is NotesRichTextStyleState style) Session.Api.AppendRichTextStyled(Parent.Handle, Name, text, style);
+            else Session.Api.AppendRichText(Parent.Handle, Name, text);
+        });
+    }
+
+    /// <summary>Starts inserting subsequent text and paragraph content before the navigator's current record.</summary>
+    public void BeginInsert(NotesRichTextNavigator navigator)
+    {
+        EnsureItemAlive();
+        ArgumentNullException.ThrowIfNull(navigator);
+        if (!ReferenceEquals(navigator.RichTextItem, this)) throw new ArgumentException("The navigator must belong to this rich-text item.", nameof(navigator));
+        if (_insertRecord is not null) throw new InvalidOperationException("Rich-text insertion is already active.");
+        _insertRecord = navigator.CurrentIndex;
+    }
+
+    /// <summary>Ends the current insertion mode and restores normal append behavior.</summary>
+    public void EndInsert()
+    {
+        EnsureItemAlive();
+        if (_insertRecord is null) throw new InvalidOperationException("Rich-text insertion is not active.");
+        _insertRecord = null;
     }
 
     /// <summary>Appends the composite contents of another rich-text item.</summary>
@@ -282,16 +303,14 @@ public sealed class NotesRichTextItem : NotesItem
     public void AppendTable(int rows, int columns)
     {
         EnsureItemAlive();
-        Session.Api.AppendRichTextTable(Parent.Handle, Name, rows, columns);
-        Parent.AdvanceRichTextRevision(Name);
+        AppendWithInsertion(() => Session.Api.AppendRichTextTable(Parent.Handle, Name, rows, columns));
     }
 
     public void AppendParagraphStyle(NotesRichTextParagraphStyle style)
     {
         EnsureItemAlive();
         ArgumentNullException.ThrowIfNull(style);
-        Session.Api.AppendRichTextParagraphStyle(Parent.Handle, Name, style.ExportState());
-        Parent.AdvanceRichTextRevision(Name);
+        AppendWithInsertion(() => Session.Api.AppendRichTextParagraphStyle(Parent.Handle, Name, style.ExportState()));
     }
 
     /// <summary>Appends an empty collapsible section with a text title.</summary>
@@ -379,6 +398,32 @@ public sealed class NotesRichTextItem : NotesItem
         var original = ReadRichTextRecords();
         Session.Api.ReplaceRichTextCdRecords(Parent.Handle, Name, original, records);
         Parent.AdvanceRichTextRevision(Name);
+    }
+
+    private void AppendWithInsertion(Action append)
+    {
+        var before = ReadRichTextRecords();
+        append();
+        var after = ReadRichTextRecords();
+        if (_insertRecord is not int insertion)
+        {
+            Parent.AdvanceRichTextRevision(Name);
+            return;
+        }
+        var oldKeys = before.Select(r => (r.SegmentIndex, r.RecordIndex, r.Signature)).ToHashSet();
+        var inserted = after.Where(r => !oldKeys.Contains((r.SegmentIndex, r.RecordIndex, r.Signature))).Select(NotesRichTextRecordRewrite.Preserve).ToArray();
+        if (inserted.Length == 0) throw new NotesException(91, "Rich-text insertion produced no compound-text records.");
+        insertion = Math.Clamp(insertion, 0, before.Count);
+        var replacement = before.Take(insertion).Select(NotesRichTextRecordRewrite.Preserve)
+            .Concat(inserted)
+            .Concat(before.Skip(insertion).Select(NotesRichTextRecordRewrite.Preserve))
+            .ToArray();
+        // The newly appended records carry physical identities after the old stream.
+        // Once moved into the middle they would violate the CD transform ordering
+        // invariant, so assign a fresh monotonically ordered identity to the rebuilt stream.
+        var ordered = replacement.Select((record, index) =>
+            new NotesRichTextRecordRewrite(0, index, record.Signature, record.Data)).ToArray();
+        RewriteRichTextRecords(ordered);
     }
 
     internal void RemoveEmbeddedObject(NotesAttachmentMetadata metadata)
