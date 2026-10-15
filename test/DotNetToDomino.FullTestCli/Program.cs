@@ -542,6 +542,92 @@ else
         }
         finally { if (!document.IsNewNote) document.Remove(true); }
     });
+    if (!string.IsNullOrWhiteSpace(databasePath)) Check("rich text compact native persistence", () =>
+    {
+        using var database = session.OpenDatabase(server, databasePath);
+        using var document = database.CreateDocument();
+        try
+        {
+            using var body = document.CreateRichTextItem("Body");
+            var expected = string.Concat(Enumerable.Range(0, 100).Select(i => $"Compact-{i:D3}-Åäö"));
+            foreach (var text in Enumerable.Range(0, 100).Select(i => $"Compact-{i:D3}-Åäö")) body.AppendText(text);
+            int RecordBytes()
+            {
+                var records = (System.Collections.IEnumerable)typeof(NotesRichTextItem).GetMethod("ReadRichTextRecords", BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(body, null)!;
+                return records.Cast<object>().Sum(record => ((byte[])record.GetType().GetProperty("Data", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(record)!).Length);
+            }
+            var before = RecordBytes();
+            body.Compact();
+            var after = RecordBytes();
+            if (after >= before) throw new InvalidOperationException($"Compact did not reduce redundant text record bytes: {before} -> {after}.");
+            body.Compact();
+            if (RecordBytes() != after) throw new InvalidOperationException("Repeated Compact was not idempotent.");
+            document.Save();
+            using var reopened = database.GetDocumentByID(document.NoteId)!;
+            using var exporter = session.CreateDXLExporter();
+            exporter.OutputDOCTYPE = false;
+            exporter.RichTextOption = 0;
+            using var dxl = exporter.Export(reopened);
+            using var bytes = new MemoryStream(dxl.ToArray());
+            var xml = System.Xml.Linq.XDocument.Load(bytes);
+            var textValue = string.Concat(xml.Descendants().Where(e => e.Name.LocalName == "richtext").Select(e => e.Value));
+            if (textValue != expected) throw new InvalidOperationException("Compact changed persisted Unicode text.");
+            Console.WriteLine($"VERIFIED Compact bytes {before} -> {after}, Unicode persistence and repeat call");
+        }
+        finally { if (!document.IsNewNote) document.Remove(true); }
+    });
+    if (!string.IsNullOrWhiteSpace(databasePath)) Check("rich text compact mixed content and flags", () =>
+    {
+        using var database = session.OpenDatabase(server, databasePath);
+        using var document = database.CreateDocument();
+        var attachment = Path.Combine(Path.GetTempPath(), "richtext-compact-" + Guid.NewGuid().ToString("N") + ".bin");
+        try
+        {
+            var payload = Enumerable.Range(0, 4096).Select(i => (byte)(i % 251)).ToArray();
+            File.WriteAllBytes(attachment, payload);
+            using var body = document.CreateRichTextItem("Body");
+            body.AppendText("PREFIX");
+            body.IsSigned = false;
+            body.IsEncrypted = false;
+            body.IsProtected = true;
+            for (var i = 0; i < 100; i++) body.AppendText($"Text-{i:D3}-Åäö");
+            body.AppendTable(3, 4);
+            using var style = session.CreateRichTextStyle();
+            style.Bold = -1;
+            style.FontSize = 18;
+            body.AppendStyle(style);
+            body.AppendText("BOLD-SUFFIX");
+            style.PassThruHTML = -1;
+            body.AppendStyle(style);
+            body.AppendText("<em>HTML-SUFFIX</em>");
+            using (var embedded = body.AttachFile(attachment)) { }
+            using var exporter = session.CreateDXLExporter();
+            exporter.OutputDOCTYPE = false;
+            exporter.RichTextOption = 0;
+            System.Xml.Linq.XElement Snapshot(NotesDocument doc)
+            {
+                using var stream = exporter.Export(doc);
+                using var bytes = new MemoryStream(stream.ToArray());
+                return System.Xml.Linq.XDocument.Load(bytes).Descendants().Single(e => e.Name.LocalName == "richtext");
+            }
+            var before = Snapshot(document);
+            body.Compact();
+            body.Compact();
+            if (body.IsSigned || body.IsEncrypted || !body.IsProtected) throw new InvalidOperationException("Compact changed item flags.");
+            document.Save();
+            using var reopened = database.GetDocumentByID(document.NoteId)!;
+            using var savedItem = reopened.GetFirstItem("Body")!;
+            using var savedBody = savedItem.GetRichTextItem()!;
+            if (!System.Xml.Linq.XNode.DeepEquals(before, Snapshot(reopened))) throw new InvalidOperationException("Compact changed mixed rich-text DXL.");
+            using var savedAttachment = savedBody.GetEmbeddedObject(Path.GetFileName(attachment))!;
+            if (!savedAttachment.ToByteArray().SequenceEqual(payload)) throw new InvalidOperationException("Compact changed attachment bytes.");
+        }
+        finally
+        {
+            if (!document.IsNewNote) document.Remove(true);
+            if (File.Exists(attachment)) File.Delete(attachment);
+        }
+    });
     NotesItemRegressionTests.Run(session, server, databasePath, Check);
     DatabaseLifecycleRegressionTests.Run(session, Check);
     AclRegressionTests.Run(session, Check);

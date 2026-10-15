@@ -117,9 +117,37 @@ body.AppendStyle(htmlStyle);
 body.AppendText("<strong>Detta visas som text</strong>");
 ```
 
+## Compact
+
+`body.Compact()` bygger om itemets CD-ström via Notes native compound-text-
+skrivare, även när inga textrecords behöver slås ihop. Gamla itemsegment ersätts
+av den ompackade strömmen. Intilliggande CDTEXT-records med samma FONTID slås
+dessutom ihop inom en gräns på 16000 bytes per record.
+
+Styckegränser, HTML-gränser, hotspots, tabellrecords och okända CD-records
+behålls. Itemets logiska flaggor återställs efter omskrivningen utan att flytta
+första segmentet efter fortsättningssegmenten. Befintliga navigatorpositioner
+och länkade element måste hämtas på nytt efter anropet.
+
+```csharp
+// Efter redigering av text, tabeller och bilagor:
+body.Compact();
+document.Save();
+```
+
+Native-testerna verifierar minskning från 2300 till 1508 CD-recordbytes,
+Unicode efter spara/återöppna, upprepade anrop samt oförändrat DXL-innehåll
+med tabell, fontformat, HTML och bilaga. Bilagans bytes och itemets signerings-,
+krypterings- och skyddsflaggor kontrolleras också.
+
+Detta verifierar den implementerade ompackningen och textoptimeringen.
+Exakt byte-för-byte-paritet med LotusScripts interna Compact och dess hantering
+av alla tänkbara äldre eller okända recordvarianter har inte verifierats.
+
 ## Referenser
 
 - [HCL C API: BSIG](https://opensource.hcltechsw.com/domino-c-api-docs/reference/Data/BSIG/)
+- [HCL Designer: RichTextItem Compact](https://help.hcl-software.com/dom_designer/10.0.1/reference/r_domino_RichTextItem_compact.html)
 - [HCL C API: CDHTMLBEGIN](https://opensource.hcltechsw.com/domino-c-api-docs/reference/Data/CDHTMLBEGIN/)
 - [HCL C API: CDHTMLEND](https://opensource.hcltechsw.com/domino-c-api-docs/reference/Data/CDHTMLEND/)
 - [HCL C API: CDTABLECELL](https://opensource.hcltechsw.com/domino-c-api-docs/reference/Data/CDTABLECELL/)

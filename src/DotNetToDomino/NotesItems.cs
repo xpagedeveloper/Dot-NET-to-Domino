@@ -211,6 +211,15 @@ public sealed class NotesRichTextItem : NotesItem
         Parent.AdvanceRichTextRevision(Name);
     }
 
+    /// <summary>Repacks the composite stream and coalesces adjacent text records with identical fonts. Invalidates existing rich-text positions.</summary>
+    public void Compact()
+    {
+        EnsureItemAlive();
+        var records = ReadRichTextRecords();
+        var compacted = NotesRichTextCdTransform.Compact(records);
+        RewriteRichTextRecords(compacted);
+    }
+
     public NotesRichTextNavigator CreateNavigator()
     {
         EnsureItemAlive();
