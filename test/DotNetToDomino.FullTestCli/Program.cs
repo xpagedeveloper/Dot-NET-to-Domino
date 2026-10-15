@@ -483,9 +483,20 @@ else
             if (!nav.FindFirstElement(NotesRichTextNavigator.ElementTable)) throw new InvalidOperationException("First table missing.");
             using var first = nav.GetElement() as NotesRichTextTable ?? throw new InvalidOperationException("First table type mismatch.");
             if (first.RowCount != 2) throw new InvalidOperationException($"First table has {first.RowCount} rows.");
-            if (!nav.FindNextElement(NotesRichTextNavigator.ElementTable)) throw new InvalidOperationException("Second table missing.");
-            using var second = nav.GetElement() as NotesRichTextTable ?? throw new InvalidOperationException("Second table type mismatch.");
-            if (second.RowCount != 3 || second.Cells.Count != 3) throw new InvalidOperationException($"Second table has {second.RowCount} rows and {second.Cells.Count} cells.");
+            first.AddRow();
+            using var afterAdd = body.CreateNavigator();
+            if (!afterAdd.FindFirstElement(NotesRichTextNavigator.ElementTable)) throw new InvalidOperationException("First table missing after AddRow.");
+            using var added = afterAdd.GetElement() as NotesRichTextTable ?? throw new InvalidOperationException("Added first table type mismatch.");
+            if (added.RowCount != 3) throw new InvalidOperationException("AddRow did not update the first table.");
+            added.RemoveRow(0);
+            body.Update();
+            using var saved = database.GetDocumentByID(document.NoteId) ?? throw new InvalidOperationException("Multi-table document did not reopen.");
+            using var savedItem = saved.GetFirstItem("Body") ?? throw new InvalidOperationException("Saved multi-table Body missing.");
+            using var savedBody = savedItem.GetRichTextItem() ?? throw new InvalidOperationException("Saved multi-table Body is not rich text.");
+            using var savedNav = savedBody.CreateNavigator();
+            if (!savedNav.FindFirstElement(NotesRichTextNavigator.ElementTable) || !savedNav.FindNextElement(NotesRichTextNavigator.ElementTable)) throw new InvalidOperationException("Second table missing after mutation.");
+            using var savedSecond = savedNav.GetElement() as NotesRichTextTable ?? throw new InvalidOperationException("Saved second table type mismatch.");
+            if (savedSecond.RowCount != 3 || savedSecond.Cells.Count != 3) throw new InvalidOperationException($"Mutation changed the second table: {savedSecond.RowCount}x{savedSecond.ColumnCount}, cells={savedSecond.Cells.Count}.");
             Console.WriteLine("VERIFIED explicit paragraph separates multiple tables");
         }
         finally { if (!document.IsNewNote) document.Remove(true); }

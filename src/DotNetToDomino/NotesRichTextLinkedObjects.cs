@@ -459,6 +459,8 @@ public sealed class NotesRichTextTable : NotesRichTextLinkedObject
         }
         if (tableEnd < 0) throw new NotesException(91, "Rich text table has no matching end record.");
         if (cellIndexes.Count == 0) throw new ArgumentOutOfRangeException(nameof(row), "The table row does not exist.");
+        var tableKeys = records.Skip(start).Take(tableEnd - start + 1)
+            .Select(record => (record.SegmentIndex, record.RecordIndex)).ToHashSet();
 
         var remove = new HashSet<(int Segment, int Record)>();
         foreach (var cellIndex in cellIndexes)
@@ -485,7 +487,7 @@ public sealed class NotesRichTextTable : NotesRichTextLinkedObject
                 if (data[8] > 0) data[8]--;
                 return new NotesRichTextRecordRewrite(record.SegmentIndex, record.RecordIndex, record.Signature, data);
             }
-            if (record.ElementType == NotesRichTextNavigator.ElementTableCell && record.Data.Length >= 4 && record.Data[2] > row)
+            if (tableKeys.Contains((record.SegmentIndex, record.RecordIndex)) && record.ElementType == NotesRichTextNavigator.ElementTableCell && record.Data.Length >= 4 && record.Data[2] > row)
             {
                 var data = (byte[])record.Data.Clone();
                 data[2]--;
