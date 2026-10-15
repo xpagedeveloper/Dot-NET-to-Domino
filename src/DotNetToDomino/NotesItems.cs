@@ -156,6 +156,16 @@ public sealed class NotesRichTextItem : NotesItem
         _insertRecord = navigator.CurrentIndex;
     }
 
+    /// <summary>Starts inserting before the first record covered by a rich-text range.</summary>
+    public void BeginInsert(NotesRichTextRange range)
+    {
+        EnsureItemAlive();
+        ArgumentNullException.ThrowIfNull(range);
+        if (!ReferenceEquals(range.RichTextItem, this)) throw new ArgumentException("The range must belong to this rich-text item.", nameof(range));
+        if (_insertRecord is not null) throw new InvalidOperationException("Rich-text insertion is already active.");
+        _insertRecord = range.BeginRecord;
+    }
+
     /// <summary>Ends the current insertion mode and restores normal append behavior.</summary>
     public void EndInsert()
     {

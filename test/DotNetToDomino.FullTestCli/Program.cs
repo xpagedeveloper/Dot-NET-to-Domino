@@ -632,6 +632,14 @@ else
             body.BeginInsert(navigator);
             body.AppendText("INSERT-X");
             body.EndInsert();
+            using var range = body.CreateRange();
+            using var rangeNavigator = body.CreateNavigator();
+            if (!rangeNavigator.FindFirstElement(NotesRichTextNavigator.ElementTextRun)) throw new InvalidOperationException("Range insertion fixture missing.");
+            range.SetBegin(rangeNavigator);
+            range.SetEnd(rangeNavigator);
+            body.BeginInsert(range);
+            body.AppendText("INSERT-RANGE-");
+            body.EndInsert();
             document.Save();
             using var exporter = session.CreateDXLExporter();
             exporter.OutputDOCTYPE = false;
@@ -639,7 +647,7 @@ else
             using var dxl = exporter.Export(document);
             var xml = System.Xml.Linq.XDocument.Load(new MemoryStream(dxl.ToArray()));
             var value = xml.Root!.Value;
-            if (value.IndexOf("INSERT-X", StringComparison.Ordinal) < 0 || value.IndexOf("INSERT-X", StringComparison.Ordinal) > value.IndexOf("INSERT-A", StringComparison.Ordinal))
+            if (value.IndexOf("INSERT-X", StringComparison.Ordinal) < 0 || value.IndexOf("INSERT-X", StringComparison.Ordinal) > value.IndexOf("INSERT-A", StringComparison.Ordinal) || !value.Contains("INSERT-RANGE-", StringComparison.Ordinal))
                 throw new InvalidOperationException("Inserted text was not placed before the navigator position.");
             ExpectException<InvalidOperationException>("Duplicate rich-text EndInsert", body.EndInsert);
         }
