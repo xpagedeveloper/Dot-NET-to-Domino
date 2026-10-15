@@ -270,3 +270,9 @@ oförändrade eftersom deras formeldata kräver separat kompilering och bevarand
 En `CDTABLECELL` är en strukturell tabellpost. `NotesRichTextTableCell.Remove()`
 tömmer därför cellens innehåll och behåller själva cellposten; använd
 `NotesRichTextTable.RemoveRow()` när en hel rad ska tas bort.
+
+En tom sektion kan skapas med den native-verifierade hjälpen:
+
+```csharp
+body.AppendSection("Detaljer", expanded: false);
+```
