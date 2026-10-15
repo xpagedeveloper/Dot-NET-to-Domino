@@ -87,7 +87,6 @@ internal sealed partial class NotesNativeApi
                 }
             AppendTableRecords(compound, new[] { BuildTableEnd() });
             CheckStatus(Resolve<RichText_CompoundTextAddParagraphExt>("CompoundTextAddParagraphExt")(compound, 0xFFFFFFFFu, 0, 0, 0, 0), "CompoundTextAddParagraphExt(table-after)");
-            CheckStatus(Resolve<RichText_CompoundTextAddParagraphExt>("CompoundTextAddParagraphExt")(compound, 0xFFFFFFFFu, 0, 0, 0, 0), "CompoundTextAddParagraphExt(table-after)");
             CheckStatus(Resolve<RichText_CompoundTextClose>("CompoundTextClose")(compound, 0, 0, 0, 0), "CompoundTextClose(table)");
             closed = true;
         }
