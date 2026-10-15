@@ -327,7 +327,7 @@ public sealed class NotesRichTextTable : NotesRichTextLinkedObject
             if (record.Signature == NestedTableEndSignature) { if (nestedDepth > 0) nestedDepth--; continue; }
             if (nestedDepth > 0) continue;
             if (record.Signature == TableEndSignature) break;
-            if (record.ElementType != NotesRichTextNavigator.ElementTableCell || record.Data.Length < 4) continue;
+            if (record.ElementType != NotesRichTextNavigator.ElementTableCell || record.Data.Length < 6) continue;
             maxRow = Math.Max(maxRow, record.Data[4]);
             maxColumn = Math.Max(maxColumn, record.Data[5]);
         }
