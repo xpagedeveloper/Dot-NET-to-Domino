@@ -244,6 +244,15 @@ public sealed class NotesRichTextItem : NotesItem
         Parent.AdvanceRichTextRevision(Name);
     }
 
+    /// <summary>Appends an empty collapsible section with a text title.</summary>
+    public void AppendSection(string title, bool expanded = true)
+    {
+        EnsureItemAlive();
+        ArgumentNullException.ThrowIfNull(title);
+        Session.Api.AppendRichTextSection(Parent.Handle, Name, title, expanded);
+        Parent.AdvanceRichTextRevision(Name);
+    }
+
     /// <summary>Repacks the composite stream and coalesces adjacent text records with identical fonts. Invalidates existing rich-text positions.</summary>
     public void Compact()
     {

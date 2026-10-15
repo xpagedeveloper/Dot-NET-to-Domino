@@ -114,6 +114,32 @@ internal sealed partial class NotesNativeApi
         finally { if (!closed) try { Resolve<RichText_CompoundTextDiscard>("CompoundTextDiscard")(compound); } catch { } }
     }
 
+    internal void AppendRichTextSection(nint note, string name, string title, bool expanded)
+    {
+        EnsureInitialized();
+        ArgumentNullException.ThrowIfNull(title);
+        using var thread = EnterThread();
+        using var itemName = ToLmbcs(name);
+        using var titleText = ToLmbcs(title + "\0");
+        CheckStatus(Resolve<RichText_CompoundTextCreate>("CompoundTextCreate")(unchecked((uint)note), itemName.Pointer, out var compound), "CompoundTextCreate(section)");
+        var closed = false;
+        try
+        {
+            CheckStatus(Resolve<RichText_CompoundTextAddParagraphExt>("CompoundTextAddParagraphExt")(compound, 0xFFFFFFFFu, RichTextDefaultFontId, 0, 0, 0), "CompoundTextAddParagraphExt(section-before)");
+            var bar = new byte[12 + titleText.Length];
+            bar[0] = 172; bar[1] = 0xFF; PutU16(bar, 2, checked((ushort)bar.Length));
+            if (expanded) PutU32(bar, 4, 0x00000002u);
+            Marshal.Copy(titleText.Pointer, bar, 12, titleText.Length);
+            AppendRichTextCdRecords(compound, new[] { bar });
+            CheckStatus(Resolve<RichText_CompoundTextAddParagraphExt>("CompoundTextAddParagraphExt")(compound, 0xFFFFFFFFu, RichTextDefaultFontId, 0, 0, 0), "CompoundTextAddParagraphExt(section-content)");
+            AppendRichTextCdRecords(compound, new[] { BuildSectionEnd() });
+            CheckStatus(Resolve<RichText_CompoundTextAddParagraphExt>("CompoundTextAddParagraphExt")(compound, 0xFFFFFFFFu, RichTextDefaultFontId, 0, 0, 0), "CompoundTextAddParagraphExt(section-after)");
+            CheckStatus(Resolve<RichText_CompoundTextClose>("CompoundTextClose")(compound, 0, 0, 0, 0), "CompoundTextClose(section)");
+            closed = true;
+        }
+        finally { if (!closed) try { Resolve<RichText_CompoundTextDiscard>("CompoundTextDiscard")(compound); } catch { } }
+    }
+
     private void AppendRichTextCdRecords(uint compound, IReadOnlyList<byte[]> records)
     {
         var total = records.Sum(r => r.Length + (r.Length & 1));
@@ -148,8 +174,10 @@ internal sealed partial class NotesNativeApi
         return data;
     }
     private static byte[] BuildTableEnd() { var data = new byte[6]; data[0] = 165; data[1] = 6; return data; }
+    private static byte[] BuildSectionEnd() { var data = new byte[4]; data[0] = 174; data[1] = 0xFF; PutU16(data, 2, 4); return data; }
 
     private static void PutU16(byte[] data, int offset, ushort value) { data[offset] = (byte)value; data[offset + 1] = (byte)(value >> 8); }
+    private static void PutU32(byte[] data, int offset, uint value) { data[offset] = (byte)value; data[offset + 1] = (byte)(value >> 8); data[offset + 2] = (byte)(value >> 16); data[offset + 3] = (byte)(value >> 24); }
 
     internal void ConvertMimePartsToComposite(nint note)
     {

@@ -1181,6 +1181,25 @@ else
         using var reopenedTable = (NotesRichTextTable)reopenedNavigator.GetElement()!;
         if (reopenedTable.RowCount != beforeRows || reopenedTable.ColumnCount != beforeColumns) throw new InvalidOperationException("Cell clear changed table dimensions.");
     });
+    if (!string.IsNullOrWhiteSpace(databasePath)) Check("rich text append section native", () =>
+    {
+        using var database = session.OpenDatabase(server, databasePath);
+        using var document = database.CreateDocument();
+        try
+        {
+            using var body = document.CreateRichTextItem("Body");
+            body.AppendSection("Created section", expanded: true);
+            document.Save();
+            using var reopened = database.GetDocumentByID(document.NoteId)!;
+            using var item = reopened.GetFirstItem("Body")!;
+            using var savedBody = item.GetRichTextItem()!;
+            using var navigator = savedBody.CreateNavigator();
+            if (!navigator.FindFirstElement(NotesRichTextNavigator.ElementSection)) throw new InvalidOperationException("Appended section was not found.");
+            using var section = (NotesRichTextSection)navigator.GetElement()!;
+            if (!section.IsExpanded || section.Title != "Created section") throw new InvalidOperationException("Appended section metadata did not persist.");
+        }
+        finally { if (!document.IsNewNote) document.Remove(true); }
+    });
     if (!string.IsNullOrWhiteSpace(databasePath)) Check("view navigation", () =>
     {
         using var database = session.GetDatabase(server, databasePath, false) ?? throw new InvalidOperationException("Database not found.");
