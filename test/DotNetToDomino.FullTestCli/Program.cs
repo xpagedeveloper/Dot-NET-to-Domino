@@ -1104,6 +1104,9 @@ else
             body.AppendText("Before attachment");
             using (var attachment = body.AttachFile(path)) { }
             body.AppendText("After attachment");
+            using var sourceEmbedded = body.GetEmbeddedObject(Path.GetFileName(path)) ?? throw new InvalidOperationException("Source embedded object is missing.");
+            using var appendedObjectBody = destination.CreateRichTextItem("AppendedObjectBody");
+            using var appendedObject = appendedObjectBody.AppendObject(sourceEmbedded);
             source.Save();
             using (var conflicting = database.CreateDocument())
             {
@@ -1133,6 +1136,10 @@ else
             using var secondBody = secondItem.GetRichTextItem()!;
             using var secondAttachment = secondBody.GetEmbeddedObject(Path.GetFileName(path))!;
             if (!secondAttachment.ToByteArray().SequenceEqual(payload)) throw new InvalidOperationException("Repeated copy attachment bytes differ.");
+            using var appendedItem = reopened.GetFirstItem("AppendedObjectBody")!;
+            using var appendedBody = appendedItem.GetRichTextItem()!;
+            using var appendedAttachment = appendedBody.GetEmbeddedObject(Path.GetFileName(path)) ?? throw new InvalidOperationException("AppendObject attachment is missing.");
+            if (!appendedAttachment.ToByteArray().SequenceEqual(payload)) throw new InvalidOperationException("AppendObject attachment bytes differ.");
         }
         finally
         {

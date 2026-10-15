@@ -136,6 +136,23 @@ public sealed class NotesRichTextItem : NotesItem
     /// <summary>Embeds a file object in this rich-text item.</summary>
     public NotesEmbeddedObject AppendObject(string sourcePath) => AttachFile(sourcePath);
 
+    /// <summary>Copies an existing embedded attachment into this rich-text item.</summary>
+    public NotesEmbeddedObject AppendObject(NotesEmbeddedObject source)
+    {
+        EnsureItemAlive();
+        ArgumentNullException.ThrowIfNull(source);
+        if (!ReferenceEquals(source.Parent.Session, Session)) throw new ArgumentException("The source embedded object must belong to the same NotesSession.", nameof(source));
+        var temporaryDirectory = Path.Combine(Path.GetTempPath(), "dotnet-to-domino-richtext-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(temporaryDirectory);
+        var temporary = Path.Combine(temporaryDirectory, source.Name);
+        try
+        {
+            File.WriteAllBytes(temporary, source.ToByteArray());
+            return AttachFile(temporary);
+        }
+        finally { try { if (Directory.Exists(temporaryDirectory)) Directory.Delete(temporaryDirectory, true); } catch { } }
+    }
+
     public void AppendText(string value)
     {
         EnsureItemAlive();
