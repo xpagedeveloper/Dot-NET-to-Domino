@@ -464,6 +464,47 @@ else
         if (xml.Descendants().Where(e => e.Name.LocalName == "font").Any(font => (string?)font.Attribute("size") != "10pt"))
             throw new InvalidOperationException("Default text font must be 10pt instead of 0pt.");
     });
+    if (!string.IsNullOrWhiteSpace(databasePath)) Check("rich text append style no-change native DXL", () =>
+    {
+        using var database = session.OpenDatabase(server, databasePath);
+        using var document = database.CreateDocument();
+        using var body = document.CreateRichTextItem("Body");
+        using var initial = session.CreateRichTextStyle();
+        initial.FontSize = 18;
+        initial.NotesColor = 2;
+        body.AppendStyle(initial);
+        using var unchanged = session.CreateRichTextStyle();
+        body.AppendStyle(unchanged);
+        body.AppendText("LARGE-RED");
+        using var bold = session.CreateRichTextStyle();
+        bold.Bold = -1;
+        body.AppendStyle(bold);
+        body.AppendText("BOLD-LARGE-RED");
+        body.AppendStyle(unchanged);
+        body.AppendText("UNCHANGED-BOLD-LARGE-RED");
+        using var plain = session.CreateRichTextStyle();
+        plain.Bold = 0;
+        body.AppendStyle(plain);
+        body.AppendText("PLAIN-LARGE-RED");
+        using var aliasItem = document.GetFirstItem("Body")!;
+        using var alias = aliasItem.GetRichTextItem()!;
+        alias.AppendStyle(bold);
+        alias.AppendText("ALIAS-BOLD-LARGE-RED");
+        using var exporter = session.CreateDXLExporter();
+        exporter.OutputDOCTYPE = false;
+        exporter.RichTextOption = 0;
+        using var dxl = exporter.Export(document);
+        using var bytes = new MemoryStream(dxl.ToArray());
+        var xml = System.Xml.Linq.XDocument.Load(bytes);
+        foreach (var (marker, expectedBold) in new[] { ("LARGE-RED", false), ("BOLD-LARGE-RED", true), ("UNCHANGED-BOLD-LARGE-RED", true), ("PLAIN-LARGE-RED", false), ("ALIAS-BOLD-LARGE-RED", true) })
+        {
+            var run = xml.Descendants().Single(e => e.Name.LocalName == "run" && e.Value == marker);
+            var font = run.Elements().Single(e => e.Name.LocalName == "font");
+            if ((string?)font.Attribute("size") != "18pt" || (string?)font.Attribute("color") != "red" ||
+                (((string?)font.Attribute("style"))?.Contains("bold", StringComparison.Ordinal) == true) != expectedBold)
+                throw new InvalidOperationException($"STYLE_NO_CHANGE changed prior attributes for {marker}: {font}");
+        }
+    });
     NotesItemRegressionTests.Run(session, server, databasePath, Check);
     DatabaseLifecycleRegressionTests.Run(session, Check);
     AclRegressionTests.Run(session, Check);

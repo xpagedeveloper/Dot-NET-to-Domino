@@ -53,7 +53,7 @@ internal sealed partial class NotesNativeApi
             using var delimiter = ToLmbcs("\r\n");
             const uint styleSameAsPrevious = 0xFFFFFFFFu;
             const uint preserveLines = 0x00000002u;
-            var fontId = BuildRichTextFontId(style);
+            var fontId = BuildRichTextFontId(style, GetLastRichTextFontId(note, name));
             CheckStatus(Resolve<RichText_CompoundTextAddTextExt>("CompoundTextAddTextExt")(
                 compound, styleSameAsPrevious, fontId, text.Pointer, checked((uint)text.Length), delimiter.Pointer, preserveLines, 0),
                 "CompoundTextAddTextExt(styled)");
@@ -166,17 +166,25 @@ internal sealed partial class NotesNativeApi
         finally { Marshal.FreeHGlobal(formula); }
     }
 
-    private static uint BuildRichTextFontId(NotesRichTextStyleState style)
+    private uint GetLastRichTextFontId(nint note, string name)
+    {
+        var last = GetRichTextRecords(note, name).LastOrDefault(record => record.Signature == RichTextSigText && record.Data.Length >= 8);
+        return last is null ? RichTextDefaultFontId : ReadUInt32(last.Data, 4);
+    }
+
+    private static uint BuildRichTextFontId(NotesRichTextStyleState style, uint previousFontId)
     {
         const int noChange = 255;
-        var face = style.NotesFont == noChange ? (int)(RichTextDefaultFontId & 0xff) : Math.Clamp(style.NotesFont, 0, 255);
-        var color = style.NotesColor == noChange ? 0 : Math.Clamp(style.NotesColor, 0, 255);
-        var point = style.FontSize == noChange ? 10 : Math.Clamp(style.FontSize, 1, 250);
-        var attributes = 0;
-        if (style.Bold != noChange && style.Bold != 0) attributes |= 0x01;
-        if (style.Italic != noChange && style.Italic != 0) attributes |= 0x02;
-        if (style.Underline != noChange && style.Underline != 0) attributes |= 0x04;
-        if (style.Strikethrough != noChange && style.Strikethrough != 0) attributes |= 0x08;
+        var face = style.NotesFont == noChange ? (int)(previousFontId & 0xff) : Math.Clamp(style.NotesFont, 0, 255);
+        var color = style.NotesColor == noChange ? (int)((previousFontId >> 16) & 0xff) : Math.Clamp(style.NotesColor, 0, 255);
+        var point = style.FontSize == noChange ? (int)(previousFontId >> 24) : Math.Clamp(style.FontSize, 1, 250);
+        var attributes = (int)((previousFontId >> 8) & 0xff);
+        static int SetAttribute(int attributes, int value, int mask) => value == noChange ? attributes : value == 0 ? attributes & ~mask : attributes | mask;
+        attributes = SetAttribute(attributes, style.Bold, 0x01);
+        attributes = SetAttribute(attributes, style.Italic, 0x02);
+        attributes = SetAttribute(attributes, style.Underline, 0x04);
+        attributes = SetAttribute(attributes, style.Strikethrough, 0x08);
+        if (style.Effects != noChange) attributes &= ~0xB0;
         if (style.Effects == 1) attributes |= 0x10;
         else if (style.Effects == 2) attributes |= 0x20;
         else if (style.Effects == 3) attributes |= 0x80;

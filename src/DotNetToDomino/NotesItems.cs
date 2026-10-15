@@ -142,7 +142,16 @@ public sealed class NotesRichTextItem : NotesItem
     {
         EnsureItemAlive();
         ArgumentNullException.ThrowIfNull(style);
-        _appendStyleState = style.ExportState();
+        var next = style.ExportState();
+        if (_appendStyleState is NotesRichTextStyleState previous)
+        {
+            static int Merge(int value, int existing) => value == NotesRichTextStyle.StyleNoChange ? existing : value;
+            next = new NotesRichTextStyleState(
+                Merge(next.Bold, previous.Bold), Merge(next.Effects, previous.Effects), Merge(next.FontSize, previous.FontSize),
+                Merge(next.Italic, previous.Italic), Merge(next.NotesColor, previous.NotesColor), Merge(next.NotesFont, previous.NotesFont),
+                Merge(next.PassThruHtml, previous.PassThruHtml), Merge(next.Strikethrough, previous.Strikethrough), Merge(next.Underline, previous.Underline));
+        }
+        _appendStyleState = next;
     }
 
     /// <summary>

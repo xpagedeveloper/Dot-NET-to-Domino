@@ -74,6 +74,25 @@ Det tidigare värdet noll exporterades som 0 punkter. Även `AppendStyle` med
 oförändrad fontfamilj använder Swiss som grund. Explicit vald fontfamilj och
 storlek fortsätter att användas.
 
+`AppendStyle` bevarar tidigare egenskaper för fält med `STYLE_NO_CHANGE` (255).
+Det gäller även flera stilanrop innan text skrivs. Vid native textskrivning
+används senaste CDTEXT-recordens FONTID som grund, så att en andra itemreferens
+kan lägga till fetstil utan att förlora storlek, färg och fontfamilj.
+DXL-testet kontrollerar 18-punkters röd text med fetstil, oförändrad stil och
+explicit borttagning av fetstil, inklusive en andra itemreferens.
+
+```csharp
+using var sizeAndColor = session.CreateRichTextStyle();
+sizeAndColor.FontSize = 18;
+sizeAndColor.NotesColor = 2; // röd
+body.AppendStyle(sizeAndColor);
+body.AppendText("Stor röd text");
+using var boldOnly = session.CreateRichTextStyle();
+boldOnly.Bold = -1;
+body.AppendStyle(boldOnly);
+body.AppendText("Fet text med samma storlek och färg");
+```
+
 Detta verifierar native lagring och DXL-tolkning. Det är inte ett visuellt
 test av Notes-editorn eller bevis för att alla övriga RichText-metoder är färdiga.
 
