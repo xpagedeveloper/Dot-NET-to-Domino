@@ -183,8 +183,7 @@ public sealed class NotesRichTextItem : NotesItem
         ArgumentNullException.ThrowIfNull(source);
         source.EnsureItemAlive();
         if (!ReferenceEquals(Session, source.Session)) throw new ArgumentException("The source rich-text item must belong to the same NotesSession.", nameof(source));
-        Session.Api.AppendRichTextItem(Parent.Handle, Name, source.Parent.Handle, source.Name);
-        Parent.AdvanceRichTextRevision(Name);
+        AppendWithInsertion(() => Session.Api.AppendRichTextItem(Parent.Handle, Name, source.Parent.Handle, source.Name));
     }
 
     public void AppendStyle(NotesRichTextStyle style)
