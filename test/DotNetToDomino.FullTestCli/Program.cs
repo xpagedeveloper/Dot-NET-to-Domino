@@ -940,6 +940,36 @@ else
         }
         finally { if (!document.IsNewNote) document.Remove(true); }
     });
+    if (!string.IsNullOrWhiteSpace(databasePath)) Check("rich text range cross segment style", () =>
+    {
+        using var database = session.OpenDatabase(server, databasePath);
+        using var document = database.CreateDocument();
+        try
+        {
+            using var body = document.CreateRichTextItem("Body");
+            var values = Enumerable.Range(0, 1900).Select(i => $"SEG-{i:D4}-" + new string('x', 65)).ToArray();
+            foreach (var value in values) body.AppendText(value);
+            var records = (System.Collections.IEnumerable)typeof(NotesRichTextItem).GetMethod("ReadRichTextRecords", BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(body, null)!;
+            if (records.Cast<object>().Select(r => (int)r.GetType().GetProperty("SegmentIndex", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(r)!).Distinct().Count() < 2) throw new InvalidOperationException("Range fixture did not cross physical segments.");
+            using var navigator = body.CreateNavigator();
+            if (!navigator.FindFirstString("SEG-0002-")) throw new InvalidOperationException("Range start marker missing.");
+            using var range = body.CreateRange();
+            range.SetBegin(navigator);
+            if (!navigator.FindFirstString("SEG-1700-")) throw new InvalidOperationException("Range end marker missing.");
+            range.SetEnd(navigator);
+            using var style = session.CreateRichTextStyle();
+            style.NotesColor = 2; style.Bold = -1;
+            range.SetStyle(style);
+            document.Save();
+            using var reopened = database.GetDocumentByID(document.NoteId)!;
+            using var exporter = session.CreateDXLExporter(); exporter.OutputDOCTYPE = false; exporter.RichTextOption = 0;
+            using var dxl = exporter.Export(reopened); using var bytes = new MemoryStream(dxl.ToArray());
+            var richText = System.Xml.Linq.XDocument.Load(bytes).Descendants().Single(e => e.Name.LocalName == "richtext");
+            if (!richText.Value.Contains("SEG-0002-", StringComparison.Ordinal) || !richText.Value.Contains("SEG-1700-", StringComparison.Ordinal)) throw new InvalidOperationException("Cross-segment SetStyle lost text.");
+            if (!richText.Value.Contains("SEG-1700-", StringComparison.Ordinal)) throw new InvalidOperationException("Cross-segment SetStyle lost later text.");
+        }
+        finally { if (!document.IsNewNote) document.Remove(true); }
+    });
     if (!string.IsNullOrWhiteSpace(databasePath)) Check("view navigation", () =>
     {
         using var database = session.GetDatabase(server, databasePath, false) ?? throw new InvalidOperationException("Database not found.");

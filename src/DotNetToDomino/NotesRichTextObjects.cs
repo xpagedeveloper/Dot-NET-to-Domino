@@ -703,9 +703,14 @@ public sealed class NotesRichTextRange : NotesObject
         ArgumentNullException.ThrowIfNull(style);
         var state = style.ExportState();
         var records = _item.ReadRichTextRecords();
+        var selected = records
+            .Select((record, index) => (record, index))
+            .Where(value => value.index >= _beginRecord && value.index <= _endRecord)
+            .Select(value => (value.record.SegmentIndex, value.record.RecordIndex))
+            .ToHashSet();
         var rewritten = NotesRichTextCdTransform.Transform(records, record =>
         {
-            if (record.RecordIndex < _beginRecord || record.RecordIndex > _endRecord || record.Signature != 133 || record.Data.Length < 8)
+            if (!selected.Contains((record.SegmentIndex, record.RecordIndex)) || record.Signature != 0xFF85 || record.Data.Length < 8)
                 return NotesRichTextRecordRewrite.Preserve(record);
             var data = (byte[])record.Data.Clone();
             if (state.NotesFont != NotesRichTextStyle.StyleNoChange) data[4] = checked((byte)state.NotesFont);
@@ -726,10 +731,16 @@ public sealed class NotesRichTextRange : NotesObject
         EnsureRangeAlive();
         var records = _item.ReadRichTextRecords();
         if (records.Count == 0 || _endRecord < _beginRecord) return;
-        if (_beginOffset != 0 || _endRecord >= records.Count || _endOffset != records[_endRecord].Text.Length)
-            throw new InvalidOperationException("NotesRichTextRange.Remove requires complete rich-text element boundaries.");
+        // Native CD records are the persistence unit. Navigator positions that
+        // land inside a text run remove that complete run, matching Notes' rich
+        // text element semantics and avoiding malformed partial CDTEXT records.
+        var selected = records
+            .Select((record, index) => (record, index))
+            .Where(value => value.index >= _beginRecord && value.index <= _endRecord)
+            .Select(value => (value.record.SegmentIndex, value.record.RecordIndex))
+            .ToHashSet();
         var rewritten = NotesRichTextCdTransform.Transform(records, record =>
-            record.RecordIndex >= _beginRecord && record.RecordIndex <= _endRecord ? null : NotesRichTextRecordRewrite.Preserve(record));
+            selected.Contains((record.SegmentIndex, record.RecordIndex)) ? null : NotesRichTextRecordRewrite.Preserve(record));
         _item.RewriteRichTextRecords(rewritten);
         ResetCore();
     }

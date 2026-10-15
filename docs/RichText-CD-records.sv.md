@@ -188,11 +188,12 @@ range-början till en senare textrun med annan formatering.
 
 Detta är en arbetslista, inte ett påstående om full LotusScript-paritet:
 
-- `NotesRichTextRange.SetStyle` behöver korrigeras: nuvarande kod jämför med
-  signaturen 133 i stället för normaliserad WSIG 0xFF85, och blandar fysiska
-  recordnummer med platta range-index. Teckengränser behöver också hanteras.
-- Range.Remove använder också fysiska recordnummer och behöver verifieras
-  över flera segment samt vid partiella textval.
+- `NotesRichTextRange.SetStyle` använder nu normaliserad WSIG 0xFF85 och mappar
+  platta range-index till `(SegmentIndex, RecordIndex)`. Native-testet går över
+  flera fysiska segment.
+- Range.Remove använder samma segmentmappning, men partiella textrun-gränser
+  kräver fortfarande en separat verifiering mot Notes klientens exakta
+  uppdelning av CDTEXT.
 - `AppendRTItem`, `BeginInsert`/`EndInsert`, `BeginSection`/`EndSection` och
   `GetNotesFont` saknas i den nuvarande publika item-klassen.
 - Tabellklassen saknar bland annat `AddRow`/`RemoveRow`, ändringsbara färger
