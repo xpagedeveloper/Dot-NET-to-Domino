@@ -1261,6 +1261,20 @@ else
         }
         finally { if (!document.IsNewNote) document.Remove(true); }
     });
+    if (!string.IsNullOrWhiteSpace(databasePath)) Check("rich text document save section guard", () =>
+    {
+        using var database = session.OpenDatabase(server, databasePath);
+        using var document = database.CreateDocument();
+        try
+        {
+            using var body = document.CreateRichTextItem("Body");
+            body.BeginSection("Unclosed save");
+            ExpectException<InvalidOperationException>("Open section document save guard", document.Save);
+            body.EndSection();
+            document.Save();
+        }
+        finally { if (!document.IsNewNote) document.Remove(true); }
+    });
     if (!string.IsNullOrWhiteSpace(databasePath)) Check("view navigation", () =>
     {
         using var database = session.GetDatabase(server, databasePath, false) ?? throw new InvalidOperationException("Database not found.");
