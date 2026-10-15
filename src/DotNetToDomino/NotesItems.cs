@@ -168,6 +168,21 @@ public sealed class NotesRichTextItem : NotesItem
         _insertRecord = range.BeginRecord;
     }
 
+    /// <summary>Starts inserting before a concrete rich-text element.</summary>
+    public void BeginInsert(NotesRichTextLinkedObject element)
+    {
+        EnsureItemAlive();
+        ArgumentNullException.ThrowIfNull(element);
+        if (!ReferenceEquals(element.PositionOwner, this)) throw new ArgumentException("The element must belong to this rich-text item.", nameof(element));
+        if (_insertRecord is not null) throw new InvalidOperationException("Rich-text insertion is already active.");
+        var position = element.PositionRecord();
+        var records = ReadRichTextRecords();
+        var index = Enumerable.Range(0, records.Count).FirstOrDefault(i =>
+            records[i].SegmentIndex == position.SegmentIndex && records[i].RecordIndex == position.RecordIndex && records[i].Signature == position.Signature, -1);
+        if (index < 0) throw new InvalidOperationException("The rich-text element no longer exists.");
+        _insertRecord = index;
+    }
+
     /// <summary>Ends the current insertion mode and restores normal append behavior.</summary>
     public void EndInsert()
     {

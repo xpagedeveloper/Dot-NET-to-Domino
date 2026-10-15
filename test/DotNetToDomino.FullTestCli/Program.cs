@@ -648,6 +648,13 @@ else
             body.AppendText("Inserted section text");
             body.EndSection();
             body.EndInsert();
+            body.AppendTable(1, 1);
+            using var elementNavigator = body.CreateNavigator();
+            if (!elementNavigator.FindFirstElement(NotesRichTextNavigator.ElementTable)) throw new InvalidOperationException("Element insertion table fixture missing.");
+            using var tableElement = (NotesRichTextTable)elementNavigator.GetElement()!;
+            body.BeginInsert(tableElement);
+            body.AppendText("INSERT-ELEMENT");
+            body.EndInsert();
             document.Save();
             using var exporter = session.CreateDXLExporter();
             exporter.OutputDOCTYPE = false;
@@ -655,7 +662,7 @@ else
             using var dxl = exporter.Export(document);
             var xml = System.Xml.Linq.XDocument.Load(new MemoryStream(dxl.ToArray()));
             var value = xml.Root!.Value;
-            if (value.IndexOf("INSERT-X", StringComparison.Ordinal) < 0 || value.IndexOf("INSERT-X", StringComparison.Ordinal) > value.IndexOf("INSERT-A", StringComparison.Ordinal) || value.IndexOf("INSERT-Y", StringComparison.Ordinal) < value.IndexOf("INSERT-X", StringComparison.Ordinal) || !value.Contains("INSERT-RANGE-", StringComparison.Ordinal) || !value.Contains("Inserted section text", StringComparison.Ordinal))
+            if (value.IndexOf("INSERT-X", StringComparison.Ordinal) < 0 || value.IndexOf("INSERT-X", StringComparison.Ordinal) > value.IndexOf("INSERT-A", StringComparison.Ordinal) || value.IndexOf("INSERT-Y", StringComparison.Ordinal) < value.IndexOf("INSERT-X", StringComparison.Ordinal) || !value.Contains("INSERT-RANGE-", StringComparison.Ordinal) || !value.Contains("Inserted section text", StringComparison.Ordinal) || !value.Contains("INSERT-ELEMENT", StringComparison.Ordinal))
                 throw new InvalidOperationException("Inserted text was not placed before the navigator position.");
             ExpectException<InvalidOperationException>("Duplicate rich-text EndInsert", body.EndInsert);
         }
