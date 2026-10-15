@@ -533,7 +533,9 @@ public sealed class NotesRichTextTable : NotesRichTextLinkedObject
     }
 
     /// <summary>Removes one zero-based table row, including all rich-text records inside its cells.</summary>
-    public void RemoveRow(int row)
+    public void RemoveRow(int row) => RemoveRowCore(row, true);
+
+    private void RemoveRowCore(int row, bool recycle)
     {
         EnsureLinkedAlive();
         if (row < 0) throw new ArgumentOutOfRangeException(nameof(row));
@@ -592,7 +594,7 @@ public sealed class NotesRichTextTable : NotesRichTextLinkedObject
             return NotesRichTextRecordRewrite.Preserve(record);
         });
         RichTextItem.RewriteRichTextRecords(rewritten);
-        Recycle();
+        if (recycle) Recycle();
     }
 
     /// <summary>Removes <paramref name="count"/> rows starting at the specified zero-based target row.</summary>
@@ -603,9 +605,9 @@ public sealed class NotesRichTextTable : NotesRichTextLinkedObject
         if (targetRow < 0) throw new ArgumentOutOfRangeException(nameof(targetRow));
         for (var i = 0; i < count; i++)
         {
-            if (IsRecycled) return;
-            RemoveRow(targetRow);
+            RemoveRowCore(targetRow, recycle: false);
         }
+        Recycle();
     }
     public void Remove()
     {

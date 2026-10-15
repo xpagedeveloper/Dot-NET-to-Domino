@@ -70,6 +70,7 @@ public class NotesItem : NotesObject
         return destination.GetFirstItem(targetName) ?? throw new InvalidOperationException("Copied NotesItem could not be reopened.");
     }
     protected void EnsureItemAlive() { EnsureAlive(); if (_removed) throw new ObjectDisposedException(nameof(NotesItem), "NotesItem has been removed from its document."); _ = Parent.Handle; }
+    internal bool IsRemoved => _removed;
     protected override void ReleaseNative() { _removed = true; Parent.ParentDatabase.UnregisterChild(this); }
     private bool HasFlag(ushort flag) => (Metadata.Flags & flag) != 0;
     private void SetFlag(ushort flag, bool value) => UpdateFlags(f => value ? (ushort)(f | flag) : (ushort)(f & ~flag));
