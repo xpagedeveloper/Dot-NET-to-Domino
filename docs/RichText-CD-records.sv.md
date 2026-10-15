@@ -202,6 +202,12 @@ Detta är en arbetslista, inte ett påstående om full LotusScript-paritet:
 - Externa fonttabeller, OLE-objekt och samtliga äldre CD-varianter behöver
   fortsatt implementation och native-verifiering.
 
+HCL:s C API definierar `SIG_CD_PRETABLEBEGIN` som `-5` (ett `WSIG`-record)
+före `CDTABLEBEGIN`. Det recordet innehåller bland annat antal rader/kolumner,
+tabellflaggor, `StyleColor1`, `StyleColor2` och variabel radetikettdata. Därför
+kan tabellnivåfärger och radetiketter inte behandlas som fält i
+`CDTABLEBEGIN`; de kräver separat parsing och längdvalidering av `-5`-recordet.
+
 `AppendRTItem` är nu implementerad via HCL:s `CompoundTextAssimilateItem`.
 Den assimilerar text och tabellrecords från ett annat rich-text-item i samma
 session. HCL dokumenterar att den inte automatiskt flyttar special-items som
