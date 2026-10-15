@@ -417,6 +417,21 @@ else
         }
         finally { if (!document.IsNewNote) document.Remove(true); }
     });
+    if (!string.IsNullOrWhiteSpace(databasePath)) Check("rich text table target row mutations native", () =>
+    {
+        using var database = session.OpenDatabase(server, databasePath); using var document = database.CreateDocument();
+        try
+        {
+            using (var body = document.CreateRichTextItem("Body")) body.AppendTable(4, 1);
+            document.Save();
+            using (var reopened = database.GetDocumentByID(document.NoteId)!) using (var item = reopened.GetFirstItem("Body")!) using (var body = item.GetRichTextItem()!) using (var navigator = body.CreateNavigator())
+            { navigator.FindFirstElement(NotesRichTextNavigator.ElementTable); using var table = navigator.GetElement() as NotesRichTextTable ?? throw new InvalidOperationException(); table.AddRow(2, 1); reopened.Save(); }
+            using (var expanded = database.GetDocumentByID(document.NoteId)!) using (var item = expanded.GetFirstItem("Body")!) using (var body = item.GetRichTextItem()!) using (var navigator = body.CreateNavigator())
+            { navigator.FindFirstElement(NotesRichTextNavigator.ElementTable); using var table = navigator.GetElement() as NotesRichTextTable ?? throw new InvalidOperationException(); if (table.RowCount != 6) throw new InvalidOperationException($"AddRow produced {table.RowCount} rows."); table.RemoveRow(2, 1); expanded.Save(); }
+            using var final = database.GetDocumentByID(document.NoteId)!; using var finalItem = final.GetFirstItem("Body")!; using var finalBody = finalItem.GetRichTextItem()!; using var finalNavigator = finalBody.CreateNavigator(); finalNavigator.FindFirstElement(NotesRichTextNavigator.ElementTable); using var finalTable = finalNavigator.GetElement() as NotesRichTextTable ?? throw new InvalidOperationException(); if (finalTable.RowCount != 4) throw new InvalidOperationException($"RemoveRow produced {finalTable.RowCount} rows.");
+        }
+        finally { if (!document.IsNewNote) document.Remove(true); }
+    });
     if (!string.IsNullOrWhiteSpace(databasePath)) Check("rich text table row removal native DXL", () =>
     {
         using var database = session.OpenDatabase(server, databasePath);

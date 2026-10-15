@@ -546,7 +546,7 @@ public sealed class NotesRichTextTable : NotesRichTextLinkedObject
                 foreach (var clone in clones) rewritten.Add(new NotesRichTextRecordRewrite(0, nextIndex++, clone.Signature, clone.Data));
             }
             if (record.ElementType == NotesRichTextNavigator.ElementTableCell && original.Length >= 4 && original[2] >= targetRow)
-                original[2] = checked((byte)(original[2] + 1));
+                original[2] = checked((byte)(original[2] + count));
             rewritten.Add(new NotesRichTextRecordRewrite(0, nextIndex++, record.Signature, original));
         }
         RichTextItem.RewriteRichTextRecords(rewritten);
@@ -554,9 +554,9 @@ public sealed class NotesRichTextTable : NotesRichTextLinkedObject
     }
 
     /// <summary>Removes one zero-based table row, including all rich-text records inside its cells.</summary>
-    public void RemoveRow(int row) => RemoveRowCore(row, true);
+    public void RemoveRow(int row) => RemoveRowCore(row, 1, true);
 
-    private void RemoveRowCore(int row, bool recycle)
+    private void RemoveRowCore(int row, int count, bool recycle)
     {
         EnsureLinkedAlive();
         if (row < 0) throw new ArgumentOutOfRangeException(nameof(row));
@@ -573,7 +573,7 @@ public sealed class NotesRichTextTable : NotesRichTextLinkedObject
             if (record.Signature == NestedTableEndSignature) { if (nestedDepth > 0) nestedDepth--; continue; }
             if (nestedDepth > 0) continue;
             if (record.Signature == TableEndSignature) { tableEnd = i; break; }
-            if (record.ElementType == NotesRichTextNavigator.ElementTableCell && record.Data.Length >= 4 && record.Data[2] == row)
+            if (record.ElementType == NotesRichTextNavigator.ElementTableCell && record.Data.Length >= 4 && record.Data[2] >= row && record.Data[2] < row + count)
                 cellIndexes.Add(i);
         }
         if (tableEnd < 0) throw new NotesException(91, "Rich text table has no matching end record.");
@@ -603,13 +603,13 @@ public sealed class NotesRichTextTable : NotesRichTextLinkedObject
             if (preTable is not null && record.SegmentIndex == preTable.SegmentIndex && record.RecordIndex == preTable.RecordIndex && record.Data.Length > 8)
             {
                 var data = (byte[])record.Data.Clone();
-                if (data[8] > 0) data[8]--;
+                data[8] = (byte)Math.Max(0, data[8] - count);
                 return new NotesRichTextRecordRewrite(record.SegmentIndex, record.RecordIndex, record.Signature, data);
             }
-            if (tableKeys.Contains((record.SegmentIndex, record.RecordIndex)) && record.ElementType == NotesRichTextNavigator.ElementTableCell && record.Data.Length >= 4 && record.Data[2] > row)
+            if (tableKeys.Contains((record.SegmentIndex, record.RecordIndex)) && record.ElementType == NotesRichTextNavigator.ElementTableCell && record.Data.Length >= 4 && record.Data[2] >= row + count)
             {
                 var data = (byte[])record.Data.Clone();
-                data[2]--;
+                data[2] = checked((byte)(data[2] - count));
                 return new NotesRichTextRecordRewrite(record.SegmentIndex, record.RecordIndex, record.Signature, data);
             }
             return NotesRichTextRecordRewrite.Preserve(record);
@@ -624,11 +624,7 @@ public sealed class NotesRichTextTable : NotesRichTextLinkedObject
         EnsureLinkedAlive();
         if (count < 1) throw new ArgumentOutOfRangeException(nameof(count));
         if (targetRow < 0) throw new ArgumentOutOfRangeException(nameof(targetRow));
-        for (var i = 0; i < count; i++)
-        {
-            RemoveRowCore(targetRow, recycle: false);
-        }
-        Recycle();
+        RemoveRowCore(targetRow, count, true);
     }
     public void Remove()
     {
