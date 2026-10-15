@@ -133,8 +133,16 @@ document.Save();
 
 Native-testet kontrollerar alla tre länktypernas DXL efter Compact,
 spara och återöppna, inklusive replica-ID och dokumentets/vyns UNID.
-Länkar mellan olika repliker stöds av API-anropet men har ännu inte
-verifierats i detta regressionstest.
+Ett separat native-test skapar en tillfällig databas med annat replica-ID och
+verifierar dokumentlänken både via navigatorns properties och oberoende DXL
+efter spara/återöppna. Testdatabasen tas bort efteråt. Navigatorns databas-
+och vylänkar kontrolleras också, inklusive nollställda dokument-/vy-UNID där
+de inte används. Borttagning av den mittersta länken verifieras efter Compact
+och återöppning, med de intilliggande länkarna bevarade.
+
+Dessa tester skapar länkar via compound-text-API:et. Äldre CDLINK2-records
+som refererar till dokumentets separata `$Links`-item behöver fortfarande
+kompletterad avläsning av länkmålet i `NotesRichTextDocLink`.
 
 ## Compact
 

@@ -683,11 +683,66 @@ else
             if (!links.Any(e => e.Name.LocalName == "databaselink" && (string?)e.Attribute("description") == "database-target")) throw new InvalidOperationException("Database link missing.");
             if (!links.Any(e => string.Equals((string?)e.Attribute("view"), view.UniversalID, StringComparison.OrdinalIgnoreCase))) throw new InvalidOperationException("View link UNID mismatch.");
             if (!links.Any(e => string.Equals((string?)e.Attribute("document"), document.UniversalId, StringComparison.OrdinalIgnoreCase))) throw new InvalidOperationException("Document link UNID mismatch.");
+            using var savedItem = reopened.GetFirstItem("Body")!;
+            using var savedBody = savedItem.GetRichTextItem()!;
+            using var navigator = savedBody.CreateNavigator();
+            using var databaseLink = navigator.GetFirstElement(5) as NotesRichTextDocLink ?? throw new InvalidOperationException("Database link missing from navigator.");
+            using var viewLink = navigator.GetNextElement(5) as NotesRichTextDocLink ?? throw new InvalidOperationException("View link missing from navigator.");
+            if (databaseLink.DbReplicaID != database.ReplicaID || databaseLink.DocUNID != new string('0', 32) || databaseLink.ViewUNID != new string('0', 32)) throw new InvalidOperationException("Navigator database link target mismatch.");
+            if (viewLink.DbReplicaID != database.ReplicaID || viewLink.ViewUNID != view.UniversalID || viewLink.DocUNID != new string('0', 32)) throw new InvalidOperationException("Navigator view link target mismatch.");
+            viewLink.Remove();
+            savedBody.Compact();
+            reopened.Save();
+            using var removedReopened = database.GetDocumentByID(document.NoteId)!;
+            using var removedDxl = exporter.Export(removedReopened);
+            using var removedBytes = new MemoryStream(removedDxl.ToArray());
+            var remainingLinks = System.Xml.Linq.XDocument.Load(removedBytes).Descendants().Where(e => e.Name.LocalName is "doclink" or "viewlink" or "databaselink").ToArray();
+            if (remainingLinks.Length != 2 || remainingLinks.Any(e => e.Name.LocalName == "viewlink") || !remainingLinks.Any(e => e.Name.LocalName == "databaselink") || !remainingLinks.Any(e => e.Name.LocalName == "doclink")) throw new InvalidOperationException("Removing view link changed adjacent links.");
         }
         finally
         {
             foreach (var view in views) view.Dispose();
             if (!document.IsNewNote) document.Remove(true);
+        }
+    });
+    if (!string.IsNullOrWhiteSpace(databasePath)) Check("rich text cross database document link", () =>
+    {
+        using var database = session.OpenDatabase(server, databasePath);
+        var path = "DotNetToDominoLinkTarget-" + Guid.NewGuid().ToString("N") + ".nsf";
+        using var targetDatabase = session.GetDatabase("", path, true)!;
+        targetDatabase.Create();
+        using var document = database.CreateDocument();
+        try
+        {
+            using var target = targetDatabase.CreateDocument();
+            target.ReplaceItemValue("Subject", "Cross database link target").Recycle();
+            target.Save();
+            if (targetDatabase.ReplicaID == database.ReplicaID) throw new InvalidOperationException("Test requires distinct replicas.");
+            using var body = document.CreateRichTextItem("Body");
+            body.AppendDocLink(target, "Cross database Åäö");
+            body.Compact();
+            document.Save();
+            using var reopened = database.GetDocumentByID(document.NoteId)!;
+            using var item = reopened.GetFirstItem("Body")!;
+            using var savedBody = item.GetRichTextItem()!;
+            using var navigator = savedBody.CreateNavigator();
+            using var link = navigator.GetFirstElement(5) as NotesRichTextDocLink ?? throw new InvalidOperationException("Document link missing from navigator.");
+            if (link.DbReplicaID != targetDatabase.ReplicaID || link.DocUNID != target.UniversalID || link.DisplayComment != "Cross database Åäö") throw new InvalidOperationException($"Navigator link target mismatch: {link.DbReplicaID}/{link.DocUNID}/{link.DisplayComment}");
+            using var exporter = session.CreateDXLExporter();
+            exporter.OutputDOCTYPE = false;
+            exporter.RichTextOption = 0;
+            using var dxl = exporter.Export(reopened);
+            using var bytes = new MemoryStream(dxl.ToArray());
+            var xml = System.Xml.Linq.XDocument.Load(bytes);
+            var exported = xml.Descendants().Single(e => e.Name.LocalName == "doclink");
+            if ((string?)exported.Attribute("database") != targetDatabase.ReplicaID || (string?)exported.Attribute("document") != target.UniversalID) throw new InvalidOperationException("Cross database DXL target mismatch.");
+        }
+        finally
+        {
+            if (!document.IsNewNote) document.Remove(true);
+            targetDatabase.Recycle();
+            using var cleanup = session.GetDatabase("", path, false);
+            if (cleanup?.IsOpen == true) cleanup.Remove();
         }
     });
     if (!string.IsNullOrWhiteSpace(databasePath)) Check("view navigation", () =>
