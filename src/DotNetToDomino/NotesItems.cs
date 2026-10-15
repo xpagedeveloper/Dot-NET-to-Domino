@@ -176,6 +176,7 @@ public sealed class NotesRichTextItem : NotesItem
     public void Update()
     {
         EnsureItemAlive();
+        if (_sectionDepth != 0) throw new InvalidOperationException("A rich-text section is still open. Call EndSection() before Update().");
         Parent.Save();
         Parent.AdvanceRichTextRevision(Name);
     }
