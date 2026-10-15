@@ -118,6 +118,11 @@ The required columns are `Member`, `Syntax`, `Parameters`, `Description`, and `E
 | `NotesRichTextTable.RowCount` | `table.RowCount` | none | Gets the parsed table row count. | [TODO](../todo/xpscript-notes-runtime-parity.md) |
 | `NotesRichTextTable.ColumnCount` | `table.ColumnCount` | none | Gets the parsed table column count. | [TODO](../todo/xpscript-notes-runtime-parity.md) |
 | `NotesRichTextTable.RightToLeft` | `table.RightToLeft` | none | Gets the table direction flag. | [TODO](../todo/xpscript-notes-runtime-parity.md) |
+| `NotesRichTextTable.AddRow` | `table.AddRow()` / `table.AddRow(count)` | none / `count`: positive row count | Clones the final direct table row and persists the inserted CD records. | [TODO](../todo/xpscript-notes-runtime-parity.md) |
+| `NotesRichTextTable.RemoveRow` | `table.RemoveRow(row)` | `row`: zero-based row | Removes a direct table row and reindexes following rows. | [TODO](../todo/xpscript-notes-runtime-parity.md) |
+| `NotesRichTextTable.PreTableRowCount` | `table.PreTableRowCount` | none | Reads the optional CDPRETABLEBEGIN row count. | [TODO](../todo/xpscript-notes-runtime-parity.md) |
+| `NotesRichTextTable.PreTableColumnCount` | `table.PreTableColumnCount` | none | Reads the optional CDPRETABLEBEGIN column count. | [TODO](../todo/xpscript-notes-runtime-parity.md) |
+| `NotesRichTextTable.StyleColor1` / `StyleColor2` | `table.StyleColor1` / `table.StyleColor2` | none | Reads optional CDPRETABLEBEGIN RGB style colors. | [TODO](../todo/xpscript-notes-runtime-parity.md) |
 | `NotesRichTextDocLink.DbReplicaID` | `link.DbReplicaID` | none | Gets the linked database replica ID. | [TODO](../todo/xpscript-notes-runtime-parity.md) |
 | `NotesRichTextDocLink.ViewUNID` | `link.ViewUNID` | none | Gets the linked view UNID. | [TODO](../todo/xpscript-notes-runtime-parity.md) |
 | `NotesRichTextDocLink.DocUNID` | `link.DocUNID` | none | Gets the linked document UNID. | [TODO](../todo/xpscript-notes-runtime-parity.md) |
