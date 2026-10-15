@@ -1215,6 +1215,9 @@ else
             using var body = document.CreateRichTextItem("Body");
             body.BeginSection("Stateful section");
             body.AppendText("Text inside section");
+            body.BeginSection("Nested section");
+            body.AppendText("Nested text");
+            body.EndSection();
             body.EndSection();
             document.Save();
             using var reopened = database.GetDocumentByID(document.NoteId)!;
@@ -1228,6 +1231,9 @@ else
             if (!navigator.FindFirstString("Text inside section")) throw new InvalidOperationException("Section content did not persist.");
             range.SetBegin(navigator);
             if (!string.Equals(range.TextRun, "Text inside section", StringComparison.Ordinal)) throw new InvalidOperationException("Section content text did not persist.");
+            if (!navigator.FindFirstElement(NotesRichTextNavigator.ElementSection) || !navigator.FindNextElement(NotesRichTextNavigator.ElementSection)) throw new InvalidOperationException("Nested section was not found.");
+            using var nested = (NotesRichTextSection)navigator.GetElement()!;
+            if (nested.Title != "Nested section") throw new InvalidOperationException("Nested section title did not persist.");
         }
         finally { if (!document.IsNewNote) document.Remove(true); }
     });
