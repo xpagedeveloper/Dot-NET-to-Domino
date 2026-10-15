@@ -294,6 +294,12 @@ public sealed class NotesRichTextTable : NotesRichTextLinkedObject
     public uint StyleColor2 => ReadPreTableUInt32(28);
     /// <summary>Inner border color value from CDPRETABLEBEGIN, or zero when absent.</summary>
     public uint InnerBorderColor => ReadPreTableUInt32(32);
+    /// <summary>Length of the optional HTML name/ID payload.</summary>
+    public int PreTableNameLength => ReadPreTableUInt16(40);
+    /// <summary>Length of the optional image packet payload.</summary>
+    public int PreTableImagePacketLength => ReadPreTableUInt16(42);
+    /// <summary>Length of the optional row-label payload.</summary>
+    public int PreTableRowLabelDataLength => ReadPreTableUInt16(44);
     /// <summary>Sets the table direction flag in the CDTABLEBEGIN style word.</summary>
     public void SetRightToLeft(bool rightToLeft)
     {
@@ -456,6 +462,11 @@ public sealed class NotesRichTextTable : NotesRichTextLinkedObject
     {
         var data = FindPreTable()?.Data;
         return data is not null && data.Length >= offset + 4 ? (uint)(data[offset] | (data[offset + 1] << 8) | (data[offset + 2] << 16) | (data[offset + 3] << 24)) : 0;
+    }
+    private ushort ReadPreTableUInt16(int offset)
+    {
+        var data = FindPreTable()?.Data;
+        return data is not null && data.Length >= offset + 2 ? ReadUInt16(data, offset) : (ushort)0;
     }
     private NotesRichTextRecordData? FindPreTable()
     {
