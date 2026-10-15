@@ -700,6 +700,7 @@ public sealed class NotesRichTextRange : NotesObject
         EnsureRangeAlive();
         ArgumentException.ThrowIfNullOrEmpty(findText);
         ArgumentNullException.ThrowIfNull(replaceText);
+        if (options != 0) throw new NotSupportedException("FindAndReplace options are not implemented for managed rich-text CD transforms.");
         var records = _item.ReadRichTextRecords();
         var replacements = 0;
         var recordIndex = -1;
