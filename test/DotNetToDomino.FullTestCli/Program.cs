@@ -1191,6 +1191,7 @@ else
         {
             using var body = document.CreateRichTextItem("Body");
             body.AppendSection("Created section", expanded: true);
+            body.AppendSection("Collapsed section", expanded: false);
             document.Save();
             using var reopened = database.GetDocumentByID(document.NoteId)!;
             using var item = reopened.GetFirstItem("Body")!;
@@ -1199,6 +1200,9 @@ else
             if (!navigator.FindFirstElement(NotesRichTextNavigator.ElementSection)) throw new InvalidOperationException("Appended section was not found.");
             using var section = (NotesRichTextSection)navigator.GetElement()!;
             if (!section.IsExpanded || section.Title != "Created section") throw new InvalidOperationException("Appended section metadata did not persist.");
+            if (!navigator.FindNextElement(NotesRichTextNavigator.ElementSection)) throw new InvalidOperationException("Second appended section was not found.");
+            using var collapsed = (NotesRichTextSection)navigator.GetElement()!;
+            if (collapsed.IsExpanded || collapsed.Title != "Collapsed section") throw new InvalidOperationException("Collapsed section metadata did not persist.");
         }
         finally { if (!document.IsNewNote) document.Remove(true); }
     });
