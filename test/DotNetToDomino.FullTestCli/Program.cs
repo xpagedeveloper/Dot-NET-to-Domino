@@ -368,6 +368,50 @@ else
             finally { if (!document.IsNewNote) document.Remove(true); }
         }
     });
+    if (!string.IsNullOrWhiteSpace(databasePath)) Check("rich text multi-segment table removal", () =>
+    {
+        using var database = session.OpenDatabase(server, databasePath);
+        using var document = database.CreateDocument();
+        try
+        {
+            var markers = Enumerable.Range(0, 1800).Select(i => $"PREFIX-{i:D4}-" + new string('x', 60)).ToArray();
+            using (var body = document.CreateRichTextItem("Body"))
+            {
+                body.AppendText(string.Join("\r\n", markers));
+                body.AppendTable(3, 4);
+                body.AppendText("SUFFIX-AFTER-REMOVED-TABLE");
+            }
+            document.Save();
+            using (var reopened = database.GetDocumentByID(document.NoteId)!)
+            {
+                using var item = reopened.GetFirstItem("Body")!;
+                using var body = item.GetRichTextItem()!;
+                var records = (System.Collections.IEnumerable)typeof(NotesRichTextItem)
+                    .GetMethod("ReadRichTextRecords", BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(body, null)!;
+                var segments = records.Cast<object>().Select(record => (int)record.GetType()
+                    .GetProperty("SegmentIndex", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(record)!).Distinct().Count();
+                if (segments < 2) throw new InvalidOperationException("Fixture did not produce multiple physical composite segments.");
+                using var nav = body.CreateNavigator();
+                if (!nav.FindFirstElement(NotesRichTextNavigator.ElementTable)) throw new InvalidOperationException("Multi-segment table missing.");
+                using var table = nav.GetElement() as NotesRichTextTable ?? throw new InvalidOperationException("Unexpected table type.");
+                table.Remove();
+                reopened.Save();
+            }
+            using var saved = database.GetDocumentByID(document.NoteId)!;
+            using var exporter = session.CreateDXLExporter();
+            exporter.OutputDOCTYPE = false;
+            exporter.RichTextOption = 0;
+            using var dxl = exporter.Export(saved);
+            using var bytes = new MemoryStream(dxl.ToArray());
+            var xml = System.Xml.Linq.XDocument.Load(bytes);
+            if (xml.Descendants().Any(e => e.Name.LocalName == "table")) throw new InvalidOperationException("Removed table persisted.");
+            var text = xml.Root!.Value;
+            if (markers.Any(marker => !text.Contains(marker, StringComparison.Ordinal)) || !text.Contains("SUFFIX-AFTER-REMOVED-TABLE", StringComparison.Ordinal))
+                throw new InvalidOperationException("Table removal lost surrounding text across composite segments.");
+            Console.WriteLine("VERIFIED multi-segment table removal preserves all 1800 prefix markers and suffix");
+        }
+        finally { if (!document.IsNewNote) document.Remove(true); }
+    });
     NotesItemRegressionTests.Run(session, server, databasePath, Check);
     DatabaseLifecycleRegressionTests.Run(session, Check);
     AclRegressionTests.Run(session, Check);

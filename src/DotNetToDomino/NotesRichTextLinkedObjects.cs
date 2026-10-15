@@ -46,8 +46,10 @@ public abstract class NotesRichTextLinkedObject : NotesObject
         EnsureLinkedAlive();
         var records = Records();
         if (start < 0 || end < start || end >= records.Count) throw new InvalidOperationException("The rich text element span is invalid.");
+        var removed = records.Skip(start).Take(end - start + 1)
+            .Select(record => (record.SegmentIndex, record.RecordIndex)).ToHashSet();
         var rewritten = NotesRichTextCdTransform.Transform(records, record =>
-            record.RecordIndex >= records[start].RecordIndex && record.RecordIndex <= records[end].RecordIndex
+            removed.Contains((record.SegmentIndex, record.RecordIndex))
                 ? null
                 : NotesRichTextRecordRewrite.Preserve(record));
         RichTextItem.RewriteRichTextRecords(rewritten);
@@ -140,11 +142,7 @@ public sealed class NotesRichTextSection : NotesRichTextLinkedObject
         var records = Records();
         var start = CurrentFlatIndex(records);
         var end = ResolveSectionEnd(records, start);
-        var rewritten = NotesRichTextCdTransform.Transform(records, record =>
-            record.RecordIndex >= records[start].RecordIndex && record.RecordIndex <= records[end].RecordIndex
-                ? null
-                : NotesRichTextRecordRewrite.Preserve(record));
-        RichTextItem.RewriteRichTextRecords(rewritten);
+        RemoveRecordSpan(start, end);
     }
 
     public void SetBarColor(NotesColorObject color)

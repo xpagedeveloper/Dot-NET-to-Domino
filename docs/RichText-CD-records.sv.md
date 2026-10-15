@@ -38,6 +38,14 @@ cellmetadata och sista cellen efter spara/återöppna. Dessutom kontrolleras
 tablerow/tablecell i HCL Notes egen strukturerade DXL-export för varje storlek.
 Tillfälliga sparade testdokument tas bort efter kontrollen.
 
+Filtret innehåller även ett borttagningstest med mer än 100 KB text i flera
+fysiska composite-segment. Efter tabellborttagning, spara och återöppning
+kontrolleras via DXL att alla 1800 prefixmarkörer samt suffixet finns kvar.
+Testet misslyckas med den tidigare implementationen, som använde recordnumret
+utan segmentnummer. Borttagning identifierar nu varje record med båda värdena.
+Sektioner använder samma korrigerade borttagningsfunktion och återvinns efter
+lyckad borttagning.
+
 Detta verifierar native lagring och DXL-tolkning. Det är inte ett visuellt
 test av Notes-editorn eller bevis för att alla övriga RichText-metoder är färdiga.
 
