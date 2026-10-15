@@ -334,18 +334,16 @@ public sealed class NotesRichTextItem : NotesItem
     {
         EnsureItemAlive();
         ArgumentNullException.ThrowIfNull(title);
-        Session.Api.BeginRichTextSection(Parent.Handle, Name, title, expanded);
+        AppendWithInsertion(() => Session.Api.BeginRichTextSection(Parent.Handle, Name, title, expanded));
         _sectionDepth++;
-        Parent.AdvanceRichTextRevision(Name);
     }
 
     public void EndSection()
     {
         EnsureItemAlive();
         if (_sectionDepth == 0) throw new InvalidOperationException("No rich-text section is currently open.");
-        Session.Api.EndRichTextSection(Parent.Handle, Name);
+        AppendWithInsertion(() => Session.Api.EndRichTextSection(Parent.Handle, Name));
         _sectionDepth--;
-        Parent.AdvanceRichTextRevision(Name);
     }
 
     /// <summary>Repacks the composite stream and coalesces adjacent text records with identical fonts. Invalidates existing rich-text positions.</summary>
