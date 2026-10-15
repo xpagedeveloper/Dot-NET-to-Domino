@@ -1324,6 +1324,20 @@ else
         }
         finally { if (!document.IsNewNote) document.Remove(true); }
     });
+    if (!string.IsNullOrWhiteSpace(databasePath)) Check("rich text open section compact guard", () =>
+    {
+        using var database = session.OpenDatabase(server, databasePath);
+        using var document = database.CreateDocument();
+        try
+        {
+            using var body = document.CreateRichTextItem("Body");
+            body.BeginSection("Unclosed compact");
+            ExpectException<InvalidOperationException>("Open section compact guard", body.Compact);
+            body.EndSection();
+            body.Compact();
+        }
+        finally { if (!document.IsNewNote) document.Remove(true); }
+    });
     if (!string.IsNullOrWhiteSpace(databasePath)) Check("rich text unmatched section end guard", () =>
     {
         using var database = session.OpenDatabase(server, databasePath);
