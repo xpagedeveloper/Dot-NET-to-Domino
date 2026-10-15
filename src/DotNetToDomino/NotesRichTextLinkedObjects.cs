@@ -418,7 +418,10 @@ public sealed class NotesRichTextTable : NotesRichTextLinkedObject
             if (i == tableEnd)
                 foreach (var clone in clones) rewritten.Add(new NotesRichTextRecordRewrite(0, nextIndex++, clone.Signature, clone.Data));
             var record = records[i];
-            rewritten.Add(new NotesRichTextRecordRewrite(0, nextIndex++, record.Signature, (byte[])record.Data.Clone()));
+            var original = (byte[])record.Data.Clone();
+            if (record.Signature == PreTableBeginSignature && original.Length > 8)
+                original[8] = checked((byte)(original[8] + 1));
+            rewritten.Add(new NotesRichTextRecordRewrite(0, nextIndex++, record.Signature, original));
         }
         RichTextItem.RewriteRichTextRecords(rewritten);
         AcceptCurrentRevision();
@@ -474,6 +477,12 @@ public sealed class NotesRichTextTable : NotesRichTextLinkedObject
         var rewritten = NotesRichTextCdTransform.Transform(records, record =>
         {
             if (remove.Contains((record.SegmentIndex, record.RecordIndex))) return null;
+            if (record.Signature == PreTableBeginSignature && record.Data.Length > 8)
+            {
+                var data = (byte[])record.Data.Clone();
+                if (data[8] > 0) data[8]--;
+                return new NotesRichTextRecordRewrite(record.SegmentIndex, record.RecordIndex, record.Signature, data);
+            }
             if (record.ElementType == NotesRichTextNavigator.ElementTableCell && record.Data.Length >= 4 && record.Data[2] > row)
             {
                 var data = (byte[])record.Data.Clone();
