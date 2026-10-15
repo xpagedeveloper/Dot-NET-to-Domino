@@ -140,6 +140,17 @@ public sealed class NotesRichTextItem : NotesItem
         Parent.AdvanceRichTextRevision(Name);
     }
 
+    /// <summary>Appends the composite contents of another rich-text item.</summary>
+    public void AppendRTItem(NotesRichTextItem source)
+    {
+        EnsureItemAlive();
+        ArgumentNullException.ThrowIfNull(source);
+        source.EnsureItemAlive();
+        if (!ReferenceEquals(Session, source.Session)) throw new ArgumentException("The source rich-text item must belong to the same NotesSession.", nameof(source));
+        Session.Api.AppendRichTextItem(Parent.Handle, Name, source.Parent.Handle, source.Name);
+        Parent.AdvanceRichTextRevision(Name);
+    }
+
     public void AppendStyle(NotesRichTextStyle style)
     {
         EnsureItemAlive();

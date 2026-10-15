@@ -325,6 +325,21 @@ else
             range.SetStyle(style);
         }
     });
+    if (!string.IsNullOrWhiteSpace(databasePath)) Check("rich text AppendRTItem native", () =>
+    {
+        using var database = session.OpenDatabase(server, databasePath); using var document = database.CreateDocument();
+        try
+        {
+            using var source = document.CreateRichTextItem("Source"); source.AppendText("SOURCE-Åäö"); source.AppendTable(2, 2);
+            using var destination = document.CreateRichTextItem("Destination"); destination.AppendText("BEFORE-"); destination.AppendRTItem(source); destination.AppendText("-AFTER");
+            document.Save();
+            using var reopened = database.GetDocumentByID(document.NoteId)!; using var exporter = session.CreateDXLExporter(); exporter.OutputDOCTYPE = false; exporter.RichTextOption = 0; using var dxl = exporter.Export(reopened); using var bytes = new MemoryStream(dxl.ToArray());
+            var richTexts = System.Xml.Linq.XDocument.Load(bytes).Descendants().Where(e => e.Name.LocalName == "richtext").ToArray();
+            var destinationXml = richTexts.First(e => e.Parent?.Attribute("name")?.Value == "Destination");
+            if (!destinationXml.Value.Contains("BEFORE-", StringComparison.Ordinal) || !destinationXml.Value.Contains("SOURCE-Åäö", StringComparison.Ordinal) || !destinationXml.Value.Contains("-AFTER", StringComparison.Ordinal) || destinationXml.Descendants().Count(e => e.Name.LocalName == "tablecell") != 4) throw new InvalidOperationException("AppendRTItem lost source rich text content.");
+        }
+        finally { if (!document.IsNewNote) document.Remove(true); }
+    });
     if (!string.IsNullOrWhiteSpace(databasePath)) Check("rich text table persistence and native DXL", () =>
     {
         using var database = session.OpenDatabase(server, databasePath);

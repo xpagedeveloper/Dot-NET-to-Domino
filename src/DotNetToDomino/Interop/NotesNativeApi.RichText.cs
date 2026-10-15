@@ -47,6 +47,24 @@ internal sealed partial class NotesNativeApi
         }
     }
 
+    internal void AppendRichTextItem(nint destinationNote, string destinationName, nint sourceNote, string sourceName)
+    {
+        EnsureInitialized();
+        using var thread = EnterThread();
+        using var destination = ToLmbcs(destinationName);
+        using var source = ToLmbcs(sourceName);
+        CheckStatus(Resolve<RichText_CompoundTextCreate>("CompoundTextCreate")(unchecked((uint)destinationNote), destination.Pointer, out var compound), "CompoundTextCreate(append item)");
+        var closed = false;
+        try
+        {
+            CheckStatus(Resolve<RichText_CompoundTextAssimilateItem>("CompoundTextAssimilateItem")(
+                compound, sourceNote, source.Pointer, 0), "CompoundTextAssimilateItem");
+            CheckStatus(Resolve<RichText_CompoundTextClose>("CompoundTextClose")(compound, 0, 0, 0, 0), "CompoundTextClose(append item)");
+            closed = true;
+        }
+        finally { if (!closed) try { Resolve<RichText_CompoundTextDiscard>("CompoundTextDiscard")(compound); } catch { } }
+    }
+
     internal void AppendRichTextDocLink(nint note, string name, nint targetDatabase, string? targetUnid, string comment, string? viewUnid = null)
     {
         EnsureInitialized();
@@ -151,6 +169,7 @@ internal sealed partial class NotesNativeApi
     [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate void RichText_CompoundTextDiscard(uint compound);
     [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate ushort RichText_CompoundTextAddTextExt(uint compound, uint styleId, uint fontId, nint text, uint textLength, nint lineDelimiter, uint flags, nint nlsInfo);
     [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate ushort RichText_CompoundTextAddDocLink(uint compound, NotesTimeDate replica, NotesUnid view, NotesUnid note, nint comment, uint reserved);
+    [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate ushort RichText_CompoundTextAssimilateItem(uint compound, nint note, nint itemName, uint flags);
     [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate ushort RichText_CompoundTextAddParagraphExt(uint compound, uint styleId, uint fontId, nint text, uint textLength, nint nlsInfo);
     [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate ushort RichText_MIMEConvertMIMEPartsCC(uint note, int canonical, nint conversionControls);
 }

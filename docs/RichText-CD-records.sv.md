@@ -194,12 +194,19 @@ Detta är en arbetslista, inte ett påstående om full LotusScript-paritet:
 - Range.Remove använder samma segmentmappning, men partiella textrun-gränser
   kräver fortfarande en separat verifiering mot Notes klientens exakta
   uppdelning av CDTEXT.
-- `AppendRTItem`, `BeginInsert`/`EndInsert`, `BeginSection`/`EndSection` och
+- `BeginInsert`/`EndInsert`, `BeginSection`/`EndSection` och
   `GetNotesFont` saknas i den nuvarande publika item-klassen.
 - Tabellklassen saknar bland annat `AddRow`/`RemoveRow`, ändringsbara färger
   och radetiketter. Befintliga dimensions- och cellproperties ersätter inte dessa.
 - Externa fonttabeller, OLE-objekt och samtliga äldre CD-varianter behöver
   fortsatt implementation och native-verifiering.
+
+`AppendRTItem` är nu implementerad via HCL:s `CompoundTextAssimilateItem`.
+Den assimilerar text och tabellrecords från ett annat rich-text-item i samma
+session. HCL dokumenterar att den inte automatiskt flyttar special-items som
+`$Links` och `$Fonts`; använd `AppendDocLink` eller kopiera special-items
+separat när sådana beroenden finns. Native-testet verifierar Unicode-text och
+en 2x2-tabell efter spara och återöppning.
 
 ## Compact
 
