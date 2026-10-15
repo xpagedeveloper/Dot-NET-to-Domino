@@ -462,6 +462,34 @@ else
         }
         finally { if (!document.IsNewNote) document.Remove(true); }
     });
+    if (!string.IsNullOrWhiteSpace(databasePath)) Check("rich text multiple table structure", () =>
+    {
+        using var database = session.OpenDatabase(server, databasePath);
+        using var document = database.CreateDocument();
+        try
+        {
+            using (var sourceBody = document.CreateRichTextItem("Body"))
+            {
+                sourceBody.AppendTable(2, 1);
+                using var paragraph = session.CreateRichTextParagraphStyle();
+                sourceBody.AppendParagraphStyle(paragraph);
+                sourceBody.AppendTable(3, 1);
+            }
+            document.Save();
+            using var reopened = database.GetDocumentByID(document.NoteId)!;
+            using var item = reopened.GetFirstItem("Body")!;
+            using var body = item.GetRichTextItem()!;
+            using var nav = body.CreateNavigator();
+            if (!nav.FindFirstElement(NotesRichTextNavigator.ElementTable)) throw new InvalidOperationException("First table missing.");
+            using var first = nav.GetElement() as NotesRichTextTable ?? throw new InvalidOperationException("First table type mismatch.");
+            if (first.RowCount != 2) throw new InvalidOperationException($"First table has {first.RowCount} rows.");
+            if (!nav.FindNextElement(NotesRichTextNavigator.ElementTable)) throw new InvalidOperationException("Second table missing.");
+            using var second = nav.GetElement() as NotesRichTextTable ?? throw new InvalidOperationException("Second table type mismatch.");
+            if (second.RowCount != 3 || second.Cells.Count != 3) throw new InvalidOperationException($"Second table has {second.RowCount} rows and {second.Cells.Count} cells.");
+            Console.WriteLine("VERIFIED explicit paragraph separates multiple tables");
+        }
+        finally { if (!document.IsNewNote) document.Remove(true); }
+    });
     if (!string.IsNullOrWhiteSpace(databasePath)) Check("rich text multi-segment table removal", () =>
     {
         using var database = session.OpenDatabase(server, databasePath);
