@@ -289,7 +289,7 @@ else
             using var table = tableNavigator.GetElement() as NotesRichTextTable ?? throw new InvalidOperationException("Table navigator returned an unexpected element type.");
             if (table.RowCount != 1 || table.ColumnCount != 2) throw new InvalidOperationException($"Appended rich-text table dimensions were incorrect: {table.RowCount}x{table.ColumnCount}.");
             using var cell = table.GetCell(0, 1) ?? throw new InvalidOperationException("Appended rich-text table cell was not found.");
-            if (cell.Row != 0 || cell.Column != 1 || cell.RowSpan != 1 || cell.ColumnSpan != 1 || cell.LeftMargin < 0 || cell.RightMargin < 0 || cell.FractionalWidth < 0 || cell.Border < 0 || cell.Flags != 1 || cell.V42Border < 0 || cell.BackgroundColor < 0) throw new InvalidOperationException("Rich-text table cell coordinates or metadata were incorrect.");
+            if (cell.Row != 0 || cell.Column != 1 || cell.RowSpan != 1 || cell.ColumnSpan != 1 || cell.LeftMargin < 0 || cell.RightMargin < 0 || cell.FractionalWidth < 0 || cell.Border < 0 || cell.Flags != 1 || !cell.UsesV42Borders || cell.V42Border < 0 || cell.BackgroundColor < 0) throw new InvalidOperationException("Rich-text table cell coordinates or metadata were incorrect.");
             if (table.Cells.Count != 2) throw new InvalidOperationException($"Appended rich-text table cell collection was incorrect: {table.Cells.Count}.");
         }
         using var paragraphStyle = session.CreateRichTextParagraphStyle();
