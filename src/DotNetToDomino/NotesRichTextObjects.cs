@@ -629,7 +629,36 @@ public sealed class NotesRichTextRange : NotesObject
             return navigator;
         }
     }
-    public NotesRichTextStyle Style { get { EnsureRangeAlive(); return new NotesRichTextStyle(Session); } }
+    public NotesRichTextStyle Style
+    {
+        get
+        {
+            EnsureRangeAlive();
+            var result = new NotesRichTextStyle(Session);
+            var records = _item.ReadRichTextRecords();
+            var html = false;
+            for (var i = 0; i <= _endRecord && i < records.Count; i++)
+            {
+                var record = records[i];
+                if (record.Signature == 0xFFCC) html = true;
+                else if (record.Signature == 0xFFCD) html = false;
+                if (i < _beginRecord || record.Signature != 0xFF85 || record.Data.Length < 8 || record.Text.Length == 0) continue;
+                var data = record.Data;
+                var attributes = data[5];
+                result.NotesFont = data[4];
+                result.NotesColor = data[6];
+                if (data[7] is >= 1 and <= 250) result.FontSize = data[7];
+                result.Bold = (attributes & 1) != 0 ? -1 : 0;
+                result.Italic = (attributes & 2) != 0 ? -1 : 0;
+                result.Underline = (attributes & 4) != 0 ? -1 : 0;
+                result.Strikethrough = (attributes & 8) != 0 ? -1 : 0;
+                result.Effects = (attributes & 0xB0) switch { 0x10 => 1, 0x20 => 2, 0x80 => 3, 0x90 => 4, 0xA0 => 5, _ => 0 };
+                result.PassThruHTML = html ? -1 : 0;
+                break;
+            }
+            return result;
+        }
+    }
     public string TextParagraph
     {
         get

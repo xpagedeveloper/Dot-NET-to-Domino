@@ -850,11 +850,15 @@ else
             if (!destination.IsNewNote) destination.Remove(true);
         }
     });
-    if (!string.IsNullOrWhiteSpace(databasePath)) Check("rich text attachment item copy", () =>
+    foreach (var crossDatabase in new[] { false, true })
+    if (!string.IsNullOrWhiteSpace(databasePath)) Check("rich text attachment item copy " + (crossDatabase ? "cross database" : "same database"), () =>
     {
         using var database = session.OpenDatabase(server, databasePath);
+        var targetPath = "DotNetToDominoAttachmentCopy-" + Guid.NewGuid().ToString("N") + ".nsf";
+        using var targetDatabase = crossDatabase ? session.GetDatabase("", targetPath, true)! : null;
+        if (targetDatabase is not null) targetDatabase.Create();
         using var source = database.CreateDocument();
-        using var destination = database.CreateDocument();
+        using var destination = (targetDatabase ?? database).CreateDocument();
         var path = Path.Combine(Path.GetTempPath(), "richtext-copy-" + Guid.NewGuid().ToString("N") + ".bin");
         try
         {
@@ -884,18 +888,57 @@ else
             using var copiedAgain = body.CopyToDocument(destination, "SecondCopy");
             destination.Save();
             source.Remove(true);
-            using var reopened = database.GetDocumentByID(destination.NoteId)!;
+            using var reopened = (targetDatabase ?? database).GetDocumentByID(destination.NoteId)!;
             using var item = reopened.GetFirstItem("CopiedBody")!;
             using var savedBody = item.GetRichTextItem()!;
             using var savedAttachment = savedBody.GetEmbeddedObject(Path.GetFileName(path)) ?? throw new InvalidOperationException("Copied attachment is missing.");
             if (!savedAttachment.ToByteArray().SequenceEqual(payload)) throw new InvalidOperationException("Copied attachment bytes differ.");
+            using var secondItem = reopened.GetFirstItem("SecondCopy")!;
+            using var secondBody = secondItem.GetRichTextItem()!;
+            using var secondAttachment = secondBody.GetEmbeddedObject(Path.GetFileName(path))!;
+            if (!secondAttachment.ToByteArray().SequenceEqual(payload)) throw new InvalidOperationException("Repeated copy attachment bytes differ.");
         }
         finally
         {
             if (!source.IsRecycled && !source.IsNewNote) source.Remove(true);
             if (!destination.IsNewNote) destination.Remove(true);
             if (File.Exists(path)) File.Delete(path);
+            if (targetDatabase is not null)
+            {
+                targetDatabase.Recycle();
+                using var cleanup = session.GetDatabase("", targetPath, false);
+                if (cleanup?.IsOpen == true) cleanup.Remove();
+            }
         }
+    });
+    if (!string.IsNullOrWhiteSpace(databasePath)) Check("rich text range style native readback", () =>
+    {
+        using var database = session.OpenDatabase(server, databasePath);
+        using var document = database.CreateDocument();
+        try
+        {
+            using var body = document.CreateRichTextItem("Body");
+            using var style = session.CreateRichTextStyle();
+            style.Bold = -1; style.Italic = -1; style.Underline = -1; style.Strikethrough = -1;
+            style.FontSize = 18; style.NotesFont = 2; style.NotesColor = 2; style.Effects = 4;
+            body.AppendStyle(style); body.AppendText("Styled first run Åäö");
+            style.Bold = 0; style.Italic = 0; style.Underline = 0; style.Strikethrough = 0;
+            style.FontSize = 12; style.NotesColor = 0; style.Effects = 0;
+            body.AppendStyle(style); body.AppendText("Plain second run");
+            document.Save();
+            using var reopened = database.GetDocumentByID(document.NoteId)!;
+            using var item = reopened.GetFirstItem("Body")!;
+            using var savedBody = item.GetRichTextItem()!;
+            using var range = savedBody.CreateRange();
+            using var actual = range.Style;
+            if (actual.Bold != -1 || actual.Italic != -1 || actual.Underline != -1 || actual.Strikethrough != -1 || actual.FontSize != 18 || actual.NotesFont != 2 || actual.NotesColor != 2 || actual.Effects != 4 || actual.PassThruHTML != 0) throw new InvalidOperationException("Range.Style did not return the first text run formatting.");
+            using var navigator = savedBody.CreateNavigator();
+            if (!navigator.FindFirstString("Plain second run")) throw new InvalidOperationException("Second run missing.");
+            range.SetBegin(navigator);
+            using var second = range.Style;
+            if (second.Bold != 0 || second.Italic != 0 || second.Underline != 0 || second.Strikethrough != 0 || second.FontSize != 12 || second.Effects != 0) throw new InvalidOperationException("Range.Style ignored the range beginning.");
+        }
+        finally { if (!document.IsNewNote) document.Remove(true); }
     });
     if (!string.IsNullOrWhiteSpace(databasePath)) Check("view navigation", () =>
     {

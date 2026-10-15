@@ -170,10 +170,35 @@ refererar till. En befintlig bilaga med samma interna namn och identiska bytes
 återanvänds; olika bytes ger `IOException` innan destinationsfältet ändras.
 Native-testet jämför en bilaga på 100000 bytes efter återöppning och borttagning
 av källdokumentet. Upprepad kopiering och skydd av befintligt innehåll vid
-namnkrock testas också.
+namnkrock testas också. Testerna körs både inom samma databas och till en
+separat tillfällig databas, som tas bort efteråt.
 
 Kopiering av externa `$Fonts`-beroenden och övriga embedded objects, exempelvis
 OLE-objekt, är ännu inte verifierad som komplett.
+
+## Range.Style
+
+`range.Style` läser första textrunens FONTID inom range-gränserna och returnerar
+font, storlek, färg, fet/kursiv/understruken/genomstruken text och effekter.
+HTML-gränser läses för `PassThruHTML`. En range utan text returnerar en stil
+med STYLE_NO_CHANGE. Native-testet verifierar sparad formatering och flytt av
+range-början till en senare textrun med annan formatering.
+
+## Kvarvarande luckor från kodgranskning
+
+Detta är en arbetslista, inte ett påstående om full LotusScript-paritet:
+
+- `NotesRichTextRange.SetStyle` behöver korrigeras: nuvarande kod jämför med
+  signaturen 133 i stället för normaliserad WSIG 0xFF85, och blandar fysiska
+  recordnummer med platta range-index. Teckengränser behöver också hanteras.
+- Range.Remove använder också fysiska recordnummer och behöver verifieras
+  över flera segment samt vid partiella textval.
+- `AppendRTItem`, `BeginInsert`/`EndInsert`, `BeginSection`/`EndSection` och
+  `GetNotesFont` saknas i den nuvarande publika item-klassen.
+- Tabellklassen saknar bland annat `AddRow`/`RemoveRow`, ändringsbara färger
+  och radetiketter. Befintliga dimensions- och cellproperties ersätter inte dessa.
+- Externa fonttabeller, OLE-objekt och samtliga äldre CD-varianter behöver
+  fortsatt implementation och native-verifiering.
 
 ## Compact
 
