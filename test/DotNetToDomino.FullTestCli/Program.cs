@@ -293,7 +293,9 @@ else
             if (table.Cells.Count != 2) throw new InvalidOperationException($"Appended rich-text table cell collection was incorrect: {table.Cells.Count}.");
         }
         using var paragraphStyle = session.CreateRichTextParagraphStyle();
-        ExpectException<NotSupportedException>("AppendParagraphStyle ABI guard", () => richText.AppendParagraphStyle(paragraphStyle));
+        paragraphStyle.Alignment = 1;
+        paragraphStyle.LeftMargin = 120;
+        richText.AppendParagraphStyle(paragraphStyle);
         ExpectException<ArgumentNullException>("Rich text attachment path null", () => richText.AttachFile(null!));
         var sourcePath = Path.Combine(Path.GetTempPath(), "DotNetToDomino-FullTest-" + Guid.NewGuid().ToString("N") + ".bin");
         var extractedPath = Path.Combine(Path.GetTempPath(), "DotNetToDomino-FullTest-Extracted-" + Guid.NewGuid().ToString("N") + ".bin");

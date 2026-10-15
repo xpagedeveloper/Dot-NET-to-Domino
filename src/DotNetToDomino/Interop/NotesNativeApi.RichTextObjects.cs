@@ -97,6 +97,43 @@ internal sealed partial class NotesNativeApi
             tabs);
     }
 
+    internal void AppendRichTextParagraphStyle(nint note, string name, NotesCompoundStyleState state)
+    {
+        EnsureInitialized();
+        using var thread = EnterThread();
+        using var itemName = ToLmbcs(name);
+        CheckStatus(Resolve<RichText_CompoundTextCreate>("CompoundTextCreate")(unchecked((uint)note), itemName.Pointer, out var compound), "CompoundTextCreate(paragraph style)");
+        var closed = false;
+        try
+        {
+            var native = new NotesCompoundStyleNative
+            {
+                JustifyMode = state.JustifyMode,
+                LineSpacing = state.LineSpacing,
+                ParagraphSpacingBefore = state.ParagraphSpacingBefore,
+                ParagraphSpacingAfter = state.ParagraphSpacingAfter,
+                LeftMargin = state.LeftMargin,
+                RightMargin = state.RightMargin,
+                FirstLineLeftMargin = state.FirstLineLeftMargin,
+                Tabs = checked((short)Math.Min(state.Tabs.Length, 20)),
+                Tab = new short[20],
+                Flags = state.Flags
+            };
+            Array.Copy(state.Tabs, native.Tab, Math.Min(state.Tabs.Length, native.Tab.Length));
+            using var styleName = ToLmbcs(string.Empty);
+            CheckStatus(Resolve<RichText_CompoundTextDefineStyle>("CompoundTextDefineStyle")(
+                compound, styleName.Pointer, ref native, out var styleId), "CompoundTextDefineStyle");
+            CheckStatus(Resolve<RichText_CompoundTextAddParagraphExt>("CompoundTextAddParagraphExt")(
+                compound, styleId, 0, 0, 0, 0), "CompoundTextAddParagraphExt(paragraph style)");
+            CheckStatus(Resolve<RichText_CompoundTextClose>("CompoundTextClose")(compound, 0, 0, 0, 0), "CompoundTextClose(paragraph style)");
+            closed = true;
+        }
+        finally
+        {
+            if (!closed) try { Resolve<RichText_CompoundTextDiscard>("CompoundTextDiscard")(compound); } catch { }
+        }
+    }
+
     internal IReadOnlyList<NotesRichTextRecordData> GetRichTextRecords(nint note, string itemName)
     {
         EnsureInitialized();
@@ -181,4 +218,7 @@ internal sealed partial class NotesNativeApi
 
     [UnmanagedFunctionPointer(CallingConvention.Winapi)]
     private delegate void RichText_CompoundTextInitStyle(ref NotesCompoundStyleNative style);
+
+    [UnmanagedFunctionPointer(CallingConvention.Winapi)]
+    private delegate ushort RichText_CompoundTextDefineStyle(uint compound, nint name, ref NotesCompoundStyleNative style, out uint styleId);
 }
