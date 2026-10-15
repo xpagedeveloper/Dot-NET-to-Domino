@@ -1264,8 +1264,18 @@ else
             if (!navigator.FindFirstElement(NotesRichTextNavigator.ElementSection)) throw new InvalidOperationException("Appended section was not found.");
             using var section = (NotesRichTextSection)navigator.GetElement()!;
             if (!section.IsExpanded || section.Title != "Created section") throw new InvalidOperationException("Appended section metadata did not persist.");
-            if (!navigator.FindNextElement(NotesRichTextNavigator.ElementSection)) throw new InvalidOperationException("Second appended section was not found.");
-            using var collapsed = (NotesRichTextSection)navigator.GetElement()!;
+            using (var titleStyle = session.CreateRichTextStyle()) { titleStyle.Bold = -1; titleStyle.FontSize = 16; section.TitleStyle = titleStyle; }
+            reopened.Save();
+            using var styled = database.GetDocumentByID(document.NoteId)!;
+            using var styledItem = styled.GetFirstItem("Body")!;
+            using var styledBody = styledItem.GetRichTextItem()!;
+            using var styledNavigator = styledBody.CreateNavigator();
+            if (!styledNavigator.FindFirstElement(NotesRichTextNavigator.ElementSection)) throw new InvalidOperationException("Styled section was not found.");
+            using var styledSection = (NotesRichTextSection)styledNavigator.GetElement()!;
+            using var persistedStyle = styledSection.TitleStyle;
+            if (persistedStyle.Bold != -1 || persistedStyle.FontSize != 16) throw new InvalidOperationException("Section TitleStyle did not persist.");
+            if (!styledNavigator.FindNextElement(NotesRichTextNavigator.ElementSection)) throw new InvalidOperationException("Second appended section was not found.");
+            using var collapsed = (NotesRichTextSection)styledNavigator.GetElement()!;
             if (collapsed.IsExpanded || collapsed.Title != "Collapsed section") throw new InvalidOperationException("Collapsed section metadata did not persist.");
         }
         finally { if (!document.IsNewNote) document.Remove(true); }
