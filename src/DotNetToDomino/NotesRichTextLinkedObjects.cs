@@ -264,9 +264,9 @@ public sealed class NotesRichTextSection : NotesRichTextLinkedObject
 public sealed class NotesRichTextTable : NotesRichTextLinkedObject
 {
     private const ushort PreTableBeginSignature = unchecked((ushort)-5);
-    private const ushort TableEndSignature = 165;
-    private const ushort NestedTableBeginSignature = 207;
-    private const ushort NestedTableEndSignature = 209;
+    internal const ushort TableEndSignature = 165;
+    internal const ushort NestedTableBeginSignature = 207;
+    internal const ushort NestedTableEndSignature = 209;
     private const ushort TableRightToLeft = 0x0010;
 
     internal NotesRichTextTable(NotesSession session, NotesRichTextItem item, NotesRichTextRecordData record) : base(session, item, record) { }
@@ -592,7 +592,23 @@ public sealed class NotesRichTextTableCell : NotesRichTextLinkedObject
     public int BackgroundColor { get { var data = PositionRecord().Data; return data.Length >= 18 ? ReadUInt16(data, 16) : 0; } }
     public int RowSpan { get { var data = PositionRecord().Data; return data.Length >= 16 ? Math.Max(1, (int)data[14]) : 1; } }
     public int ColumnSpan { get { var data = PositionRecord().Data; return data.Length >= 16 ? Math.Max(1, (int)data[15]) : 1; } }
-    public void Remove() { EnsureLinkedAlive(); RemoveRecordSpan(CurrentFlatIndex(Records()), CurrentFlatIndex(Records())); }
+    public void Remove()
+    {
+        EnsureLinkedAlive();
+        var records = Records();
+        var start = CurrentFlatIndex(records);
+        var end = start;
+        var nestedDepth = 0;
+        for (var i = start + 1; i < records.Count; i++)
+        {
+            var record = records[i];
+            if (record.Signature == NotesRichTextTable.NestedTableBeginSignature) { nestedDepth++; continue; }
+            if (record.Signature == NotesRichTextTable.NestedTableEndSignature) { if (nestedDepth > 0) nestedDepth--; continue; }
+            if (nestedDepth == 0 && (record.ElementType == NotesRichTextNavigator.ElementTableCell || record.Signature == NotesRichTextTable.TableEndSignature)) break;
+            end = i;
+        }
+        RemoveRecordSpan(start, end);
+    }
 
     /// <summary>Sets the legacy one-byte cell border value and persists the CDTABLECELL record.</summary>
     public void SetBorder(int border)
