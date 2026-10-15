@@ -390,15 +390,27 @@ else
         using var document = database.CreateDocument();
         try
         {
-            using (var body = document.CreateRichTextItem("Body")) { body.AppendTable(3, 2); }
+            using (var sourceBody = document.CreateRichTextItem("Body")) { sourceBody.AppendTable(3, 2); }
             document.Save();
             using var reopened = database.GetDocumentByID(document.NoteId) ?? throw new InvalidOperationException("Row-removal document missing.");
-            using (var item = reopened.GetFirstItem("Body") ?? throw new InvalidOperationException("Row-removal Body missing."))
-            using (var body = item.GetRichTextItem() ?? throw new InvalidOperationException("Row-removal Body is not rich text."))
+            using var item = reopened.GetFirstItem("Body") ?? throw new InvalidOperationException("Row-removal Body missing.");
+            using var body = item.GetRichTextItem() ?? throw new InvalidOperationException("Row-removal Body is not rich text.");
             using (var nav = body.CreateNavigator())
             {
                 if (!nav.FindFirstElement(NotesRichTextNavigator.ElementTable)) throw new InvalidOperationException("Row-removal table missing.");
                 using var table = nav.GetElement() as NotesRichTextTable ?? throw new InvalidOperationException("Unexpected row-removal table type.");
+                using (var editableCell = table.GetCell(1, 1) ?? throw new InvalidOperationException("Editable table cell missing."))
+                {
+                    editableCell.SetBorder(7);
+                    editableCell.SetBackgroundColor(42);
+                }
+            }
+            using (var nav = body.CreateNavigator())
+            {
+                if (!nav.FindFirstElement(NotesRichTextNavigator.ElementTable)) throw new InvalidOperationException("Updated row-removal table missing.");
+                using var table = nav.GetElement() as NotesRichTextTable ?? throw new InvalidOperationException("Unexpected updated row-removal table type.");
+                using (var updatedCell = table.GetCell(1, 1) ?? throw new InvalidOperationException("Updated table cell missing."))
+                    if (updatedCell.Border != 7 || updatedCell.BackgroundColor != 42) throw new InvalidOperationException("Table cell writable fields did not persist in the CD record.");
                 table.RemoveRow(1);
             }
             reopened.Save();

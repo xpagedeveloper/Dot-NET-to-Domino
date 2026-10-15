@@ -417,7 +417,45 @@ public sealed class NotesRichTextTableCell : NotesRichTextLinkedObject
     public int RowSpan { get { var data = PositionRecord().Data; return data.Length >= 16 ? Math.Max(1, (int)data[14]) : 1; } }
     public int ColumnSpan { get { var data = PositionRecord().Data; return data.Length >= 16 ? Math.Max(1, (int)data[15]) : 1; } }
     public void Remove() { EnsureLinkedAlive(); RemoveRecordSpan(CurrentFlatIndex(Records()), CurrentFlatIndex(Records())); }
+
+    /// <summary>Sets the legacy one-byte cell border value and persists the CDTABLECELL record.</summary>
+    public void SetBorder(int border)
+    {
+        EnsureLinkedAlive();
+        if (border < 0 || border > byte.MaxValue) throw new ArgumentOutOfRangeException(nameof(border));
+        RewriteCell(data => { if (data.Length < 12) throw new NotesException(91, "Invalid rich-text table cell record."); data[10] = (byte)border; return data; });
+    }
+
+    /// <summary>Sets the Notes color index used for the cell background.</summary>
+    public void SetBackgroundColor(int color)
+    {
+        EnsureLinkedAlive();
+        if (color < 0 || color > ushort.MaxValue) throw new ArgumentOutOfRangeException(nameof(color));
+        RewriteCell(data =>
+        {
+            if (data.Length < 18) throw new NotesException(91, "Invalid rich-text table cell record.");
+            WriteUInt16(data, 16, (ushort)color);
+            return data;
+        });
+    }
+
+    private void RewriteCell(Func<byte[], byte[]> transform)
+    {
+        var current = CurrentRecord();
+        var records = Records();
+        var rewritten = NotesRichTextCdTransform.Transform(records, record =>
+        {
+            if (record.SegmentIndex != current.SegmentIndex || record.RecordIndex != current.RecordIndex)
+                return NotesRichTextRecordRewrite.Preserve(record);
+            var data = transform((byte[])record.Data.Clone());
+            return new NotesRichTextRecordRewrite(record.SegmentIndex, record.RecordIndex, record.Signature, data);
+        });
+        RichTextItem.RewriteRichTextRecords(rewritten);
+        AcceptCurrentRevision();
+    }
+
     private static ushort ReadUInt16(byte[] data, int offset) => (ushort)(data[offset] | (data[offset + 1] << 8));
+    private static void WriteUInt16(byte[] data, int offset, ushort value) { data[offset] = (byte)value; data[offset + 1] = (byte)(value >> 8); }
 }
 
 /// <summary>Represents a document link in Notes rich text.</summary>
