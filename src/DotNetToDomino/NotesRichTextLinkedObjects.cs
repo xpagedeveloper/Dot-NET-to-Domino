@@ -635,6 +635,9 @@ public sealed class NotesRichTextTable : NotesRichTextLinkedObject
         EnsureLinkedAlive();
         var records = Records();
         var start = CurrentFlatIndex(records);
+        var preTable = FindPreTable();
+        if (preTable is not null)
+            start = Enumerable.Range(0, records.Count).First(index => records[index].SegmentIndex == preTable.SegmentIndex && records[index].RecordIndex == preTable.RecordIndex);
         var end = start;
         var nestedDepth = 0;
         for (var i = start + 1; i < records.Count; i++)
