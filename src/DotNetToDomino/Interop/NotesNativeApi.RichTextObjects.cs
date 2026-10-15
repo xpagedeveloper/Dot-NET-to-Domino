@@ -70,6 +70,10 @@ internal sealed partial class NotesNativeApi
     private const ushort RichTextSigLinkExport2 = unchecked((ushort)-110);
     private const ushort RichTextSigTableBegin = 163;
     private const ushort RichTextSigTableCell = 164;
+    private const ushort RichTextSigTableEnd = 165;
+    private const ushort RichTextSigNestedTableBegin = 207;
+    private const ushort RichTextSigNestedTableCell = 208;
+    private const ushort RichTextSigNestedTableEnd = 209;
     private const ushort RichTextSigBar = unchecked((ushort)-84);
 
     internal NotesCompoundStyleState GetDefaultRichTextParagraphStyle()
@@ -160,12 +164,13 @@ internal sealed partial class NotesNativeApi
 
     private int MapRichTextElementType(nint record, ushort signature, int recordLength)
     {
-        if (signature == RichTextSigTableBegin) return 1;
+        if (signature == RichTextSigTableBegin || signature == RichTextSigNestedTableBegin) return 1;
         if (signature == RichTextSigText) return 3;
         if (signature == RichTextSigParagraph) return 4;
         if (signature == RichTextSigLink2 || signature == RichTextSigLinkExport2) return 5;
         if (signature == RichTextSigBar) return 6;
-        if (signature == RichTextSigTableCell) return 7;
+        if (signature == RichTextSigTableCell || signature == RichTextSigNestedTableCell) return 7;
+        if (signature == RichTextSigTableEnd || signature == RichTextSigNestedTableEnd) return 9;
         if (recordLength >= 12 && IsHotspotBeginSignature(signature))
         {
             var hotspotType = unchecked((ushort)Marshal.ReadInt16(record, 4));

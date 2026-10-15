@@ -77,25 +77,16 @@ internal sealed partial class NotesNativeApi
         {
             // Tables must be surrounded by paragraphs in a composite item.
             CheckStatus(Resolve<RichText_CompoundTextAddParagraphExt>("CompoundTextAddParagraphExt")(compound, 0xFFFFFFFFu, 0, 0, 0, 0), "CompoundTextAddParagraphExt(table-before)");
-            var records = new List<byte[]> { BuildTableBegin() };
+            AppendTableRecords(compound, new[] { BuildTableBegin() });
             for (var row = 0; row < rows; row++)
                 for (var column = 0; column < columns; column++)
-                    records.Add(BuildTableCell(row, column));
-            records.Add(BuildTableEnd());
-            var total = records.Sum(r => r.Length + (r.Length & 1));
-            var buffer = Marshal.AllocHGlobal(total);
-            try
-            {
-                var offset = 0;
-                foreach (var record in records)
                 {
-                    Marshal.Copy(record, 0, buffer + offset, record.Length);
-                    offset += record.Length;
-                    if ((record.Length & 1) != 0) Marshal.WriteByte(buffer, offset++, 0);
+                    AppendTableRecords(compound, new[] { BuildTableCell(row, column) });
+                    CheckStatus(Resolve<RichText_CompoundTextAddParagraphExt>("CompoundTextAddParagraphExt")(
+                        compound, 0xFFFFFFFFu, 0, 0, 0, 0), "CompoundTextAddParagraphExt(table-cell)");
                 }
-                CheckStatus(Resolve<Mutation_CompoundTextAddCDRecords>("CompoundTextAddCDRecords")(compound, buffer, checked((uint)total)), "CompoundTextAddCDRecords(table)");
-            }
-            finally { Marshal.FreeHGlobal(buffer); }
+            AppendTableRecords(compound, new[] { BuildTableEnd() });
+            CheckStatus(Resolve<RichText_CompoundTextAddParagraphExt>("CompoundTextAddParagraphExt")(compound, 0xFFFFFFFFu, 0, 0, 0, 0), "CompoundTextAddParagraphExt(table-after)");
             CheckStatus(Resolve<RichText_CompoundTextAddParagraphExt>("CompoundTextAddParagraphExt")(compound, 0xFFFFFFFFu, 0, 0, 0, 0), "CompoundTextAddParagraphExt(table-after)");
             CheckStatus(Resolve<RichText_CompoundTextClose>("CompoundTextClose")(compound, 0, 0, 0, 0), "CompoundTextClose(table)");
             closed = true;
@@ -103,12 +94,32 @@ internal sealed partial class NotesNativeApi
         finally { if (!closed) try { Resolve<RichText_CompoundTextDiscard>("CompoundTextDiscard")(compound); } catch { } }
     }
 
+    private void AppendTableRecords(uint compound, IReadOnlyList<byte[]> records)
+    {
+        var total = records.Sum(r => r.Length + (r.Length & 1));
+        var buffer = Marshal.AllocHGlobal(total);
+        try
+        {
+            var offset = 0;
+            foreach (var record in records)
+            {
+                Marshal.Copy(record, 0, buffer + offset, record.Length);
+                offset += record.Length;
+                if ((record.Length & 1) != 0) Marshal.WriteByte(buffer, offset++, 0);
+            }
+            CheckStatus(Resolve<Mutation_CompoundTextAddCDRecords>("CompoundTextAddCDRecords")(compound, buffer, checked((uint)total)), "CompoundTextAddCDRecords(table)");
+        }
+        finally { Marshal.FreeHGlobal(buffer); }
+    }
+
+
     private static byte[] BuildTableBegin() { var data = new byte[16]; PutU16(data, 0, 163); PutU16(data, 2, 16); return data; }
     private static byte[] BuildTableCell(int row, int column)
     {
         var data = new byte[20]; PutU16(data, 0, 164); PutU16(data, 2, 20); data[4] = checked((byte)row); data[5] = checked((byte)column); data[15] = 1; data[16] = 1; PutU16(data, 18, 0); return data;
     }
     private static byte[] BuildTableEnd() { var data = new byte[4]; PutU16(data, 0, 165); PutU16(data, 2, 4); return data; }
+
     private static void PutU16(byte[] data, int offset, ushort value) { data[offset] = (byte)value; data[offset + 1] = (byte)(value >> 8); }
 
     internal void ConvertMimePartsToComposite(nint note)

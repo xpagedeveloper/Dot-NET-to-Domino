@@ -240,6 +240,8 @@ public sealed class NotesRichTextSection : NotesRichTextLinkedObject
 public sealed class NotesRichTextTable : NotesRichTextLinkedObject
 {
     private const ushort TableEndSignature = 165;
+    private const ushort NestedTableBeginSignature = 207;
+    private const ushort NestedTableEndSignature = 209;
     private const ushort TableRightToLeft = 0x0010;
 
     internal NotesRichTextTable(NotesSession session, NotesRichTextItem item, NotesRichTextRecordData record) : base(session, item, record) { }
@@ -247,15 +249,41 @@ public sealed class NotesRichTextTable : NotesRichTextLinkedObject
     public int ColumnCount { get { var d = GetDimensions(); return d.Columns; } }
     public bool RightToLeft { get { var data = CurrentRecord().Data; return data.Length >= 14 && (ReadUInt16(data, 12) & TableRightToLeft) != 0; } }
     public int Style { get { var data = CurrentRecord().Data; return data.Length >= 14 ? ReadUInt16(data, 12) : 0; } }
+    /// <summary>Returns the cell at the zero-based row and column, if present.</summary>
+    public NotesRichTextTableCell? GetCell(int row, int column)
+    {
+        EnsureLinkedAlive();
+        if (row < 0) throw new ArgumentOutOfRangeException(nameof(row));
+        if (column < 0) throw new ArgumentOutOfRangeException(nameof(column));
+        var records = Records();
+        var start = CurrentFlatIndex(records);
+        var nestedDepth = 0;
+        for (var i = start + 1; i < records.Count; i++)
+        {
+            var record = records[i];
+            if (record.Signature == NestedTableBeginSignature) { nestedDepth++; continue; }
+            if (record.Signature == NestedTableEndSignature) { if (nestedDepth > 0) nestedDepth--; continue; }
+            if (nestedDepth > 0) continue;
+            if (record.Signature == TableEndSignature) break;
+            if (record.ElementType != NotesRichTextNavigator.ElementTableCell || record.Data.Length < 20) continue;
+            if (record.Data[4] == row && record.Data[5] == column)
+                return new NotesRichTextTableCell(Session, RichTextItem, record);
+        }
+        return null;
+    }
     public void Remove()
     {
         EnsureLinkedAlive();
         var records = Records();
         var start = CurrentFlatIndex(records);
         var end = start;
+        var nestedDepth = 0;
         for (var i = start + 1; i < records.Count; i++)
         {
             end = i;
+            if (records[i].Signature == NestedTableBeginSignature) { nestedDepth++; continue; }
+            if (records[i].Signature == NestedTableEndSignature) { if (nestedDepth > 0) nestedDepth--; continue; }
+            if (nestedDepth > 0) continue;
             if (records[i].Signature == TableEndSignature) break;
         }
         if (end == start || records[end].Signature != TableEndSignature)
@@ -268,17 +296,32 @@ public sealed class NotesRichTextTable : NotesRichTextLinkedObject
         var records = Records();
         var start = CurrentFlatIndex(records);
         var maxRow = -1; var maxColumn = -1;
+        var nestedDepth = 0;
         for (var i = start + 1; i < records.Count; i++)
         {
             var record = records[i];
+            if (record.Signature == NestedTableBeginSignature) { nestedDepth++; continue; }
+            if (record.Signature == NestedTableEndSignature) { if (nestedDepth > 0) nestedDepth--; continue; }
+            if (nestedDepth > 0) continue;
             if (record.Signature == TableEndSignature) break;
             if (record.ElementType != NotesRichTextNavigator.ElementTableCell || record.Data.Length < 4) continue;
-            maxRow = Math.Max(maxRow, record.Data[2]);
-            maxColumn = Math.Max(maxColumn, record.Data[3]);
+            maxRow = Math.Max(maxRow, record.Data[4]);
+            maxColumn = Math.Max(maxColumn, record.Data[5]);
         }
         return (maxRow + 1, maxColumn + 1);
     }
     private static ushort ReadUInt16(byte[] data, int offset) => (ushort)(data[offset] | (data[offset + 1] << 8));
+}
+
+/// <summary>Read-only metadata for a rich-text table cell.</summary>
+public sealed class NotesRichTextTableCell : NotesRichTextLinkedObject
+{
+    internal NotesRichTextTableCell(NotesSession session, NotesRichTextItem item, NotesRichTextRecordData record) : base(session, item, record) { }
+    public int Row { get { var data = PositionRecord().Data; return data.Length > 4 ? data[4] : 0; } }
+    public int Column { get { var data = PositionRecord().Data; return data.Length > 5 ? data[5] : 0; } }
+    public int RowSpan { get { var data = PositionRecord().Data; return data.Length >= 18 ? Math.Max(1, (int)data[16]) : 1; } }
+    public int ColumnSpan { get { var data = PositionRecord().Data; return data.Length >= 18 ? Math.Max(1, (int)data[17]) : 1; } }
+    public void Remove() { EnsureLinkedAlive(); RemoveRecordSpan(CurrentFlatIndex(Records()), CurrentFlatIndex(Records())); }
 }
 
 /// <summary>Represents a document link in Notes rich text.</summary>

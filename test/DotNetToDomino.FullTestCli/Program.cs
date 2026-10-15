@@ -282,6 +282,15 @@ else
         using var document = database.CreateDocument();
         using var richText = document.CreateRichTextItem("Body");
         richText.AppendText("Rich text full test");
+        richText.AppendTable(1, 2);
+        using (var tableNavigator = richText.CreateNavigator())
+        {
+            if (!tableNavigator.FindFirstElement(NotesRichTextNavigator.ElementTable)) throw new InvalidOperationException("Appended rich-text table was not found.");
+            using var table = tableNavigator.GetElement() as NotesRichTextTable ?? throw new InvalidOperationException("Table navigator returned an unexpected element type.");
+            if (table.RowCount != 1 || table.ColumnCount != 2) throw new InvalidOperationException($"Appended rich-text table dimensions were incorrect: {table.RowCount}x{table.ColumnCount}.");
+            using var cell = table.GetCell(0, 1) ?? throw new InvalidOperationException("Appended rich-text table cell was not found.");
+            if (cell.Row != 0 || cell.Column != 1 || cell.RowSpan != 1 || cell.ColumnSpan != 1) throw new InvalidOperationException("Rich-text table cell coordinates or spans were incorrect.");
+        }
         using var paragraphStyle = session.CreateRichTextParagraphStyle();
         ExpectException<NotSupportedException>("AppendParagraphStyle ABI guard", () => richText.AppendParagraphStyle(paragraphStyle));
         ExpectException<ArgumentNullException>("Rich text attachment path null", () => richText.AttachFile(null!));

@@ -292,6 +292,8 @@ public sealed class NotesRichTextNavigator : NotesObject
     public const int ElementSection = 6;
     public const int ElementTableCell = 7;
     public const int ElementEmbeddedObject = 8;
+    /// <summary>Logical table end record.</summary>
+    public const int ElementTableEnd = 9;
 
     private readonly NotesRichTextItem _item;
     private List<NotesRichTextRecordData> _records = [];
@@ -583,7 +585,7 @@ public sealed class NotesRichTextNavigator : NotesObject
     }
     private static int ValidateElementType(int type)
     {
-        if (type is ElementTable or ElementTextRun or ElementTextParagraph or ElementDocLink or ElementSection or ElementTableCell or ElementEmbeddedObject) return type;
+        if (type is ElementTable or ElementTextRun or ElementTextParagraph or ElementDocLink or ElementSection or ElementTableCell or ElementEmbeddedObject or ElementTableEnd) return type;
         throw new ArgumentOutOfRangeException(nameof(type), $"Unsupported rich text element type {type}.");
     }
     private static int ValidateGetElementType(int type)
