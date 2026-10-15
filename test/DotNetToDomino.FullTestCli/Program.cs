@@ -415,6 +415,13 @@ else
                 if (!nav.FindFirstElement(NotesRichTextNavigator.ElementTable)) throw new InvalidOperationException("Styled table missing.");
                 using var table = nav.GetElement() as NotesRichTextTable ?? throw new InvalidOperationException("Unexpected styled table type.");
                 if (!table.RightToLeft || (table.Style & 0x23) != 0x23) throw new InvalidOperationException("Table style or direction flag did not persist.");
+                table.AddRow();
+            }
+            using (var nav = body.CreateNavigator())
+            {
+                if (!nav.FindFirstElement(NotesRichTextNavigator.ElementTable)) throw new InvalidOperationException("Added-row table missing.");
+                using var table = nav.GetElement() as NotesRichTextTable ?? throw new InvalidOperationException("Unexpected added-row table type.");
+                if (table.RowCount != 4 || table.Cells.Count != 8) throw new InvalidOperationException("AddRow did not clone the final table row.");
                 using (var editableCell = table.GetCell(1, 1) ?? throw new InvalidOperationException("Editable table cell missing."))
                 {
                     editableCell.SetBorder(7);
@@ -442,7 +449,7 @@ else
             using var savedNav = savedBody.CreateNavigator();
             if (!savedNav.FindFirstElement(NotesRichTextNavigator.ElementTable)) throw new InvalidOperationException("Row-removal saved table missing.");
             using var savedTable = savedNav.GetElement() as NotesRichTextTable ?? throw new InvalidOperationException("Unexpected saved row-removal table type.");
-            if (savedTable.RowCount != 2 || savedTable.ColumnCount != 2 || savedTable.Cells.Count != 4)
+            if (savedTable.RowCount != 3 || savedTable.ColumnCount != 2 || savedTable.Cells.Count != 6)
                 throw new InvalidOperationException($"RemoveRow produced {savedTable.RowCount}x{savedTable.ColumnCount} with {savedTable.Cells.Count} cells.");
             Console.WriteLine("VERIFIED rich-text table RemoveRow and native save/reopen");
         }

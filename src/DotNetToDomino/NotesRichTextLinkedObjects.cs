@@ -375,6 +375,55 @@ public sealed class NotesRichTextTable : NotesRichTextLinkedObject
         return null;
     }
 
+    /// <summary>Appends a copy of the last direct table row.</summary>
+    public void AddRow()
+    {
+        EnsureLinkedAlive();
+        var records = Records();
+        var tableStart = CurrentFlatIndex(records);
+        var tableEnd = -1;
+        var cells = new List<(int Index, int Row)>();
+        var nestedDepth = 0;
+        for (var i = tableStart + 1; i < records.Count; i++)
+        {
+            var record = records[i];
+            if (record.Signature == NestedTableBeginSignature) { nestedDepth++; continue; }
+            if (record.Signature == NestedTableEndSignature) { if (nestedDepth > 0) nestedDepth--; continue; }
+            if (nestedDepth > 0) continue;
+            if (record.Signature == TableEndSignature) { tableEnd = i; break; }
+            if (record.ElementType == NotesRichTextNavigator.ElementTableCell && record.Data.Length >= 4)
+                cells.Add((i, record.Data[2]));
+        }
+        if (tableEnd < 0 || cells.Count == 0) throw new NotesException(91, "Rich text table has no complete row structure.");
+        var sourceRow = cells.Max(cell => cell.Row);
+        if (sourceRow >= byte.MaxValue) throw new InvalidOperationException("A rich-text table cannot exceed 256 rows.");
+        var sourceCells = cells.Where(cell => cell.Row == sourceRow).ToArray();
+        var clones = new List<(ushort Signature, byte[] Data)>();
+        foreach (var cell in sourceCells)
+        {
+            var end = tableEnd;
+            for (var i = cell.Index + 1; i < tableEnd; i++)
+                if (records[i].ElementType == NotesRichTextNavigator.ElementTableCell && records[i].Data.Length >= 4) { end = i; break; }
+            for (var i = cell.Index; i < end; i++)
+            {
+                var data = (byte[])records[i].Data.Clone();
+                if (i == cell.Index) data[2] = checked((byte)(sourceRow + 1));
+                clones.Add((records[i].Signature, data));
+            }
+        }
+        var rewritten = new List<NotesRichTextRecordRewrite>(records.Count + clones.Count);
+        var nextIndex = 0;
+        for (var i = 0; i < records.Count; i++)
+        {
+            if (i == tableEnd)
+                foreach (var clone in clones) rewritten.Add(new NotesRichTextRecordRewrite(0, nextIndex++, clone.Signature, clone.Data));
+            var record = records[i];
+            rewritten.Add(new NotesRichTextRecordRewrite(0, nextIndex++, record.Signature, (byte[])record.Data.Clone()));
+        }
+        RichTextItem.RewriteRichTextRecords(rewritten);
+        AcceptCurrentRevision();
+    }
+
     /// <summary>Removes one zero-based table row, including all rich-text records inside its cells.</summary>
     public void RemoveRow(int row)
     {
