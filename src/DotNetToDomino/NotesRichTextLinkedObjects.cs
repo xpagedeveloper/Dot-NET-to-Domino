@@ -295,11 +295,11 @@ public sealed class NotesRichTextTable : NotesRichTextLinkedObject
     /// <summary>Inner border color value from CDPRETABLEBEGIN, or zero when absent.</summary>
     public uint InnerBorderColor => ReadPreTableUInt32(32);
     /// <summary>Length of the optional HTML name/ID payload.</summary>
-    public int PreTableNameLength => ReadPreTableUInt16(40);
+    public int PreTableNameLength => ReadPreTableUInt16(36);
     /// <summary>Length of the optional image packet payload.</summary>
-    public int PreTableImagePacketLength => ReadPreTableUInt16(42);
+    public int PreTableImagePacketLength => ReadPreTableUInt16(38);
     /// <summary>Length of the optional row-label payload.</summary>
-    public int PreTableRowLabelDataLength => ReadPreTableUInt16(44);
+    public int PreTableRowLabelDataLength => ReadPreTableUInt16(40);
     /// <summary>Sets the table direction flag in the CDTABLEBEGIN style word.</summary>
     public void SetRightToLeft(bool rightToLeft)
     {
