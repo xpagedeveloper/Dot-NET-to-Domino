@@ -607,7 +607,9 @@ public sealed class NotesRichTextTableCell : NotesRichTextLinkedObject
             if (nestedDepth == 0 && (record.ElementType == NotesRichTextNavigator.ElementTableCell || record.Signature == NotesRichTextTable.TableEndSignature)) break;
             end = i;
         }
-        RemoveRecordSpan(start, end);
+        // A CDTABLECELL record is structural and cannot be removed in isolation.
+        // Remove only the records contained by the cell so the table remains valid.
+        if (end > start) RemoveRecordSpan(start + 1, end);
     }
 
     /// <summary>Sets the legacy one-byte cell border value and persists the CDTABLECELL record.</summary>
