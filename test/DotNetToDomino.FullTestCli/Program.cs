@@ -1250,6 +1250,17 @@ else
         }
         finally { if (!document.IsNewNote) document.Remove(true); }
     });
+    if (!string.IsNullOrWhiteSpace(databasePath)) Check("rich text unmatched section end guard", () =>
+    {
+        using var database = session.OpenDatabase(server, databasePath);
+        using var document = database.CreateDocument();
+        try
+        {
+            using var body = document.CreateRichTextItem("Body");
+            ExpectException<InvalidOperationException>("Unmatched section end guard", body.EndSection);
+        }
+        finally { if (!document.IsNewNote) document.Remove(true); }
+    });
     if (!string.IsNullOrWhiteSpace(databasePath)) Check("view navigation", () =>
     {
         using var database = session.GetDatabase(server, databasePath, false) ?? throw new InvalidOperationException("Database not found.");
