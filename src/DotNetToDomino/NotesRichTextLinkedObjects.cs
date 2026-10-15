@@ -300,6 +300,17 @@ public sealed class NotesRichTextTable : NotesRichTextLinkedObject
     public int PreTableImagePacketLength => ReadPreTableUInt16(38);
     /// <summary>Length of the optional row-label payload.</summary>
     public int PreTableRowLabelDataLength => ReadPreTableUInt16(40);
+    /// <summary>Optional HTML name/ID stored in the pre-table header.</summary>
+    public string PreTableName
+    {
+        get
+        {
+            var data = FindPreTable()?.Data;
+            var length = ReadPreTableUInt16(36);
+            if (data is null || length == 0 || data.Length < 42 || data.Length < 42 + length) return string.Empty;
+            return Session.Api.DecodeRichTextText(data, 42, length).TrimEnd('\0');
+        }
+    }
     /// <summary>Sets the table direction flag in the CDTABLEBEGIN style word.</summary>
     public void SetRightToLeft(bool rightToLeft)
     {
