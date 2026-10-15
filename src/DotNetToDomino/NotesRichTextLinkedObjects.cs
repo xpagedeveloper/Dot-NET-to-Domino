@@ -347,6 +347,7 @@ public sealed class NotesRichTextTableCell : NotesRichTextLinkedObject
     public int FractionalWidth { get { var data = PositionRecord().Data; return data.Length >= 12 ? ReadUInt16(data, 10) : 0; } }
     public int Border { get { var data = PositionRecord().Data; return data.Length > 12 ? data[12] : 0; } }
     public int Flags { get { var data = PositionRecord().Data; return data.Length > 13 ? data[13] : 0; } }
+    public int V42Border { get { var data = PositionRecord().Data; return data.Length >= 16 ? ReadUInt16(data, 14) : 0; } }
     public int BackgroundColor { get { var data = PositionRecord().Data; return data.Length >= 20 ? ReadUInt16(data, 18) : 0; } }
     public int RowSpan { get { var data = PositionRecord().Data; return data.Length >= 18 ? Math.Max(1, (int)data[16]) : 1; } }
     public int ColumnSpan { get { var data = PositionRecord().Data; return data.Length >= 18 ? Math.Max(1, (int)data[17]) : 1; } }
