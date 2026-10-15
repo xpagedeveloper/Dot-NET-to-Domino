@@ -738,10 +738,20 @@ public sealed class NotesRichTextRange : NotesObject
             .ToHashSet();
         var rewritten = NotesRichTextCdTransform.Transform(records, record =>
         {
+            if (record.Signature != 133 || record.Data.Length < 8 || record.Text.Length == 0)
+                return NotesRichTextRecordRewrite.Preserve(record);
             if (!selected.Contains((record.SegmentIndex, record.RecordIndex))) return NotesRichTextRecordRewrite.Preserve(record);
-            return record.Signature == 133 && record.Data.Length >= 8 && record.Text.Length > 0
-                ? null
-                : NotesRichTextRecordRewrite.Preserve(record);
+            var start = record.SegmentIndex == records[_beginRecord].SegmentIndex && record.RecordIndex == records[_beginRecord].RecordIndex ? Math.Clamp(_beginOffset, 0, record.Text.Length) : 0;
+            var end = record.SegmentIndex == records[_endRecord].SegmentIndex && record.RecordIndex == records[_endRecord].RecordIndex ? Math.Clamp(_endOffset, start, record.Text.Length) : record.Text.Length;
+            if (start == 0 && end == record.Text.Length) return null;
+            if (end <= start) return NotesRichTextRecordRewrite.Preserve(record);
+            var replacementText = record.Text[..start] + record.Text[end..];
+            var encoded = Session.Api.EncodeRichTextText(replacementText.Replace('\n', '\0'));
+            var data = new byte[8 + encoded.Length];
+            record.Data.AsSpan(0, 8).CopyTo(data);
+            encoded.CopyTo(data, 8);
+            data[2] = (byte)data.Length; data[3] = (byte)(data.Length >> 8);
+            return new NotesRichTextRecordRewrite(record.SegmentIndex, record.RecordIndex, record.Signature, data);
         });
         _item.RewriteRichTextRecords(rewritten);
         ResetCore();

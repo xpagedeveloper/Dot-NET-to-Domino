@@ -210,6 +210,14 @@ internal sealed partial class NotesNativeApi
         return FromLmbcs(nint.Add(record, 8), recordLength - 8).Replace('\0', '\n');
     }
 
+    internal byte[] EncodeRichTextText(string value)
+    {
+        using var encoded = ToLmbcs(value ?? string.Empty);
+        var bytes = new byte[encoded.Length];
+        if (bytes.Length > 0) Marshal.Copy(encoded.Pointer, bytes, 0, bytes.Length);
+        return bytes;
+    }
+
     private string ReadRichTextLinkedObjectName(nint record, int elementType, int recordLength)
     {
         if (elementType != 8 || record == 0 || recordLength < 12) return string.Empty;
