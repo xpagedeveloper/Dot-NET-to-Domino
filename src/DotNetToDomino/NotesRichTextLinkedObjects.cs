@@ -175,6 +175,7 @@ public sealed class NotesRichTextSection : NotesRichTextLinkedObject
             else result.Effects = 0;
             return result;
         }
+        set => SetTitleStyle(value);
     }
 
     public void Remove()
