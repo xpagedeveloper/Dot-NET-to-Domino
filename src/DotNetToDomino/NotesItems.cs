@@ -438,6 +438,7 @@ public sealed class NotesRichTextItem : NotesItem
         var ordered = replacement.Select((record, index) =>
             new NotesRichTextRecordRewrite(0, index, record.Signature, record.Data)).ToArray();
         RewriteRichTextRecords(ordered);
+        _insertRecord = insertion + inserted.Length;
     }
 
     internal void RemoveEmbeddedObject(NotesAttachmentMetadata metadata)

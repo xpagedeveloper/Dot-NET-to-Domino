@@ -631,6 +631,7 @@ else
             if (!navigator.FindFirstElement(NotesRichTextNavigator.ElementTextRun)) throw new InvalidOperationException("Text run fixture missing.");
             body.BeginInsert(navigator);
             body.AppendText("INSERT-X");
+            body.AppendText("INSERT-Y");
             body.EndInsert();
             using var range = body.CreateRange();
             using var rangeNavigator = body.CreateNavigator();
@@ -647,7 +648,7 @@ else
             using var dxl = exporter.Export(document);
             var xml = System.Xml.Linq.XDocument.Load(new MemoryStream(dxl.ToArray()));
             var value = xml.Root!.Value;
-            if (value.IndexOf("INSERT-X", StringComparison.Ordinal) < 0 || value.IndexOf("INSERT-X", StringComparison.Ordinal) > value.IndexOf("INSERT-A", StringComparison.Ordinal) || !value.Contains("INSERT-RANGE-", StringComparison.Ordinal))
+            if (value.IndexOf("INSERT-X", StringComparison.Ordinal) < 0 || value.IndexOf("INSERT-X", StringComparison.Ordinal) > value.IndexOf("INSERT-A", StringComparison.Ordinal) || value.IndexOf("INSERT-Y", StringComparison.Ordinal) < value.IndexOf("INSERT-X", StringComparison.Ordinal) || !value.Contains("INSERT-RANGE-", StringComparison.Ordinal))
                 throw new InvalidOperationException("Inserted text was not placed before the navigator position.");
             ExpectException<InvalidOperationException>("Duplicate rich-text EndInsert", body.EndInsert);
         }
