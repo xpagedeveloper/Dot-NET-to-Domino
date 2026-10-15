@@ -5,6 +5,8 @@ namespace DotNetToDomino.Interop;
 internal sealed partial class NotesNativeApi
 {
     private const ushort RichTextTypeMimePart = 0x0019;
+    // FONTIDFIELDS: Swiss face, plain attributes, black, 10 points.
+    private const uint RichTextDefaultFontId = 0x0A000001;
 
     internal void CreateRichTextItem(nint note, string name)
     {
@@ -32,7 +34,7 @@ internal sealed partial class NotesNativeApi
             using var text = ToLmbcs(value ?? string.Empty);
             using var delimiter = ToLmbcs("\r\n");
             CheckStatus(Resolve<RichText_CompoundTextAddTextExt>("CompoundTextAddTextExt")(
-                compound, 0xFFFFFFFFu, 0, text.Pointer, checked((uint)text.Length), delimiter.Pointer, 0x00000002u, 0), "CompoundTextAddTextExt");
+                compound, 0xFFFFFFFFu, RichTextDefaultFontId, text.Pointer, checked((uint)text.Length), delimiter.Pointer, 0x00000002u, 0), "CompoundTextAddTextExt");
             CheckStatus(Resolve<RichText_CompoundTextClose>("CompoundTextClose")(compound, 0, 0, 0, 0), "CompoundTextClose");
             closed = true;
         }
@@ -76,17 +78,17 @@ internal sealed partial class NotesNativeApi
         try
         {
             // Tables must be surrounded by paragraphs in a composite item.
-            CheckStatus(Resolve<RichText_CompoundTextAddParagraphExt>("CompoundTextAddParagraphExt")(compound, 0xFFFFFFFFu, 0, 0, 0, 0), "CompoundTextAddParagraphExt(table-before)");
+            CheckStatus(Resolve<RichText_CompoundTextAddParagraphExt>("CompoundTextAddParagraphExt")(compound, 0xFFFFFFFFu, RichTextDefaultFontId, 0, 0, 0), "CompoundTextAddParagraphExt(table-before)");
             AppendTableRecords(compound, new[] { BuildTableBegin() });
             for (var row = 0; row < rows; row++)
                 for (var column = 0; column < columns; column++)
                 {
                     AppendTableRecords(compound, new[] { BuildTableCell(row, column) });
                     CheckStatus(Resolve<RichText_CompoundTextAddParagraphExt>("CompoundTextAddParagraphExt")(
-                        compound, 0xFFFFFFFFu, 0, 0, 0, 0), "CompoundTextAddParagraphExt(table-cell)");
+                        compound, 0xFFFFFFFFu, RichTextDefaultFontId, 0, 0, 0), "CompoundTextAddParagraphExt(table-cell)");
                 }
             AppendTableRecords(compound, new[] { BuildTableEnd() });
-            CheckStatus(Resolve<RichText_CompoundTextAddParagraphExt>("CompoundTextAddParagraphExt")(compound, 0xFFFFFFFFu, 0, 0, 0, 0), "CompoundTextAddParagraphExt(table-after)");
+            CheckStatus(Resolve<RichText_CompoundTextAddParagraphExt>("CompoundTextAddParagraphExt")(compound, 0xFFFFFFFFu, RichTextDefaultFontId, 0, 0, 0), "CompoundTextAddParagraphExt(table-after)");
             CheckStatus(Resolve<RichText_CompoundTextClose>("CompoundTextClose")(compound, 0, 0, 0, 0), "CompoundTextClose(table)");
             closed = true;
         }

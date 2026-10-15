@@ -169,7 +169,7 @@ internal sealed partial class NotesNativeApi
     private static uint BuildRichTextFontId(NotesRichTextStyleState style)
     {
         const int noChange = 255;
-        var face = style.NotesFont == noChange ? 0 : Math.Clamp(style.NotesFont, 0, 255);
+        var face = style.NotesFont == noChange ? (int)(RichTextDefaultFontId & 0xff) : Math.Clamp(style.NotesFont, 0, 255);
         var color = style.NotesColor == noChange ? 0 : Math.Clamp(style.NotesColor, 0, 255);
         var point = style.FontSize == noChange ? 10 : Math.Clamp(style.FontSize, 1, 250);
         var attributes = 0;

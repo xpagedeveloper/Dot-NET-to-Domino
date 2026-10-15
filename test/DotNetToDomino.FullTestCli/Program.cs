@@ -439,6 +439,31 @@ else
         body.AppendText("End");
         ExpectException<InvalidOperationException>("Stale table after append", () => _ = remaining.ColumnCount);
     });
+    if (!string.IsNullOrWhiteSpace(databasePath)) Check("rich text paragraph style native DXL", () =>
+    {
+        using var database = session.OpenDatabase(server, databasePath);
+        using var document = database.CreateDocument();
+        using var body = document.CreateRichTextItem("Body");
+        body.AppendText("PLAIN-BEFORE");
+        using var style = session.CreateRichTextParagraphStyle();
+        style.Alignment = 3;
+        style.LeftMargin = 1440;
+        style.FirstLineLeftMargin = 1440;
+        body.AppendParagraphStyle(style);
+        body.AppendText("CENTERED-AFTER");
+        using var exporter = session.CreateDXLExporter();
+        exporter.OutputDOCTYPE = false;
+        exporter.RichTextOption = 0;
+        using var dxl = exporter.Export(document);
+        using var bytes = new MemoryStream(dxl.ToArray());
+        var xml = System.Xml.Linq.XDocument.Load(bytes);
+        var paragraph = xml.Descendants().Single(e => e.Name.LocalName == "par" && e.Value.Contains("CENTERED-AFTER", StringComparison.Ordinal));
+        var definition = xml.Descendants().Single(e => e.Name.LocalName == "pardef" && (string?)e.Attribute("id") == (string?)paragraph.Attribute("def"));
+        if ((string?)definition.Attribute("align") != "center") throw new InvalidOperationException("Appended paragraph style did not apply to following text.");
+        if ((string?)definition.Attribute("leftmargin") != "1in") throw new InvalidOperationException("Paragraph left margin was not exported as one inch.");
+        if (xml.Descendants().Where(e => e.Name.LocalName == "font").Any(font => (string?)font.Attribute("size") != "10pt"))
+            throw new InvalidOperationException("Default text font must be 10pt instead of 0pt.");
+    });
     NotesItemRegressionTests.Run(session, server, databasePath, Check);
     DatabaseLifecycleRegressionTests.Run(session, Check);
     AclRegressionTests.Run(session, Check);

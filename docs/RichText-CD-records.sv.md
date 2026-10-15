@@ -61,6 +61,19 @@ headeruppdatering uppdaterar dess räknare så att objektet kan fortsätta anvä
 Räknaren gäller samma öppna dokumentobjekt. Den upptäcker inte ändringar via
 extern native-kod eller ett separat öppnat dokumenthandle.
 
+## Styckeformat och standardfont
+
+`AppendParagraphStyle` använder `CompoundTextDefineStyle` och
+`CompoundTextAddParagraphExt`. Efterföljande text ärver styckets format.
+Native DXL-testet verifierar centrering (`Alignment = 3`) och vänstermarginalen
+1440 twips, vilket exporteras som en tum.
+
+Vanlig text och nya stycken använder nu en explicit standardfont:
+Swiss/Helvetica, svart, normal och 10 punkter (`FONTID = 0x0A000001`).
+Det tidigare värdet noll exporterades som 0 punkter. Även `AppendStyle` med
+oförändrad fontfamilj använder Swiss som grund. Explicit vald fontfamilj och
+storlek fortsätter att användas.
+
 Detta verifierar native lagring och DXL-tolkning. Det är inte ett visuellt
 test av Notes-editorn eller bevis för att alla övriga RichText-metoder är färdiga.
 

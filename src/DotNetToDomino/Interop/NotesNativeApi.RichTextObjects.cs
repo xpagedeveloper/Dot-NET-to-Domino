@@ -124,7 +124,7 @@ internal sealed partial class NotesNativeApi
             CheckStatus(Resolve<RichText_CompoundTextDefineStyle>("CompoundTextDefineStyle")(
                 compound, styleName.Pointer, ref native, out var styleId), "CompoundTextDefineStyle");
             CheckStatus(Resolve<RichText_CompoundTextAddParagraphExt>("CompoundTextAddParagraphExt")(
-                compound, styleId, 0, 0, 0, 0), "CompoundTextAddParagraphExt(paragraph style)");
+                compound, styleId, RichTextDefaultFontId, 0, 0, 0), "CompoundTextAddParagraphExt(paragraph style)");
             CheckStatus(Resolve<RichText_CompoundTextClose>("CompoundTextClose")(compound, 0, 0, 0, 0), "CompoundTextClose(paragraph style)");
             closed = true;
         }

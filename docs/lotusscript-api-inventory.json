@@ -28,7 +28,7 @@
     { "lotusScript": "NotesDocumentCollection", "csharp": "NotesDocumentCollection", "status": "partial", "gaps": ["provenance edge cases", "live bulk operation behavior"] },
     { "lotusScript": "NotesNoteCollection", "csharp": "NotesNoteCollection", "status": "partial", "gaps": ["selection/provenance edge cases", "live bulk operation behavior"] },
     { "lotusScript": "NotesItem", "csharp": "NotesItem", "status": "partial", "gaps": ["complete item type matrix", "native list and attachment edge cases"] },
-    { "lotusScript": "NotesRichTextItem", "csharp": "NotesRichTextItem", "status": "partial", "gaps": ["AppendParagraphStyle", "native composite edge cases", "live attachment verification"] },
+    { "lotusScript": "NotesRichTextItem", "csharp": "NotesRichTextItem", "status": "partial", "gaps": ["native composite edge cases", "live attachment verification"] },
     { "lotusScript": "NotesRichTextNavigator/Range", "csharp": "NotesRichTextNavigator/Range", "status": "partial", "gaps": ["complete structural-write parity", "corrupt record behavior"] },
     { "lotusScript": "NotesMIMEEntity", "csharp": "NotesMIMEEntity", "status": "partial", "gaps": ["AppendChildEntity", "child content mutation", "child removal"] },
     { "lotusScript": "NotesMIMEHeader", "csharp": "NotesMIMEHeader", "status": "partial", "gaps": ["child header creation/mutation/removal", "nested multipart runtime verification"] },

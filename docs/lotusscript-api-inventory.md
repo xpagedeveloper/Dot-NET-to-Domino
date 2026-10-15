@@ -21,7 +21,7 @@ This is the local object-by-object inventory of the LotusScript Notes API agains
 | NotesDocumentCollection | NotesDocumentCollection | Partial | Provenance and bulk-operation edge cases |
 | NotesNoteCollection | NotesNoteCollection | Partial | Selection, provenance and bulk-operation edge cases |
 | NotesItem | NotesItem | Partial | Complete item-type/list/attachment matrix |
-| NotesRichTextItem | NotesRichTextItem | Partial | `AppendParagraphStyle`, native composite edge cases |
+| NotesRichTextItem | NotesRichTextItem | Partial | Native composite edge cases |
 | NotesRichTextNavigator/Range | NotesRichTextNavigator/Range | Partial | Structural writes and corrupt-record behavior |
 | NotesMIMEEntity | NotesMIMEEntity | Partial | Child creation, content mutation and removal |
 | NotesMIMEHeader | NotesMIMEHeader | Partial | Child header mutation/removal and nested multipart behavior |

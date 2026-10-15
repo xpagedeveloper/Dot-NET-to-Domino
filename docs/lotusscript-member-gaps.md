@@ -71,8 +71,8 @@ Complexity: `ParentDocument` 2, security/send flags 4, `Items` 3, `ComputeWithFo
 | Member | Status | Notes |
 |---|---|---|
 | `IsReaders`/`IsAuthors`/`IsEncrypted`/`IsProtected`/`IsSigned`/`IsSummary` | runtime | Properties exist; all flag combinations need native runtime verification. |
-| `AppendParagraphStyle` | partial | Public member exists but intentionally fails closed pending safe composite-record ABI support. |
-| `AppendTable` | partial | Creates an empty table using canonical CDTABLEBEGIN/CELL/END records; live Notes validation and labels/styles remain. |
+| `AppendParagraphStyle` | implemented | Uses CompoundTextDefineStyle/AddParagraphExt; following text alignment and margins verified through native DXL export. |
+| `AppendTable` | partial | Creates an empty table using canonical CDTABLEBEGIN/CELL/END records; native save/reopen and DXL dimensions verified for seven sizes; labels/styles remain. |
 | `AppendDocLink` | implemented | Uses `CompoundTextAddDocLink` with replica ID and document UNID; live Notes verification remains. |
 | `AppendObject` | partial | File-object embedding is implemented through the native attachment path; OLE and other object types remain. |
 | `AppendNotesURL` | partial | Local `notes://` document URLs are resolved and written as doclinks; view/database/remote URL variants remain. |
