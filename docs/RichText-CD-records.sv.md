@@ -249,6 +249,7 @@ av alla tänkbara äldre eller okända recordvarianter har inte verifierats.
 - [HCL C API: CDHTMLBEGIN](https://opensource.hcltechsw.com/domino-c-api-docs/reference/Data/CDHTMLBEGIN/)
 - [HCL C API: CDHTMLEND](https://opensource.hcltechsw.com/domino-c-api-docs/reference/Data/CDHTMLEND/)
 - [HCL C API: CDTABLECELL](https://opensource.hcltechsw.com/domino-c-api-docs/reference/Data/CDTABLECELL/)
+- [HCL C API: CDBAR](https://opensource.hcltechsw.com/domino-c-api-docs/reference/Data/CDBAR/)
 - [HCL C API: canonical format](https://opensource.hcltechsw.com/domino-c-api-docs/howto/user_guide/Domino_Canonical_Format/)
 - [HCL JNX: BSIG](https://github.com/HCL-TECH-SOFTWARE/domino-jnx/blob/develop/domino-jnx-api/src/main/java/com/hcl/domino/richtext/structures/BSIG.java)
 - [HCL JNX: CDTableCell](https://github.com/HCL-TECH-SOFTWARE/domino-jnx/blob/develop/domino-jnx-api/src/main/java/com/hcl/domino/richtext/records/CDTableCell.java)
