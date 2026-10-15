@@ -850,6 +850,53 @@ else
             if (!destination.IsNewNote) destination.Remove(true);
         }
     });
+    if (!string.IsNullOrWhiteSpace(databasePath)) Check("rich text attachment item copy", () =>
+    {
+        using var database = session.OpenDatabase(server, databasePath);
+        using var source = database.CreateDocument();
+        using var destination = database.CreateDocument();
+        var path = Path.Combine(Path.GetTempPath(), "richtext-copy-" + Guid.NewGuid().ToString("N") + ".bin");
+        try
+        {
+            var payload = Enumerable.Range(0, 100000).Select(i => (byte)(i % 251)).ToArray();
+            File.WriteAllBytes(path, payload);
+            using var body = source.CreateRichTextItem("Body");
+            body.AppendText("Before attachment");
+            using (var attachment = body.AttachFile(path)) { }
+            body.AppendText("After attachment");
+            source.Save();
+            using (var conflicting = database.CreateDocument())
+            {
+                using var conflictBody = conflicting.CreateRichTextItem("CopiedBody");
+                conflictBody.AppendText("Keep existing content");
+                File.WriteAllBytes(path, new byte[] { 9, 8, 7 });
+                using var conflictAttachment = conflictBody.AttachFile(path);
+                ExpectException<IOException>("Different attachment name collision", () => { using var rejected = body.CopyToDocument(conflicting, "CopiedBody"); });
+                if (!conflictAttachment.ToByteArray().SequenceEqual(new byte[] { 9, 8, 7 })) throw new InvalidOperationException("Rejected copy changed existing attachment.");
+                using var conflictExporter = session.CreateDXLExporter();
+                conflictExporter.OutputDOCTYPE = false; conflictExporter.RichTextOption = 0;
+                using var conflictDxl = conflictExporter.Export(conflicting);
+                using var conflictBytes = new MemoryStream(conflictDxl.ToArray());
+                var conflictXml = System.Xml.Linq.XDocument.Load(conflictBytes);
+                if (!conflictXml.Descendants().Where(e => e.Name.LocalName == "richtext").Any(e => e.Value.Contains("Keep existing content", StringComparison.Ordinal))) throw new InvalidOperationException($"Rejected copy changed existing rich text: {conflictXml}");
+            }
+            using var copied = body.CopyToDocument(destination, "CopiedBody");
+            using var copiedAgain = body.CopyToDocument(destination, "SecondCopy");
+            destination.Save();
+            source.Remove(true);
+            using var reopened = database.GetDocumentByID(destination.NoteId)!;
+            using var item = reopened.GetFirstItem("CopiedBody")!;
+            using var savedBody = item.GetRichTextItem()!;
+            using var savedAttachment = savedBody.GetEmbeddedObject(Path.GetFileName(path)) ?? throw new InvalidOperationException("Copied attachment is missing.");
+            if (!savedAttachment.ToByteArray().SequenceEqual(payload)) throw new InvalidOperationException("Copied attachment bytes differ.");
+        }
+        finally
+        {
+            if (!source.IsRecycled && !source.IsNewNote) source.Remove(true);
+            if (!destination.IsNewNote) destination.Remove(true);
+            if (File.Exists(path)) File.Delete(path);
+        }
+    });
     if (!string.IsNullOrWhiteSpace(databasePath)) Check("view navigation", () =>
     {
         using var database = session.GetDatabase(server, databasePath, false) ?? throw new InvalidOperationException("Database not found.");

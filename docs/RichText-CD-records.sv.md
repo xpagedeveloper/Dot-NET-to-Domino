@@ -165,8 +165,15 @@ och ett fält med över 100 KB Unicode-text, tabell och skyddsflagga.
 Flagguppdatering på rich text appliceras på samtliga fysiska segment i samma
 ordning, så att ändring av exempelvis `IsProtected` inte flyttar första segmentet
 sist eller ger olika flaggor på fortsättningssegmenten.
-Kopiering av externa `$Fonts`-beroenden och alla typer av embedded objects
-är ännu inte verifierad som komplett.
+`CopyToDocument` kopierar även de `$FILE`-objekt som fältets bilagehotspots
+refererar till. En befintlig bilaga med samma interna namn och identiska bytes
+återanvänds; olika bytes ger `IOException` innan destinationsfältet ändras.
+Native-testet jämför en bilaga på 100000 bytes efter återöppning och borttagning
+av källdokumentet. Upprepad kopiering och skydd av befintligt innehåll vid
+namnkrock testas också.
+
+Kopiering av externa `$Fonts`-beroenden och övriga embedded objects, exempelvis
+OLE-objekt, är ännu inte verifierad som komplett.
 
 ## Compact
 

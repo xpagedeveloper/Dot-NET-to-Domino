@@ -122,7 +122,7 @@ internal sealed partial class NotesNativeApi
         }
     }
 
-    internal void CopyItemToDocument(nint sourceNote, string sourceName, nint destinationNote, string destinationName)
+    internal void CopyItemToDocument(nint sourceNote, string sourceName, nint destinationNote, string destinationName, bool copyAttachments = false)
     {
         EnsureInitialized();
         using var thread = EnterThread();
@@ -132,8 +132,21 @@ internal sealed partial class NotesNativeApi
         // CDLINK2 indexes belong to the source document's $Links item. Resolve
         // them before mutating the destination, and export self-contained links.
         NotesRichTextRecordRewrite[]? composite = null;
+        var attachments = new List<NotesAttachmentMetadata>();
         if (info.DataType == NotesTypeComposite)
         {
+            if (copyAttachments && sourceNote != destinationNote)
+            {
+                foreach (var attachment in GetRichTextAttachmentMetadata(sourceNote, sourceName))
+                {
+                    if (TryFindAttachment(destinationNote, attachment.Name, out _))
+                    {
+                        if (!ReadAttachmentBytes(sourceNote, attachment.Name).SequenceEqual(ReadAttachmentBytes(destinationNote, attachment.Name)))
+                            throw new IOException($"A different attachment named '{attachment.Name}' already exists in the destination document.");
+                    }
+                    else attachments.Add(attachment);
+                }
+            }
             composite = GetRichTextRecords(sourceNote, sourceName).Select(record =>
             {
                 if (record.Signature != RichTextSigLink2) return NotesRichTextRecordRewrite.Preserve(record);
@@ -157,6 +170,10 @@ internal sealed partial class NotesNativeApi
         {
             ReplaceRichTextCdRecords(destinationNote, destinationName, GetRichTextRecords(destinationNote, destinationName), composite);
             RestoreCompositeFlags(destinationNote, destinationName, info.Flags);
+            using var fileItemName = ToLmbcs(AttachmentItemName);
+            foreach (var attachment in attachments)
+                CheckStatus(Resolve<Ops_NSFItemCopyAndRename>("NSFItemCopyAndRename")(
+                    destinationNote, attachment.ItemBlock, fileItemName.Pointer), "NSFItemCopyAndRename(rich text attachment)");
         }
     }
 
