@@ -325,6 +325,10 @@ public sealed class NotesRichTextTable : NotesRichTextLinkedObject
     public uint StyleColor2 => ReadPreTableUInt32(28);
     /// <summary>Inner border color value from CDPRETABLEBEGIN, or zero when absent.</summary>
     public uint InnerBorderColor => ReadPreTableUInt32(32);
+    /// <summary>Sets the primary table color in the CDPRETABLEBEGIN record.</summary>
+    public void SetColor(uint color) => SetPreTableColor(24, color);
+    /// <summary>Sets the alternate table color in the CDPRETABLEBEGIN record.</summary>
+    public void SetAlternateColor(uint color) => SetPreTableColor(28, color);
     /// <summary>Length of the optional HTML name/ID payload.</summary>
     public int PreTableNameLength => ReadPreTableUInt16(36);
     /// <summary>Length of the optional image packet payload.</summary>
@@ -341,6 +345,23 @@ public sealed class NotesRichTextTable : NotesRichTextLinkedObject
             if (data is null || length == 0 || data.Length < 42 || data.Length < 42 + length) return string.Empty;
             return Session.Api.DecodeRichTextText(data, 42, length).TrimEnd('\0');
         }
+    }
+    private void SetPreTableColor(int offset, uint color)
+    {
+        EnsureLinkedAlive();
+        var preTable = FindPreTable() ?? throw new NotSupportedException("This rich-text table has no CDPRETABLEBEGIN color record.");
+        if (preTable.Data.Length < offset + 4) throw new NotesException(91, "Invalid CDPRETABLEBEGIN color record.");
+        var records = Records();
+        var rewritten = NotesRichTextCdTransform.Transform(records, record =>
+        {
+            if (record.SegmentIndex != preTable.SegmentIndex || record.RecordIndex != preTable.RecordIndex)
+                return NotesRichTextRecordRewrite.Preserve(record);
+            var data = (byte[])record.Data.Clone();
+            data[offset] = (byte)color; data[offset + 1] = (byte)(color >> 8); data[offset + 2] = (byte)(color >> 16); data[offset + 3] = (byte)(color >> 24);
+            return new NotesRichTextRecordRewrite(record.SegmentIndex, record.RecordIndex, record.Signature, data);
+        });
+        RichTextItem.RewriteRichTextRecords(rewritten);
+        AcceptCurrentRevision();
     }
     /// <summary>Sets the table direction flag in the CDTABLEBEGIN style word.</summary>
     public void SetRightToLeft(bool rightToLeft)
