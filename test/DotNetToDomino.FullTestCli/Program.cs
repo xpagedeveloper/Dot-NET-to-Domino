@@ -1128,6 +1128,31 @@ else
         }
         finally { if (!document.IsNewNote) document.Remove(true); }
     });
+    if (!string.IsNullOrWhiteSpace(databasePath)) Check("rich text section expansion native DXL", () =>
+    {
+        using var database = session.OpenDatabase(server, databasePath);
+        using var notes = database.CreateNoteCollection(false);
+        notes.SelectDocuments = true;
+        notes.BuildCollection();
+        var noteId = notes.FirstOrDefault();
+        if (noteId == 0) throw new InvalidOperationException("Section DXL database has no documents.");
+        using var document = database.GetDocumentByID(noteId) ?? throw new InvalidOperationException("Section DXL document missing.");
+        using var item = document.GetFirstItem("Body") ?? throw new InvalidOperationException("Section DXL Body item missing.");
+        using var body = item.GetRichTextItem() ?? throw new InvalidOperationException("Section DXL Body is not rich text.");
+        using var navigator = body.CreateNavigator();
+        if (!navigator.FindFirstElement(NotesRichTextNavigator.ElementSection)) throw new InvalidOperationException("Section CD record missing.");
+        using var section = (NotesRichTextSection)navigator.GetElement()!;
+        if (!section.IsExpanded) throw new InvalidOperationException("DXL section was not initially expanded.");
+        section.IsExpanded = false;
+        body.Update();
+        using var reopened = database.GetDocumentByID(noteId)!;
+        using var reopenedItem = reopened.GetFirstItem("Body")!;
+        using var reopenedBody = reopenedItem.GetRichTextItem()!;
+        using var reopenedNavigator = reopenedBody.CreateNavigator();
+        if (!reopenedNavigator.FindFirstElement(NotesRichTextNavigator.ElementSection)) throw new InvalidOperationException("Section missing after update.");
+        using var reopenedSection = (NotesRichTextSection)reopenedNavigator.GetElement()!;
+        if (reopenedSection.IsExpanded) throw new InvalidOperationException("Section expansion change was not persisted.");
+    });
     if (!string.IsNullOrWhiteSpace(databasePath)) Check("view navigation", () =>
     {
         using var database = session.GetDatabase(server, databasePath, false) ?? throw new InvalidOperationException("Database not found.");
