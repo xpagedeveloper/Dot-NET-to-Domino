@@ -691,6 +691,41 @@ public sealed class NotesRichTextRange : NotesObject
     }
     public int Type { get { EnsureRangeAlive(); return _type; } }
 
+    /// <summary>Replaces occurrences of <paramref name="findText"/> in the range and returns the replacement count.</summary>
+    public int FindAndReplace(string findText, string replaceText) => FindAndReplace(findText, replaceText, 0);
+
+    /// <summary>Replaces occurrences in the range. Options are reserved for Notes-compatible flags.</summary>
+    public int FindAndReplace(string findText, string replaceText, int options)
+    {
+        EnsureRangeAlive();
+        ArgumentException.ThrowIfNullOrEmpty(findText);
+        ArgumentNullException.ThrowIfNull(replaceText);
+        var records = _item.ReadRichTextRecords();
+        var replacements = 0;
+        var recordIndex = -1;
+        var rewritten = NotesRichTextCdTransform.Transform(records, record =>
+        {
+            var index = ++recordIndex;
+            if (index < _beginRecord || index > _endRecord || record.Signature != 0xFF85 || record.Data.Length < 8 || record.Text.Length == 0)
+                return NotesRichTextRecordRewrite.Preserve(record);
+            var start = index == _beginRecord ? Math.Clamp(_beginOffset, 0, record.Text.Length) : 0;
+            var end = index == _endRecord ? Math.Clamp(_endOffset, start, record.Text.Length) : record.Text.Length;
+            var selected = record.Text[start..end];
+            if (selected.Length == 0 || !selected.Contains(findText, StringComparison.Ordinal)) return NotesRichTextRecordRewrite.Preserve(record);
+            var changed = selected.Replace(findText, replaceText, StringComparison.Ordinal);
+            replacements += CountOccurrences(selected, findText);
+            var text = record.Text[..start] + changed + record.Text[end..];
+            var encoded = Session.Api.EncodeRichTextText(text.Replace('\n', '\0'));
+            var data = new byte[8 + encoded.Length];
+            record.Data.AsSpan(0, 8).CopyTo(data);
+            encoded.CopyTo(data, 8);
+            data[2] = (byte)data.Length; data[3] = (byte)(data.Length >> 8);
+            return new NotesRichTextRecordRewrite(record.SegmentIndex, record.RecordIndex, record.Signature, data);
+        });
+        if (replacements > 0) { _item.RewriteRichTextRecords(rewritten); ResetCore(); }
+        return replacements;
+    }
+
     public NotesRichTextRange Clone() { EnsureRangeAlive(); return new NotesRichTextRange(Session, _item, _beginRecord, _beginOffset, _endRecord, _endOffset, _type); }
     public void Reset() { EnsureRangeAlive(); ResetCore(); }
     public void SetBegin(NotesRichTextNavigator navigator) { ArgumentNullException.ThrowIfNull(navigator); SetBeginCore(navigator.CurrentIndex, navigator.CurrentCharOffset, navigator.CurrentElementType, navigator.RichTextItem); }
@@ -792,6 +827,12 @@ public sealed class NotesRichTextRange : NotesObject
     private void EnsureSameItem(NotesRichTextItem item) { if (!ReferenceEquals(_item, item)) throw new ArgumentException("Rich text positions must belong to the same NotesRichTextItem."); }
     private static int Compare(int leftRecord, int leftOffset, int rightRecord, int rightOffset) { var byRecord = leftRecord.CompareTo(rightRecord); return byRecord != 0 ? byRecord : leftOffset.CompareTo(rightOffset); }
     private static byte ApplyStyleFlag(byte value, byte mask, int setting) => setting == NotesRichTextStyle.StyleNoChange ? value : setting != 0 ? (byte)(value | mask) : (byte)(value & ~mask);
+    private static int CountOccurrences(string text, string value)
+    {
+        var count = 0; var offset = 0;
+        while ((offset = text.IndexOf(value, offset, StringComparison.Ordinal)) >= 0) { count++; offset += value.Length; }
+        return count;
+    }
     private void EnsureRangeAlive() { EnsureAlive(); _item.EnsureRichTextAlive(); }
     protected override void ReleaseNative() { }
 }

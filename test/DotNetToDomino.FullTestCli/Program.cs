@@ -1129,6 +1129,23 @@ else
         }
         finally { if (!document.IsNewNote) document.Remove(true); }
     });
+    if (!string.IsNullOrWhiteSpace(databasePath)) Check("rich text range find and replace native", () =>
+    {
+        using var database = session.OpenDatabase(server, databasePath);
+        using var document = database.CreateDocument();
+        try
+        {
+            using var body = document.CreateRichTextItem("Body");
+            body.AppendText("alpha beta alpha");
+            using var range = body.CreateRange();
+            if (range.FindAndReplace("alpha", "omega") != 2) throw new InvalidOperationException("FindAndReplace returned the wrong count.");
+            document.Save();
+            using var reopened = database.GetDocumentByID(document.NoteId)!;
+            using var item = reopened.GetFirstItem("Body")!;
+            if (item.Text != "omega beta omega") throw new InvalidOperationException($"FindAndReplace persisted '{item.Text}'.");
+        }
+        finally { if (!document.IsNewNote) document.Remove(true); }
+    });
     if (!string.IsNullOrWhiteSpace(databasePath)) Check("rich text range cross segment style", () =>
     {
         using var database = session.OpenDatabase(server, databasePath);
