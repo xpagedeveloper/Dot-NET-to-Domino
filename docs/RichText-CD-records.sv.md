@@ -196,9 +196,9 @@ Detta är en arbetslista, inte ett påstående om full LotusScript-paritet:
   uppdelning av CDTEXT.
 - `BeginInsert`/`EndInsert`, `BeginSection`/`EndSection` och
   `GetNotesFont` saknas i den nuvarande publika item-klassen.
-- Tabellklassen saknar fortfarande `AddRow`, tabellnivåfärger och radetiketter.
-  `RemoveRow` samt skrivning av cellens border, bakgrund, marginaler och spans
-  är implementerade och native-verifierade.
+- Tabellklassen saknar fortfarande tabellnivåfärger och radetiketter.
+  `AddRow`/`RemoveRow` samt skrivning av cellens border, bakgrund, marginaler
+  och spans är implementerade och native-verifierade.
 - Externa fonttabeller, OLE-objekt och samtliga äldre CD-varianter behöver
   fortsatt implementation och native-verifiering.
 
