@@ -11,6 +11,18 @@ internal sealed record NotesViewColumnData(
 
 internal sealed partial class NotesNativeApi
 {
+    internal string GetViewUniversalId(nint database, string viewName)
+    {
+        EnsureInitialized();
+        using var thread = EnterThread();
+        using var name = ToLmbcs(viewName);
+        CheckStatus(Resolve<Delta_NIFFindDesignNote>("NIFFindDesignNote")(database, name.Pointer, 0x0008, out var id), "NIFFindDesignNote(view link)");
+        var note = TryOpenNote(database, id);
+        if (note == 0) throw new NotesException("Unable to open the view design note.");
+        try { return GetUnid(note); }
+        finally { CloseNote(note); }
+    }
+
     internal string? GetDesignNoteText(nint database, uint noteId, string itemName)
     {
         EnsureInitialized();

@@ -15,6 +15,7 @@ public sealed class NotesView : NotesObject
 
     public NotesDatabase Parent { get { EnsureAlive(); return _parent; } }
     public string Name { get; }
+    public string UniversalID { get { EnsureOpen(); return Session.Api.GetViewUniversalId(Parent.Handle, Name); } }
     public string[] ColumnNames { get { EnsureOpen(); return Session.Api.GetViewColumns(Parent.Handle, Name).Select(column => column.ItemName).ToArray(); } }
     public IReadOnlyList<NotesViewColumn> Columns
     {

@@ -47,19 +47,20 @@ internal sealed partial class NotesNativeApi
         }
     }
 
-    internal void AppendRichTextDocLink(nint note, string name, nint targetDatabase, string targetUnid, string comment)
+    internal void AppendRichTextDocLink(nint note, string name, nint targetDatabase, string? targetUnid, string comment, string? viewUnid = null)
     {
         EnsureInitialized();
         using var thread = EnterThread();
         using var itemName = ToLmbcs(name);
         using var commentText = ToLmbcs(comment ?? string.Empty);
-        var target = ParseUnid(targetUnid);
+        var target = targetUnid is null ? default : ParseUnid(targetUnid);
+        var view = viewUnid is null ? default : ParseUnid(viewUnid);
         var replica = GetDatabaseReplicaTimeDate(targetDatabase);
         CheckStatus(Resolve<RichText_CompoundTextCreate>("CompoundTextCreate")(unchecked((uint)note), itemName.Pointer, out var compound), "CompoundTextCreate(doclink)");
         var closed = false;
         try
         {
-            CheckStatus(Resolve<RichText_CompoundTextAddDocLink>("CompoundTextAddDocLink")(compound, replica, default, target, commentText.Pointer, 0), "CompoundTextAddDocLink");
+            CheckStatus(Resolve<RichText_CompoundTextAddDocLink>("CompoundTextAddDocLink")(compound, replica, view, target, commentText.Pointer, 0), "CompoundTextAddDocLink");
             CheckStatus(Resolve<RichText_CompoundTextClose>("CompoundTextClose")(compound, 0, 0, 0, 0), "CompoundTextClose(doclink)");
             closed = true;
         }

@@ -655,6 +655,41 @@ else
         try { _ = item.Text; throw new InvalidOperationException("Removed item remained usable."); }
         catch (ObjectDisposedException) { }
     });
+    if (!string.IsNullOrWhiteSpace(databasePath)) Check("rich text database view document links persistence", () =>
+    {
+        using var database = session.OpenDatabase(server, databasePath);
+        using var document = database.CreateDocument();
+        var views = database.Views;
+        try
+        {
+            var view = views.FirstOrDefault() ?? throw new InvalidOperationException("Link test requires a view.");
+            using var body = document.CreateRichTextItem("Body");
+            body.AppendDocLink(database, "database-target");
+            body.AppendDocLink(view, "view-target");
+            document.Save();
+            body.AppendDocLink(document, "document-target");
+            body.Compact();
+            document.Save();
+            using var reopened = database.GetDocumentByID(document.NoteId)!;
+            using var exporter = session.CreateDXLExporter();
+            exporter.OutputDOCTYPE = false;
+            exporter.RichTextOption = 0;
+            using var dxl = exporter.Export(reopened);
+            using var bytes = new MemoryStream(dxl.ToArray());
+            var xml = System.Xml.Linq.XDocument.Load(bytes);
+            var links = xml.Descendants().Where(e => e.Name.LocalName is "doclink" or "viewlink" or "databaselink").ToArray();
+            if (links.Length != 3) throw new InvalidOperationException("Expected three persisted links.");
+            if (links.Any(e => !string.Equals((string?)e.Attribute("database"), database.ReplicaID, StringComparison.OrdinalIgnoreCase))) throw new InvalidOperationException("Link database replica ID mismatch.");
+            if (!links.Any(e => e.Name.LocalName == "databaselink" && (string?)e.Attribute("description") == "database-target")) throw new InvalidOperationException("Database link missing.");
+            if (!links.Any(e => string.Equals((string?)e.Attribute("view"), view.UniversalID, StringComparison.OrdinalIgnoreCase))) throw new InvalidOperationException("View link UNID mismatch.");
+            if (!links.Any(e => string.Equals((string?)e.Attribute("document"), document.UniversalId, StringComparison.OrdinalIgnoreCase))) throw new InvalidOperationException("Document link UNID mismatch.");
+        }
+        finally
+        {
+            foreach (var view in views) view.Dispose();
+            if (!document.IsNewNote) document.Remove(true);
+        }
+    });
     if (!string.IsNullOrWhiteSpace(databasePath)) Check("view navigation", () =>
     {
         using var database = session.GetDatabase(server, databasePath, false) ?? throw new InvalidOperationException("Database not found.");

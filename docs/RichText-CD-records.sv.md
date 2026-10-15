@@ -117,6 +117,25 @@ body.AppendStyle(htmlStyle);
 body.AppendText("<strong>Detta visas som text</strong>");
 ```
 
+## Dokument-, vy- och databaslänkar
+
+`AppendDocLink` har overloads för `NotesDocument`, `NotesView` och
+`NotesDatabase`. Målet måste tillhöra samma `NotesSession`. Dokumentlänkar
+är inte längre begränsade till samma databasreplika.
+
+```csharp
+body.AppendDocLink(database, "Öppna databasen");
+body.AppendDocLink(view, "Öppna vyn");
+body.AppendDocLink(targetDocument, "Öppna dokumentet");
+body.Compact();
+document.Save();
+```
+
+Native-testet kontrollerar alla tre länktypernas DXL efter Compact,
+spara och återöppna, inklusive replica-ID och dokumentets/vyns UNID.
+Länkar mellan olika repliker stöds av API-anropet men har ännu inte
+verifierats i detta regressionstest.
+
 ## Compact
 
 `body.Compact()` bygger om itemets CD-ström via Notes native compound-text-
