@@ -39,6 +39,11 @@ public sealed class NotesSession : IDisposable
     public string IniDir { get; }
     public string DataDir { get; }
     public string UserName { get; }
+    /// <summary>
+    /// The effective identity for this standalone native session. A fristående C API-session har ingen agent- eller
+    /// signerad körkontext, så den effektiva identiteten är den identitet som laddades från ID-filen.
+    /// </summary>
+    public string EffectiveUserName => UserName;
     public string CommonUserName { get; }
     public string NotesVersion { get; }
     public long NotesBuildVersion { get; }
@@ -53,11 +58,15 @@ public sealed class NotesSession : IDisposable
     public string GetEnvironmentString(string name, bool system = false) { EnsureAlive(); return _api.GetEnvironmentString(ResolveEnvironmentVariableName(name, system)); }
     public int? GetEnvironmentValue(string name, bool system = false) { EnsureAlive(); var text = _api.GetEnvironmentString(ResolveEnvironmentVariableName(name, system)); if (text.Length == 0) return null; return int.TryParse(text, System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out var value) ? value : null; }
     public void SetEnvironmentVar(string name, object? value, bool system = false) { EnsureAlive(); var resolved = ResolveEnvironmentVariableName(name, system); _api.SetEnvironmentVariable(resolved, ResolveEnvironmentVariableValue(value)); }
+    /// <summary>Sends a command to a Domino server console and returns its LMBCS response.</summary>
+    /// <param name="server">Server name, or empty string (also <c>local</c>) for the local server.</param>
+    /// <param name="command">The Domino console command.</param>
+    public string SendConsoleCommand(string server, string command) { EnsureAlive(); return _api.SendConsoleCommand(NormalizeServerName(server), command); }
 
     public NotesDatabase? GetDatabase(string server, string filePath, bool createOnFail = true) { EnsureAlive(); var database = OpenDatabase(server, filePath); if (database.IsOpen || createOnFail) return database; database.Recycle(); return null; }
-    public NotesDatabase OpenDatabase(string server, string filePath) { EnsureAlive(); ArgumentException.ThrowIfNullOrWhiteSpace(filePath); server = server?.Trim() ?? string.Empty; filePath = filePath.Trim(); try { return new NotesDatabase(this, _api.OpenDatabase(server, filePath), server, filePath); } catch (NotesException ex) { return new NotesDatabase(this, 0, server, filePath, openError: ex.Message); } }
-    public NotesDatabase OpenByReplicaID(string server, string replicaId) { EnsureAlive(); ArgumentException.ThrowIfNullOrWhiteSpace(replicaId); server = server?.Trim() ?? string.Empty; replicaId = replicaId.Trim(); try { var filePath = _api.LocateDatabaseByReplicaId(server, replicaId); if (filePath.Length == 0) return new NotesDatabase(this, 0, server, filePath, replicaId); return new NotesDatabase(this, _api.OpenDatabase(server, filePath), server, filePath, replicaId); } catch (NotesException ex) { return new NotesDatabase(this, 0, server, string.Empty, replicaId, ex.Message); } }
-    public NotesDBDirectory GetDbDirectory(string? server = null) { EnsureAlive(); return new NotesDBDirectory(this, server?.Trim() ?? string.Empty); }
+    public NotesDatabase OpenDatabase(string server, string filePath) { EnsureAlive(); ArgumentException.ThrowIfNullOrWhiteSpace(filePath); server = NotesSession.NormalizeServerName(server); filePath = filePath.Trim(); if (server.Length > 0 && Path.IsPathRooted(filePath)) throw new ArgumentException("An absolute database path is valid only when server is empty.", nameof(filePath)); try { return new NotesDatabase(this, _api.OpenDatabase(server, filePath), server, filePath); } catch (NotesException ex) { return new NotesDatabase(this, 0, server, filePath, openError: ex.Message); } }
+    public NotesDatabase OpenByReplicaID(string server, string replicaId) { EnsureAlive(); ArgumentException.ThrowIfNullOrWhiteSpace(replicaId); server = NotesSession.NormalizeServerName(server); replicaId = replicaId.Trim(); try { var filePath = _api.LocateDatabaseByReplicaId(server, replicaId); if (filePath.Length == 0) return new NotesDatabase(this, 0, server, filePath, replicaId); return new NotesDatabase(this, _api.OpenDatabase(server, filePath), server, filePath, replicaId); } catch (NotesException ex) { return new NotesDatabase(this, 0, server, string.Empty, replicaId, ex.Message); } }
+    public NotesDBDirectory GetDbDirectory(string? server = null) { EnsureAlive(); return new NotesDBDirectory(this, NotesSession.NormalizeServerName(server)); }
     public NotesName CreateName(string value) { EnsureAlive(); ArgumentException.ThrowIfNullOrWhiteSpace(value); return new NotesName(this, value.Trim()); }
     public NotesDateTime CreateDateTime(string? value) { EnsureAlive(); return string.IsNullOrWhiteSpace(value) ? CreateDateTimeNow() : new NotesDateTime(this, value.Trim()); }
     public NotesDateTime CreateDateTimeNow() { EnsureAlive(); return NotesDateTime.FromNative(this, _api.CurrentTimeDate()); }
@@ -73,6 +82,12 @@ public sealed class NotesSession : IDisposable
     internal void Register(NotesObject value) { EnsureAlive(); lock (_childrenGate) _children.Add(value); }
     internal void Unregister(NotesObject value) { lock (_childrenGate) _children.Remove(value); }
     internal void EnsureAlive() { if (_recycled) throw new ObjectDisposedException(nameof(NotesSession), "NotesSession has been recycled."); }
+
+    internal static string NormalizeServerName(string? server)
+    {
+        var name = server?.Trim() ?? string.Empty;
+        return name.Equals("local", StringComparison.OrdinalIgnoreCase) ? string.Empty : name;
+    }
 
     private static string ResolveEnvironmentVariableName(string name, bool system) { if (string.IsNullOrWhiteSpace(name)) throw new NotesException(5, "NotesSession environment variable name cannot be empty."); name = name.Trim(); if (system || name.StartsWith('$')) return name; return "$" + name; }
     private static string ResolveEnvironmentVariableValue(object? value) => value switch

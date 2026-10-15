@@ -37,10 +37,10 @@ public sealed class NotesMIMEEntity : NotesObject
     public bool IsDiscretePart { get { EnsureEntityAlive(); return Session.Api.IsMimeEntityDiscrete(_nativeEntity); } }
     public bool IsMessagePart { get { EnsureEntityAlive(); return Session.Api.IsMimeEntityMessage(_nativeEntity); } }
 
-    public NotesMIMEEntity? GetFirstChildEntity() => Wrap(_owner.FirstSubpart(CheckedEntity()));
-    public NotesMIMEEntity? GetParentEntity() => Wrap(_owner.Parent(CheckedEntity()));
-    public NotesMIMEEntity? GetNextSibling() => Wrap(_owner.NextSibling(CheckedEntity()));
-    public NotesMIMEEntity? GetPrevSibling() => Wrap(_owner.PrevSibling(CheckedEntity()));
+    public NotesMIMEEntity? GetFirstChildEntity() { var entity = CheckedEntity(); return Wrap(_owner.FirstSubpart(entity)); }
+    public NotesMIMEEntity? GetParentEntity() { var entity = CheckedEntity(); return Wrap(_owner.Parent(entity)); }
+    public NotesMIMEEntity? GetNextSibling() { var entity = CheckedEntity(); return Wrap(_owner.NextSibling(entity)); }
+    public NotesMIMEEntity? GetPrevSibling() { var entity = CheckedEntity(); return Wrap(_owner.PrevSibling(entity)); }
     public IReadOnlyList<NotesMIMEEntity> GetChildren()
     {
         EnsureEntityAlive();
@@ -53,15 +53,146 @@ public sealed class NotesMIMEEntity : NotesObject
         }
         return result;
     }
-    public NotesMIMEEntity? GetNextEntity() { EnsureEntityAlive(); return Wrap(_owner.IterateNext(_owner.RootEntity, _nativeEntity)); }
+    /// <summary>Creates a direct text child on the root multipart entity.</summary>
+    public NotesMIMEEntity CreateChildEntity()
+    {
+        EnsureEntityAlive();
+        if (_nativeEntity != _owner.RootEntity) return CreateNestedChildEntity();
+        EnsureRootEntity(nameof(CreateChildEntity));
+        var raw = ReadRootEntity(nameof(CreateChildEntity));
+        var boundary = _owner.TypeParam(_owner.RootEntity, NotesConst.MIME_SYMBOL_BOUNDARY).Trim();
+        if (boundary.Length == 0)
+        {
+            boundary = "----=_DotNetToDomino_" + Guid.NewGuid().ToString("N");
+            var headerEnd = FindHeaderEnd(raw);
+            var headers = System.Text.Encoding.ASCII.GetString(raw, 0, headerEnd);
+            headers = System.Text.RegularExpressions.Regex.Replace(headers, "(?im)^Content-Type:.*$", "Content-Type: multipart/mixed; boundary=\"" + boundary + "\"");
+            raw = System.Text.Encoding.ASCII.GetBytes(headers + "\r\n" + "\r\n" + "--" + boundary + "--\r\n");
+        }
+        var headerEndOffset = FindHeaderEnd(raw);
+        var prefix = raw[..headerEndOffset];
+        var existingBody = raw[headerEndOffset..];
+        var marker = System.Text.Encoding.ASCII.GetBytes("--" + boundary + "--");
+        var close = FindBytes(existingBody, marker, 0);
+        if (close < 0) throw new NotesException(5, "MIME multipart boundary is missing.");
+        var inserted = System.Text.Encoding.ASCII.GetBytes("--" + boundary + "\r\nContent-Type: text/plain; charset=UTF-8\r\nContent-Transfer-Encoding: 8bit\r\n\r\n\r\n");
+        var output = new byte[prefix.Length + close + inserted.Length + existingBody.Length - close];
+        Buffer.BlockCopy(prefix, 0, output, 0, prefix.Length);
+        Buffer.BlockCopy(existingBody, 0, output, prefix.Length, close);
+        Buffer.BlockCopy(inserted, 0, output, prefix.Length + close, inserted.Length);
+        Buffer.BlockCopy(existingBody, close, output, prefix.Length + close + inserted.Length, existingBody.Length - close);
+        Session.Api.WriteMimeStream(_document.ParentDatabase.Handle, _document.Handle, _itemName, output);
+        _document.InvalidateMimeDirectory();
+        var reopened = _document.GetMIMEEntity(_itemName) ?? throw new NotesException(5, "MIME entity could not be reopened.");
+        return reopened.GetChildren().LastOrDefault() ?? throw new NotesException(5, "MIME child could not be reopened.");
+    }
+
+    /// <summary>Removes a direct or nested child belonging to this MIME entity.</summary>
+    public void RemoveChildEntity(NotesMIMEEntity child)
+    {
+        ArgumentNullException.ThrowIfNull(child);
+        EnsureEntityAlive();
+        child.EnsureEntityAlive();
+        if (!ReferenceEquals(child._document, _document) || !ReferenceEquals(child._owner, _owner))
+            throw new NotesException(5, "MIME child belongs to another MIME directory.");
+        var parent = child.GetParentEntity();
+        if (parent is null || !ReferenceEquals(parent._document, _document))
+            throw new NotesException(5, "MIME child does not belong to this entity.");
+        if (_nativeEntity != _owner.RootEntity && child.GetEntityPath().Length != GetEntityPath().Length + 1)
+            throw new NotesException(5, "MIME child must be a direct child of this entity.");
+        child.Remove();
+    }
+
+    /// <summary>Moves an existing direct child to the end of this multipart entity.</summary>
+    public void AppendChildEntity(NotesMIMEEntity child)
+    {
+        ArgumentNullException.ThrowIfNull(child);
+        EnsureEntityAlive();
+        child.EnsureEntityAlive();
+        if (!ReferenceEquals(child._document, _document) || !ReferenceEquals(child._owner, _owner))
+            throw new NotesException(5, "MIME child belongs to another MIME directory.");
+        var parentPath = GetEntityPath();
+        var childPath = child.GetEntityPath();
+        if (childPath.Length != parentPath.Length + 1 || !childPath[..^1].SequenceEqual(parentPath))
+            throw new NotesException(5, "AppendChildEntity child must be a direct child of this entity.");
+        var raw = Session.Api.ReadMimeStream(_document.Handle, _itemName);
+        var parent = GetSerializedEntity(raw, parentPath, nameof(AppendChildEntity));
+        var offset = FindRootBodyOffset(parent);
+        var headers = ParseHeaderValues(parent, offset);
+        var contentType = headers.FirstOrDefault(h => h.Name.Equals("Content-Type", StringComparison.OrdinalIgnoreCase)).Value ?? string.Empty;
+        var boundary = contentType.Split(';').Skip(1).Select(p => p.Trim()).FirstOrDefault(p => p.StartsWith("boundary=", StringComparison.OrdinalIgnoreCase))?.Split('=', 2).ElementAtOrDefault(1)?.Trim().Trim('"') ?? string.Empty;
+        if (boundary.Length == 0) throw new NotesException(5, "MIME entity is not multipart.");
+        var children = SplitDirectChildren(parent, boundary);
+        var moved = children[childPath[^1]];
+        children.RemoveAt(childPath[^1]);
+        children.Add(moved);
+        var rebuilt = System.Text.Encoding.Latin1.GetBytes(string.Join("\r\n", headers.Select(h => h.Name + ": " + h.Value)) + "\r\n\r\n").Concat(BuildMultipartBody(children, boundary)).ToArray();
+        Session.Api.WriteMimeStream(_document.ParentDatabase.Handle, _document.Handle, _itemName, ReplaceSerializedEntity(raw, parentPath, rebuilt));
+        _document.InvalidateMimeDirectory();
+    }
+
+    private NotesMIMEEntity CreateNestedChildEntity()
+    {
+        var raw = Session.Api.ReadMimeStream(_document.Handle, _itemName);
+        var path = GetEntityPath();
+        var target = GetSerializedEntity(raw, path, nameof(CreateChildEntity));
+        var bodyOffset = FindRootBodyOffset(target);
+        var headers = ParseHeaderValues(target, bodyOffset);
+        var contentType = headers.FirstOrDefault(h => h.Name.Equals("Content-Type", StringComparison.OrdinalIgnoreCase)).Value ?? string.Empty;
+        var boundary = contentType.Split(';').Skip(1).Select(p => p.Trim()).FirstOrDefault(p => p.StartsWith("boundary=", StringComparison.OrdinalIgnoreCase))?.Split('=', 2).ElementAtOrDefault(1)?.Trim().Trim('"') ?? string.Empty;
+        if (boundary.Length == 0) throw new NotesException(5, "CreateChildEntity requires a multipart target entity.");
+        var children = SplitDirectChildren(target, boundary);
+        children.Add(System.Text.Encoding.ASCII.GetBytes("Content-Type: text/plain; charset=UTF-8\r\nContent-Transfer-Encoding: 8bit\r\n\r\n"));
+        var replacement = headers.Count == 0 ? BuildMultipartBody(children, boundary) : System.Text.Encoding.Latin1.GetBytes(string.Join("\r\n", headers.Select(h => h.Name + ": " + h.Value)) + "\r\n\r\n").Concat(BuildMultipartBody(children, boundary)).ToArray();
+        var updated = ReplaceSerializedEntity(raw, path, replacement);
+        Session.Api.WriteMimeStream(_document.ParentDatabase.Handle, _document.Handle, _itemName, updated);
+        _document.InvalidateMimeDirectory();
+        return _document.GetMIMEEntity(_itemName) ?? throw new NotesException(5, "MIME entity could not be reopened.");
+    }
+
+    private static byte[] ReplaceSerializedEntity(byte[] raw, int[] path, byte[] replacement)
+    {
+        if (path.Length == 0) return replacement;
+        var bodyOffset = FindRootBodyOffset(raw);
+        var headers = raw[..bodyOffset];
+        var contentType = ParseHeaderValues(raw, bodyOffset).FirstOrDefault(h => h.Name.Equals("Content-Type", StringComparison.OrdinalIgnoreCase)).Value ?? string.Empty;
+        var boundary = contentType.Split(';').Skip(1).Select(p => p.Trim()).FirstOrDefault(p => p.StartsWith("boundary=", StringComparison.OrdinalIgnoreCase))?.Split('=', 2).ElementAtOrDefault(1)?.Trim().Trim('"') ?? string.Empty;
+        if (boundary.Length == 0) throw new NotesException(5, "MIME parent is not multipart.");
+        var children = SplitDirectChildren(raw, boundary);
+        var index = path[0];
+        if (index < 0 || index >= children.Count) throw new NotesException(5, "MIME entity path is no longer valid.");
+        children[index] = ReplaceSerializedEntity(children[index], path[1..], replacement);
+        return headers.Concat(BuildMultipartBody(children, boundary)).ToArray();
+    }
+
+    private NotesMIMEEntity ReopenPath(int[] path)
+    {
+        var root = _document.GetMIMEEntity(_itemName) ?? throw new NotesException(5, "MIME entity could not be reopened.");
+        NotesMIMEEntity current = root;
+        foreach (var index in path)
+            current = current.GetChildren().ElementAtOrDefault(index) ?? throw new NotesException(5, "MIME entity path could not be reopened.");
+        return current;
+    }
+    public NotesMIMEEntity? GetNextEntity() { EnsureEntityAlive(); var root = _owner.RootEntity; return Wrap(_owner.IterateNext(root, _nativeEntity)); }
     public NotesMIMEEntity? GetNextEntity(int search)
     {
         if (search != NotesConst.SEARCH_DEPTH) throw new NotSupportedException("NotesMIMEEntity.GetNextEntity currently supports SEARCH_DEPTH only; Domino MIMEIterateNext is depth-first.");
         return GetNextEntity();
     }
 
-    public string ContentAsText { get { EnsureEntityAlive(); return ReadRootText(nameof(ContentAsText)); } }
-    public string Headers { get { EnsureEntityAlive(); return ReadRootHeaders(null); } }
+    public string ContentAsText { get { EnsureEntityAlive(); return ReadEntityText(nameof(ContentAsText)); } }
+    public string Headers
+    {
+        get
+        {
+            EnsureEntityAlive();
+            if (_nativeEntity == _owner.RootEntity) return ReadRootHeaders(null);
+            var raw = Session.Api.ReadMimeStream(_document.Handle, _itemName);
+            var entity = GetSerializedEntity(raw, GetEntityPath(), nameof(Headers));
+            var offset = FindRootBodyOffset(entity);
+            return System.Text.Encoding.Latin1.GetString(entity, 0, Math.Min(offset, entity.Length)).TrimEnd('\r', '\n');
+        }
+    }
     public string Preamble
     {
         get => ReadPreamble();
@@ -83,6 +214,19 @@ public sealed class NotesMIMEEntity : NotesObject
     }
     public NotesMIMEHeader? GetNthHeader(string name, int occurrence = 1)
     {
+        if (_nativeEntity != _owner.RootEntity)
+        {
+            ArgumentException.ThrowIfNullOrWhiteSpace(name);
+            RequireRange(occurrence, 1, int.MaxValue, nameof(occurrence));
+            var raw = Session.Api.ReadMimeStream(_document.Handle, _itemName);
+            var boundary = _owner.TypeParam(_owner.RootEntity, NotesConst.MIME_SYMBOL_BOUNDARY).Trim();
+            var child = SplitDirectChildren(raw, boundary)[GetDirectChildIndex(nameof(GetNthHeader))];
+            var childFound = 0;
+            foreach (var header in ParseHeaderValues(child, FindRootBodyOffset(child)))
+                if (header.Name.Equals(name.Trim(), StringComparison.OrdinalIgnoreCase) && ++childFound == occurrence)
+                    return new NotesMIMEHeader(Session, this, name.Trim(), occurrence);
+            return null;
+        }
         EnsureRootEntity(nameof(GetNthHeader));
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
         RequireRange(occurrence, 1, int.MaxValue, nameof(occurrence));
@@ -97,6 +241,24 @@ public sealed class NotesMIMEEntity : NotesObject
     }
     public IReadOnlyList<NotesMIMEHeader> GetHeaders(string? name = null)
     {
+        if (_nativeEntity != _owner.RootEntity)
+        {
+            if (name is not null && string.IsNullOrWhiteSpace(name)) throw new ArgumentException("'name' cannot be empty or whitespace when supplied.", nameof(name));
+            var raw = Session.Api.ReadMimeStream(_document.Handle, _itemName);
+            var child = GetSerializedEntity(raw, GetEntityPath(), nameof(GetHeaders));
+            var childWanted = name?.Trim();
+            var childOccurrences = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+            var childResult = new List<NotesMIMEHeader>();
+            foreach (var header in ParseHeaderValues(child, FindRootBodyOffset(child)))
+            {
+                if (childWanted is not null && !header.Name.Equals(childWanted, StringComparison.OrdinalIgnoreCase)) continue;
+                childOccurrences.TryGetValue(header.Name, out var occurrence);
+                occurrence++;
+                childOccurrences[header.Name] = occurrence;
+                childResult.Add(new NotesMIMEHeader(Session, this, header.Name, occurrence));
+            }
+            return childResult;
+        }
         EnsureRootEntity(nameof(GetHeaders));
         if (name is not null && string.IsNullOrWhiteSpace(name))
             throw new ArgumentException("'name' cannot be empty or whitespace when supplied.", nameof(name));
@@ -115,6 +277,24 @@ public sealed class NotesMIMEEntity : NotesObject
     }
     public NotesMIMEHeader CreateHeader(string name)
     {
+        if (_nativeEntity != _owner.RootEntity)
+        {
+            ValidateHeaderName(name);
+            var raw = Session.Api.ReadMimeStream(_document.Handle, _itemName);
+            var path = GetEntityPath();
+            var entity = GetSerializedEntity(raw, path, nameof(CreateHeader));
+            var bodyOffset = FindRootBodyOffset(entity);
+            var childHeaders = ParseHeaderValues(entity, bodyOffset);
+            var childName = name.Trim();
+            childHeaders.Add((childName, string.Empty));
+            var body = bodyOffset >= entity.Length ? [] : entity[bodyOffset..];
+            var headerText = string.Join("\r\n", childHeaders.Select(h => h.Name + ": " + h.Value)) + "\r\n\r\n";
+            var replacement = System.Text.Encoding.Latin1.GetBytes(headerText).Concat(body).ToArray();
+            Session.Api.WriteMimeStream(_document.ParentDatabase.Handle, _document.Handle, _itemName, ReplaceSerializedEntity(raw, path, replacement));
+            _document.InvalidateMimeDirectory();
+            var childOccurrence = childHeaders.Count(h => h.Name.Equals(childName, StringComparison.OrdinalIgnoreCase));
+            return new NotesMIMEHeader(Session, ReopenPath(path), childName, childOccurrence);
+        }
         EnsureRootEntity(nameof(CreateHeader));
         ValidateHeaderName(name);
         var headers = ReadRootHeaderValues();
@@ -124,9 +304,25 @@ public sealed class NotesMIMEEntity : NotesObject
         var occurrence = headers.Count(header => header.Name.Equals(normalizedName, StringComparison.OrdinalIgnoreCase));
         return new NotesMIMEHeader(Session, this, normalizedName, occurrence);
     }
-    public string GetSomeHeaders(string headerNames) { EnsureEntityAlive(); return ReadRootHeaders(headerNames); }
+    public string GetSomeHeaders(string headerNames)
+    {
+        EnsureEntityAlive();
+        if (_nativeEntity == _owner.RootEntity) return ReadRootHeaders(headerNames);
+        ArgumentException.ThrowIfNullOrWhiteSpace(headerNames);
+        var wanted = headerNames.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        return string.Join("\r\n", wanted.SelectMany(name => GetHeaders(name)).Select(header => header.GetHeaderVal()));
+    }
     public void RemoveHeaders(string name)
     {
+        EnsureEntityAlive();
+        if (_nativeEntity != _owner.RootEntity)
+        {
+            ValidateHeaderName(name);
+            var childHeaders = GetHeaders(name).ToArray();
+            for (var index = childHeaders.Length - 1; index >= 0; index--)
+                SetHeader(childHeaders[index].HeaderName, index + 1, string.Empty, true);
+            return;
+        }
         EnsureRootEntity(nameof(RemoveHeaders));
         ValidateHeaderName(name);
         var wanted = name.Trim();
@@ -134,9 +330,15 @@ public sealed class NotesMIMEEntity : NotesObject
         headers.RemoveAll(header => header.Name.Equals(wanted, StringComparison.OrdinalIgnoreCase));
         RewriteRootHeaders(headers);
     }
-    public void GetContentAsBytes(NotesStream stream) { EnsureEntityAlive(); ArgumentNullException.ThrowIfNull(stream); stream.Write(ReadRootContent(nameof(GetContentAsBytes))); }
-    public void GetContentAsText(NotesStream stream, bool entityCharset = false) { EnsureEntityAlive(); ArgumentNullException.ThrowIfNull(stream); stream.WriteText(ReadRootText(nameof(GetContentAsText))); }
-    public void GetEntityAsText(NotesStream stream) { EnsureEntityAlive(); ArgumentNullException.ThrowIfNull(stream); stream.Write(ReadRootEntity(nameof(GetEntityAsText))); }
+    public void GetContentAsBytes(NotesStream stream) { EnsureEntityAlive(); ArgumentNullException.ThrowIfNull(stream); stream.Write(ReadEntityContent(nameof(GetContentAsBytes))); }
+    public void GetContentAsText(NotesStream stream, bool entityCharset = false) { EnsureEntityAlive(); ArgumentNullException.ThrowIfNull(stream); stream.WriteText(ReadEntityText(nameof(GetContentAsText))); }
+    public void GetEntityAsText(NotesStream stream)
+    {
+        EnsureEntityAlive();
+        ArgumentNullException.ThrowIfNull(stream);
+        var raw = Session.Api.ReadMimeStream(_document.Handle, _itemName);
+        stream.Write(_nativeEntity == _owner.RootEntity ? raw : GetSerializedEntity(raw, GetEntityPath(), nameof(GetEntityAsText)));
+    }
     public void SetContentFromText(NotesStream stream, string contentType, int encoding)
     {
         ArgumentNullException.ThrowIfNull(stream);
@@ -152,6 +354,13 @@ public sealed class NotesMIMEEntity : NotesObject
     }
     public void EncodeContent(int encoding)
     {
+        EnsureEntityAlive();
+        if (_nativeEntity != _owner.RootEntity)
+        {
+            var nestedType = ContentType + (string.IsNullOrWhiteSpace(ContentSubType) ? string.Empty : "/" + ContentSubType);
+            SetContent(ReadEntityContent(nameof(EncodeContent)), nestedType, encoding, nameof(EncodeContent));
+            return;
+        }
         EnsureRootEntity(nameof(EncodeContent));
         var headers = ReadRootHeaderValues();
         var contentType = headers.FirstOrDefault(h => h.Name.Equals("Content-Type", StringComparison.OrdinalIgnoreCase)).Value;
@@ -160,6 +369,13 @@ public sealed class NotesMIMEEntity : NotesObject
     }
     public void DecodeContent()
     {
+        EnsureEntityAlive();
+        if (_nativeEntity != _owner.RootEntity)
+        {
+            var nestedType = ContentType + (string.IsNullOrWhiteSpace(ContentSubType) ? string.Empty : "/" + ContentSubType);
+            SetContent(ReadEntityContent(nameof(DecodeContent)), nestedType, 1725, nameof(DecodeContent));
+            return;
+        }
         EnsureRootEntity(nameof(DecodeContent));
         var headers = ReadRootHeaderValues();
         var contentType = headers.FirstOrDefault(h => h.Name.Equals("Content-Type", StringComparison.OrdinalIgnoreCase)).Value;
@@ -169,9 +385,14 @@ public sealed class NotesMIMEEntity : NotesObject
 
     private void SetContent(byte[] content, string contentType, int encoding, string member)
     {
-        EnsureRootEntity(member);
         var normalizedType = RequireText(contentType, nameof(contentType));
         var encoded = EncodeContentBytes(content, encoding);
+        if (_nativeEntity != _owner.RootEntity)
+        {
+            WriteChildContent(encoded, normalizedType, encoding, member);
+            return;
+        }
+        EnsureRootEntity(member);
         var headers = ReadRootHeaderValues();
         headers.RemoveAll(h => h.Name.Equals("Content-Type", StringComparison.OrdinalIgnoreCase) || h.Name.Equals("Content-Transfer-Encoding", StringComparison.OrdinalIgnoreCase));
         headers.Add(("Content-Type", normalizedType));
@@ -185,8 +406,91 @@ public sealed class NotesMIMEEntity : NotesObject
         _document.InvalidateMimeDirectory();
     }
 
+    private void WriteChildContent(byte[] encoded, string contentType, int encoding, string member)
+    {
+        var raw = Session.Api.ReadMimeStream(_document.Handle, _itemName);
+        var path = GetEntityPath();
+        if (path.Length > 1)
+        {
+            var entity = GetSerializedEntity(raw, path, member);
+            var entityOffset = FindRootBodyOffset(entity);
+            var entityHeaders = ParseHeaderValues(entity, entityOffset);
+            entityHeaders.RemoveAll(h => h.Name.Equals("Content-Type", StringComparison.OrdinalIgnoreCase) || h.Name.Equals("Content-Transfer-Encoding", StringComparison.OrdinalIgnoreCase));
+            entityHeaders.Add(("Content-Type", contentType));
+            entityHeaders.Add(("Content-Transfer-Encoding", EncodingName(encoding)));
+            var text = string.Join("\r\n", entityHeaders.Select(h => h.Name + ": " + h.Value)) + "\r\n\r\n";
+            var head = System.Text.Encoding.Latin1.GetBytes(text);
+            var nestedReplacement = head.Concat(encoded).ToArray();
+            Session.Api.WriteMimeStream(_document.ParentDatabase.Handle, _document.Handle, _itemName, ReplaceSerializedEntity(raw, path, nestedReplacement));
+            _document.InvalidateMimeDirectory();
+            return;
+        }
+        var boundary = _owner.TypeParam(_owner.RootEntity, NotesConst.MIME_SYMBOL_BOUNDARY).Trim();
+        if (boundary.Length == 0) throw new NotesException(5, "MIME child content requires a multipart root.");
+        var children = SplitDirectChildren(raw, boundary);
+        var index = GetDirectChildIndex(member);
+        if (index < 0 || index >= children.Count) throw new NotesException(5, "MIME child is no longer present.");
+        var child = children[index];
+        var bodyOffset = FindRootBodyOffset(child);
+        var headers = ParseHeaderValues(child, bodyOffset);
+        headers.RemoveAll(h => h.Name.Equals("Content-Type", StringComparison.OrdinalIgnoreCase) || h.Name.Equals("Content-Transfer-Encoding", StringComparison.OrdinalIgnoreCase));
+        headers.Add(("Content-Type", contentType));
+        headers.Add(("Content-Transfer-Encoding", EncodingName(encoding)));
+        var headerText = string.Join("\r\n", headers.Select(h => h.Name + ": " + h.Value)) + "\r\n\r\n";
+        var headerBytes = System.Text.Encoding.Latin1.GetBytes(headerText);
+        var replacement = new byte[headerBytes.Length + encoded.Length];
+        Buffer.BlockCopy(headerBytes, 0, replacement, 0, headerBytes.Length);
+        Buffer.BlockCopy(encoded, 0, replacement, headerBytes.Length, encoded.Length);
+        children[index] = replacement;
+        var rootBodyOffset = FindRootBodyOffset(raw);
+        var prefix = raw[..rootBodyOffset];
+        var rebuilt = prefix.Concat(BuildMultipartBody(children, boundary)).ToArray();
+        Session.Api.WriteMimeStream(_document.ParentDatabase.Handle, _document.Handle, _itemName, rebuilt);
+        _document.InvalidateMimeDirectory();
+    }
+
+    private static List<(string Name, string Value)> ParseHeaderValues(byte[] raw, int bodyOffset)
+    {
+        var text = System.Text.Encoding.Latin1.GetString(raw, 0, Math.Min(bodyOffset, raw.Length)).Replace("\r\n", "\n", StringComparison.Ordinal).Replace('\r', '\n');
+        var result = new List<(string Name, string Value)>();
+        foreach (var line in text.Split('\n'))
+        {
+            var colon = line.IndexOf(':');
+            if (colon > 0) result.Add((line[..colon].Trim(), line[(colon + 1)..].Trim()));
+        }
+        return result;
+    }
+
+    private static byte[] BuildMultipartBody(List<byte[]> children, string boundary)
+    {
+        using var output = new MemoryStream();
+        foreach (var child in children)
+        {
+            var marker = System.Text.Encoding.ASCII.GetBytes("--" + boundary + "\r\n");
+            output.Write(marker);
+            output.Write(child);
+            output.Write(System.Text.Encoding.ASCII.GetBytes("\r\n"));
+        }
+        output.Write(System.Text.Encoding.ASCII.GetBytes("--" + boundary + "--\r\n"));
+        return output.ToArray();
+    }
+
     private string ReadPreamble()
     {
+        if (_nativeEntity != _owner.RootEntity)
+        {
+            EnsureEntityAlive();
+            var rawEntity = Session.Api.ReadMimeStream(_document.Handle, _itemName);
+            var entity = GetSerializedEntity(rawEntity, GetEntityPath(), nameof(Preamble));
+            var nestedBodyOffset = FindRootBodyOffset(entity);
+            var headers = ParseHeaderValues(entity, nestedBodyOffset);
+            var contentType = headers.FirstOrDefault(h => h.Name.Equals("Content-Type", StringComparison.OrdinalIgnoreCase)).Value ?? string.Empty;
+            var nestedBoundary = contentType.Split(';').Skip(1).Select(p => p.Trim()).FirstOrDefault(p => p.StartsWith("boundary=", StringComparison.OrdinalIgnoreCase))?.Split('=', 2).ElementAtOrDefault(1)?.Trim().Trim('"') ?? string.Empty;
+            if (nestedBoundary.Length == 0) throw new NotesException(5, "MIME multipart boundary is missing.");
+            var nestedMarker = FindBytes(entity, System.Text.Encoding.ASCII.GetBytes("--" + nestedBoundary), nestedBodyOffset);
+            if (nestedMarker < 0) throw new NotesException(5, "MIME multipart boundary is missing.");
+            return System.Text.Encoding.UTF8.GetString(entity, nestedBodyOffset, nestedMarker - nestedBodyOffset).TrimEnd('\r', '\n');
+        }
         EnsureRootEntity(nameof(Preamble));
         var raw = ReadRootEntity(nameof(Preamble));
         var boundary = RequireMultipartBoundary(raw);
@@ -198,6 +502,25 @@ public sealed class NotesMIMEEntity : NotesObject
 
     private void WritePreamble(string? value)
     {
+        if (_nativeEntity != _owner.RootEntity)
+        {
+            EnsureEntityAlive();
+            var nestedRaw = Session.Api.ReadMimeStream(_document.Handle, _itemName);
+            var path = GetEntityPath();
+            var entity = GetSerializedEntity(nestedRaw, path, nameof(Preamble));
+            var nestedOffset = FindRootBodyOffset(entity);
+            var headers = ParseHeaderValues(entity, nestedOffset);
+            var contentType = headers.FirstOrDefault(h => h.Name.Equals("Content-Type", StringComparison.OrdinalIgnoreCase)).Value ?? string.Empty;
+            var nestedBoundary = contentType.Split(';').Skip(1).Select(p => p.Trim()).FirstOrDefault(p => p.StartsWith("boundary=", StringComparison.OrdinalIgnoreCase))?.Split('=', 2).ElementAtOrDefault(1)?.Trim().Trim('"') ?? string.Empty;
+            if (nestedBoundary.Length == 0) throw new NotesException(5, "MIME multipart boundary is missing.");
+            var nestedMarker = FindBytes(entity, System.Text.Encoding.ASCII.GetBytes("--" + nestedBoundary), nestedOffset);
+            if (nestedMarker < 0) throw new NotesException(5, "MIME multipart boundary is missing.");
+            var nestedPreamble = System.Text.Encoding.UTF8.GetBytes(value ?? string.Empty);
+            var replacement = entity[..nestedOffset].Concat(nestedPreamble).Concat(entity[nestedMarker..]).ToArray();
+            Session.Api.WriteMimeStream(_document.ParentDatabase.Handle, _document.Handle, _itemName, ReplaceSerializedEntity(nestedRaw, path, replacement));
+            _document.InvalidateMimeDirectory();
+            return;
+        }
         EnsureRootEntity(nameof(Preamble));
         var raw = ReadRootEntity(nameof(Preamble));
         var boundary = RequireMultipartBoundary(raw);
@@ -234,6 +557,14 @@ public sealed class NotesMIMEEntity : NotesObject
         return -1;
     }
 
+    private static int FindHeaderEnd(byte[] raw)
+    {
+        var crlf = FindBytes(raw, [13, 10, 13, 10], 0);
+        if (crlf >= 0) return crlf + 4;
+        var lf = FindBytes(raw, [10, 10], 0);
+        return lf >= 0 ? lf + 2 : raw.Length;
+    }
+
     private static string EncodingName(int encoding) => encoding switch
     {
         1724 => "7bit", 1725 => "8bit", 1726 => "quoted-printable", 1727 => "base64", 1728 => "binary",
@@ -260,7 +591,27 @@ public sealed class NotesMIMEEntity : NotesObject
     public void Remove()
     {
         EnsureEntityAlive();
-        if (_nativeEntity != _owner.RootEntity) throw new NotSupportedException("Removing child MIME entities requires verified native per-entity mutation support.");
+        if (_nativeEntity != _owner.RootEntity)
+        {
+            var raw = Session.Api.ReadMimeStream(_document.Handle, _itemName);
+            var path = GetEntityPath();
+            if (path.Length == 0) throw new NotesException(5, "MIME entity path is invalid.");
+            var parentPath = path[..^1];
+            var parent = GetSerializedEntity(raw, parentPath, nameof(Remove));
+            var parentOffset = FindRootBodyOffset(parent);
+            var parentHeaders = ParseHeaderValues(parent, parentOffset);
+            var contentType = parentHeaders.FirstOrDefault(h => h.Name.Equals("Content-Type", StringComparison.OrdinalIgnoreCase)).Value ?? string.Empty;
+            var boundary = contentType.Split(';').Skip(1).Select(p => p.Trim()).FirstOrDefault(p => p.StartsWith("boundary=", StringComparison.OrdinalIgnoreCase))?.Split('=', 2).ElementAtOrDefault(1)?.Trim().Trim('"') ?? string.Empty;
+            if (boundary.Length == 0) throw new NotesException(5, "MIME parent is not multipart.");
+            var children = SplitDirectChildren(parent, boundary);
+            if (path[^1] < 0 || path[^1] >= children.Count) throw new NotesException(5, "MIME child is no longer present.");
+            children.RemoveAt(path[^1]);
+            var replacement = System.Text.Encoding.Latin1.GetBytes(string.Join("\r\n", parentHeaders.Select(h => h.Name + ": " + h.Value)) + "\r\n\r\n").Concat(BuildMultipartBody(children, boundary)).ToArray();
+            Session.Api.WriteMimeStream(_document.ParentDatabase.Handle, _document.Handle, _itemName, ReplaceSerializedEntity(raw, parentPath, replacement));
+            _document.InvalidateMimeDirectory();
+            Recycle();
+            return;
+        }
         _document.InvalidateMimeDirectory();
         _document.RemoveItem(_itemName);
         Recycle();
@@ -281,7 +632,7 @@ public sealed class NotesMIMEEntity : NotesObject
 
     private byte[] ReadRootContent(string member)
     {
-        var raw = ReadRootEntity(member);
+        var raw = Session.Api.ReadMimeStream(_document.Handle, _itemName);
         var bodyOffset = FindRootBodyOffset(raw);
         var body = bodyOffset >= raw.Length ? [] : raw[bodyOffset..];
         var transferEncoding = GetRootHeader(raw, "Content-Transfer-Encoding").Trim();
@@ -295,13 +646,91 @@ public sealed class NotesMIMEEntity : NotesObject
         return body;
     }
 
-    private string ReadRootText(string member)
+    private string ReadEntityText(string member)
     {
-        var content = ReadRootContent(member);
+        var content = ReadEntityContent(member);
         var charset = Charset.Trim();
         if (charset.Length == 0) return System.Text.Encoding.UTF8.GetString(content);
         try { return System.Text.Encoding.GetEncoding(charset).GetString(content); }
         catch (ArgumentException ex) { throw new NotesException(5, "Unsupported MIME root charset '" + charset + "': " + ex.Message); }
+    }
+
+    private byte[] ReadEntityContent(string member)
+    {
+        if (_nativeEntity == _owner.RootEntity) return ReadRootContent(member);
+        var raw = Session.Api.ReadMimeStream(_document.Handle, _itemName);
+        var child = GetSerializedEntity(raw, GetEntityPath(), member);
+        var bodyOffset = FindRootBodyOffset(child);
+        var body = bodyOffset >= child.Length ? [] : child[bodyOffset..];
+        var transfer = GetRootHeader(child, "Content-Transfer-Encoding").Trim();
+        if (transfer.Equals("base64", StringComparison.OrdinalIgnoreCase)) return Convert.FromBase64String(System.Text.Encoding.ASCII.GetString(body));
+        if (transfer.Equals("quoted-printable", StringComparison.OrdinalIgnoreCase)) return DecodeQuotedPrintable(body);
+        return body;
+    }
+
+    private int GetDirectChildIndex(string member)
+    {
+        var index = 0;
+        for (var entity = _owner.FirstSubpart(_owner.RootEntity); entity != 0; entity = _owner.NextSibling(entity), index++)
+            if (entity == _nativeEntity) return index;
+        throw new NotesException(5, "MIME child is not a direct child of the root entity.");
+    }
+
+    private int[] GetEntityPath()
+    {
+        var path = new List<int>();
+        var current = _nativeEntity;
+        while (current != _owner.RootEntity)
+        {
+            var parent = _owner.Parent(current);
+            if (parent == 0) throw new NotesException(5, "MIME entity parent is unavailable.");
+            var index = 0;
+            for (var sibling = _owner.FirstSubpart(parent); sibling != 0; sibling = _owner.NextSibling(sibling), index++)
+                if (sibling == current) { path.Add(index); break; }
+            if (path.Count == 0) throw new NotesException(5, "MIME entity path is unavailable.");
+            current = parent;
+        }
+        path.Reverse();
+        return path.ToArray();
+    }
+
+    private static byte[] GetSerializedEntity(byte[] raw, int[] path, string member)
+    {
+        var current = raw;
+        foreach (var index in path)
+        {
+            var bodyOffset = FindRootBodyOffset(current);
+            var headers = ParseHeaderValues(current, bodyOffset);
+            var contentType = headers.FirstOrDefault(h => h.Name.Equals("Content-Type", StringComparison.OrdinalIgnoreCase)).Value;
+            var boundary = contentType?.Split(';').Skip(1).Select(p => p.Trim()).FirstOrDefault(p => p.StartsWith("boundary=", StringComparison.OrdinalIgnoreCase))?.Split('=', 2).ElementAtOrDefault(1)?.Trim().Trim('"') ?? string.Empty;
+            if (boundary.Length == 0) throw new NotesException(5, "MIME entity is not multipart.");
+            var children = SplitDirectChildren(current, boundary);
+            if (index < 0 || index >= children.Count) throw new NotesException(5, "MIME entity path is no longer valid.");
+            current = children[index];
+        }
+        return current;
+    }
+
+    private static List<byte[]> SplitDirectChildren(byte[] raw, string boundary)
+    {
+        var result = new List<byte[]>();
+        var bodyOffset = FindRootBodyOffset(raw);
+        var body = bodyOffset >= raw.Length ? [] : raw[bodyOffset..];
+        var marker = System.Text.Encoding.Latin1.GetBytes("--" + boundary);
+        var start = FindBytes(body, marker, 0);
+        while (start >= 0)
+        {
+            var contentStart = start + marker.Length;
+            if (contentStart + 2 <= body.Length && body[contentStart] == '-' && body[contentStart + 1] == '-') break;
+            while (contentStart < body.Length && (body[contentStart] == 13 || body[contentStart] == 10)) contentStart++;
+            var next = FindBytes(body, marker, contentStart);
+            if (next < 0) break;
+            var end = next;
+            while (end > contentStart && (body[end - 1] == 13 || body[end - 1] == 10)) end--;
+            result.Add(body[contentStart..end]);
+            start = next;
+        }
+        return result;
     }
 
     private string ReadRootHeaders(string? headerNames)
@@ -354,6 +783,17 @@ public sealed class NotesMIMEEntity : NotesObject
 
     internal string ReadHeader(string name, int occurrence)
     {
+        if (_nativeEntity != _owner.RootEntity)
+        {
+            var raw = Session.Api.ReadMimeStream(_document.Handle, _itemName);
+            var boundary = _owner.TypeParam(_owner.RootEntity, NotesConst.MIME_SYMBOL_BOUNDARY).Trim();
+            var children = SplitDirectChildren(raw, boundary);
+            var child = children[GetDirectChildIndex(nameof(ReadHeader))];
+            var headers = ParseHeaderValues(child, FindRootBodyOffset(child));
+            var value = headers.Where(h => h.Name.Equals(name, StringComparison.OrdinalIgnoreCase)).Skip(occurrence - 1).FirstOrDefault();
+            if (value.Name is null) throw new NotesException(5, "MIME header is no longer present on the entity.");
+            return value.Value;
+        }
         EnsureRootEntity(nameof(ReadHeader));
         var found = 0;
         foreach (var header in ReadRootHeaderValues())
@@ -366,6 +806,27 @@ public sealed class NotesMIMEEntity : NotesObject
 
     internal void SetHeader(string name, int occurrence, string value, bool remove)
     {
+        if (_nativeEntity != _owner.RootEntity)
+        {
+            var raw = Session.Api.ReadMimeStream(_document.Handle, _itemName);
+            var boundary = _owner.TypeParam(_owner.RootEntity, NotesConst.MIME_SYMBOL_BOUNDARY).Trim();
+            var children = SplitDirectChildren(raw, boundary);
+            var childIndex = GetDirectChildIndex(nameof(SetHeader));
+            var child = children[childIndex];
+            var childHeaders = ParseHeaderValues(child, FindRootBodyOffset(child));
+            var match = childHeaders.Select((h, i) => (h, i)).Where(x => x.h.Name.Equals(name, StringComparison.OrdinalIgnoreCase)).Skip(occurrence - 1).FirstOrDefault();
+            if (match.h.Name is null) throw new NotesException(5, "MIME header is no longer present on the entity.");
+            if (remove) childHeaders.RemoveAt(match.i); else childHeaders[match.i] = (childHeaders[match.i].Name, value);
+            var bodyOffset = FindRootBodyOffset(child);
+            var body = bodyOffset >= child.Length ? [] : child[bodyOffset..];
+            var text = childHeaders.Count == 0 ? string.Empty : string.Join("\r\n", childHeaders.Select(h => h.Name + ": " + h.Value)) + "\r\n\r\n";
+            var head = System.Text.Encoding.Latin1.GetBytes(text);
+            children[childIndex] = head.Concat(body).ToArray();
+            var rootOffset = FindRootBodyOffset(raw);
+            Session.Api.WriteMimeStream(_document.ParentDatabase.Handle, _document.Handle, _itemName, raw[..rootOffset].Concat(BuildMultipartBody(children, boundary)).ToArray());
+            _document.InvalidateMimeDirectory();
+            return;
+        }
         EnsureRootEntity(nameof(SetHeader));
         ValidateHeaderValue(value);
         var headers = ReadRootHeaderValues();

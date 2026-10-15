@@ -6,6 +6,6 @@ public static class NotesMimeExtensions
     public static NotesMIMEEntity? GetMIMEEntity(this NotesItem item)
     {
         ArgumentNullException.ThrowIfNull(item);
-        return item.Parent.GetMIMEEntity(item.Name);
+        return item.GetMIMEEntity();
     }
 }

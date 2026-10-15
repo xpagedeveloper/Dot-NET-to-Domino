@@ -10,7 +10,7 @@ internal static class NotesItemCryptoTests
     [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate ushort Verify(uint note, nint name, nint when, nint signer, nint certifier);
     [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate ushort Encrypt(uint note, ushort flags, out uint encrypted);
     [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate ushort Decrypt(uint note, nint id, uint flags, nint cipher, uint reserved, nint reservedPointer);
-    [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate int State(uint note, out ushort signed, out ushort sealedNote);
+    [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate int State(uint note, out byte signed, out byte sealedNote);
 
     internal static void Run(NotesSession session, string server, string? path, Action<string, Action> check)
     {
@@ -28,13 +28,18 @@ internal static class NotesItemCryptoTests
                     using var database = session.GetDatabase(server, path, false) ?? throw new InvalidOperationException("Database missing.");
                     using var doc = database.CreateDocument();
                     using var item = doc.ReplaceItemValue("Secret", "Åäö signed secret");
+                    if (doc.IsSigned || doc.Signer.Length != 0 || doc.Verifier.Length != 0)
+                        throw new InvalidOperationException("Unsigned document reported a signature.");
                     item.IsSigned = true;
                     item.IsEncrypted = encryption;
                     doc.Save();
                     var unid = doc.UniversalID;
                     try
                     {
-                        Status(Export<NoteCall>("NSFNoteSign")(Handle(doc)), "Sign");
+                        doc.Sign();
+                        if (!doc.IsSigned || !string.Equals(doc.Signer, session.UserName, StringComparison.OrdinalIgnoreCase))
+                            throw new InvalidOperationException("Public Sign/Signer failed.");
+                        var expectedVerifier = doc.Verifier;
                         Status(Export<Verify>("NSFNoteVerifySignature")(Handle(doc), 0, 0, 0, 0), "Verify signature");
                         if (encryption)
                         {
@@ -47,9 +52,12 @@ internal static class NotesItemCryptoTests
                         using var reopened = database.GetDocumentByUNID(unid) ?? throw new InvalidOperationException("Saved note missing.");
                         var handle = Handle(reopened);
                         _ = Export<State>("NSFNoteIsSignedOrSealed")(handle, out var signed, out var sealedNote);
-                        if (signed == 0 || (encryption && sealedNote == 0)) throw new InvalidOperationException($"Saved note lost its cryptographic state: signed={signed}, sealed={sealedNote}.");
+                        // The signature itself is sealed until decryption.
+                        if ((!encryption && signed == 0) || (encryption && sealedNote == 0)) throw new InvalidOperationException($"Saved note lost its cryptographic state: signed={signed}, sealed={sealedNote}.");
                         if (encryption) Status(Export<Decrypt>("NSFNoteCipherDecrypt")(handle, 0, 0, 0, 0, 0), "Decrypt");
                         Status(Export<Verify>("NSFNoteVerifySignature")(handle, 0, 0, 0, 0), "Verify saved signature");
+                        if (reopened.Signer != doc.Signer || reopened.Verifier != expectedVerifier)
+                            throw new InvalidOperationException("Public signer/verifier changed after persistence.");
                         using var saved = reopened.GetFirstItem("Secret") ?? throw new InvalidOperationException("Secret missing.");
                         if (saved.Text != "Åäö signed secret") throw new InvalidOperationException("Cryptographic round trip corrupted value.");
                         if (!encryption)
@@ -58,6 +66,8 @@ internal static class NotesItemCryptoTests
                             reopened.Save();
                             using var tampered = database.GetDocumentByUNID(unid) ?? throw new InvalidOperationException("Modified note missing.");
                             if (Export<Verify>("NSFNoteVerifySignature")(Handle(tampered), 0, 0, 0, 0) == 0) throw new InvalidOperationException("Modified signed data verified successfully.");
+                            if (tampered.Signer.Length != 0 || tampered.Verifier.Length != 0)
+                                throw new InvalidOperationException("Invalid signature returned trusted signer/verifier.");
                         }
                     }
                     finally

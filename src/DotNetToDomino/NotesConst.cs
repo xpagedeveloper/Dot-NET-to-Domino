@@ -3,6 +3,7 @@ namespace DotNetToDomino;
 /// <summary>Notes/Domino constants shared by database, rich-text, MIME, and directory APIs.</summary>
 public static class NotesConst
 {
+    public const int ACLLEVEL_NOACCESS = 0, ACLLEVEL_DEPOSITOR = 1, ACLLEVEL_READER = 2, ACLLEVEL_AUTHOR = 3, ACLLEVEL_EDITOR = 4, ACLLEVEL_DESIGNER = 5, ACLLEVEL_MANAGER = 6;
     public const int REPLICA_CANDIDATE = 1245;
     public const int TEMPLATE_CANDIDATE = 1246;
     public const int DATABASE = 1247;

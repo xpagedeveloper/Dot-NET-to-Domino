@@ -3,7 +3,7 @@ param(
     [string]$Database = 'test.nsf',
     [string]$Configuration = 'Release',
     [string]$AgentName = 'DotNetToDominoTestAgent',
-    [string[]]$Filters = @('ACL native regression', 'agent output', 'property round trip', 'object property', 'session properties', 'session factories', 'password round trip', 'address book and directory', 'rich text range surface', 'item surface', 'view navigation', 'argument validation', 'null argument traps', 'agent null argument trap', 'DXL argument traps', 'exception trapping', 'database and document surface', 'nested MIME child guards'),
+    [string[]]$Filters = @('ACL native regression', 'agent output', 'property round trip', 'object property', 'session properties', 'session factories', 'password round trip', 'address book and directory', 'rich text range surface', 'item surface', 'view navigation', 'argument validation', 'null argument traps', 'agent null argument trap', 'DXL argument traps', 'exception trapping', 'database and document surface', 'nested MIME child guards', 'database lifecycle regression'),
     [int]$TimeoutSeconds = 45,
     [switch]$ShowOutput
 )
@@ -24,18 +24,20 @@ foreach ($filter in $Filters) {
     $stdoutPath = Join-Path $logDirectory ($logName + '.out.log')
     $stderrPath = Join-Path $logDirectory ($logName + '.err.log')
     Write-Output "RUN isolated: $filter"
-    $testProcess = Start-Process -FilePath 'dotnet' -ArgumentList @('"' + $testBinary + '"') -WorkingDirectory $projectRoot -WindowStyle Hidden -RedirectStandardOutput $stdoutPath -RedirectStandardError $stderrPath -PassThru
+    # Start in the Notes installation directory. Notes resolves relative NSF
+    # paths against its configured Data directory after NotesInitExtended.
+    $testProcess = Start-Process -FilePath 'dotnet' -ArgumentList @('"' + $testBinary + '"') -WorkingDirectory $Runtime -WindowStyle Hidden -RedirectStandardOutput $stdoutPath -RedirectStandardError $stderrPath -PassThru
     if (!$testProcess.WaitForExit($TimeoutSeconds * 1000)) {
         $testProcess.Kill($true)
         $testProcess.WaitForExit()
         $failed++
         Write-Output "TIMEOUT: $filter"
-        & (Join-Path $Runtime 'nsd.exe') -kill
+        Start-Process -FilePath (Join-Path $Runtime 'nsd.exe') -ArgumentList '-kill' -WorkingDirectory $Runtime -Wait -WindowStyle Hidden
     } else {
         $testProcess.WaitForExit()
         if ($testProcess.ExitCode -ne 0) { $failed++ }
         Write-Output "EXIT $($testProcess.ExitCode): $filter"
-        if ($testProcess.ExitCode -lt 0) { & (Join-Path $Runtime 'nsd.exe') -kill }
+        if ($testProcess.ExitCode -lt 0) { Start-Process -FilePath (Join-Path $Runtime 'nsd.exe') -ArgumentList '-kill' -WorkingDirectory $Runtime -Wait -WindowStyle Hidden }
     }
     if ($ShowOutput) { Get-Content -LiteralPath $stdoutPath }
     else { Get-Content -LiteralPath $stdoutPath | Where-Object { $_ -match '^(FAIL|NOT EXERCISED|SELECTED TESTS|FULL TEST)|PANIC|Fatal error' } }

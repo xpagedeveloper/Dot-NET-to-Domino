@@ -9,6 +9,8 @@ public class NotesItem : NotesObject
     internal NotesItem(NotesSession session, NotesDocument parent, string name) : base(session) { Parent = parent; Name = name; }
     public NotesDocument Parent { get; }
     public string Name { get; }
+    /// <summary>Gets whether this item is a native Domino MIME part.</summary>
+    public bool IsMIME { get { EnsureItemAlive(); return Session.Api.IsMimeItem(Parent.Handle, Name); } }
     private NotesItemMetadata Metadata { get { EnsureItemAlive(); return Session.Api.GetItemMetadata(Parent.Handle, Name); } }
     public NotesDateTime? DateTimeValue
     {
@@ -43,6 +45,12 @@ public class NotesItem : NotesObject
     public bool IsSummary { get => HasFlag(NotesNativeApi.NotesItemSummary); set => SetFlag(NotesNativeApi.NotesItemSummary, value); }
     public NotesDateTime LastModified => NotesDateTime.FromNative(Session, Session.Api.GetItemModifiedTime(Parent.Handle, Name));
     public string Text { get { EnsureItemAlive(); return Session.Api.ConvertItemToText(Parent.Handle, Name); } }
+    /// <summary>Opens this item as a MIME entity when the item is a native MIME part.</summary>
+    public NotesMIMEEntity? GetMIMEEntity()
+    {
+        EnsureItemAlive();
+        return Session.Api.IsMimeItem(Parent.Handle, Name) ? Parent.GetMIMEEntity(Name) : null;
+    }
     public int Type => MapType(Metadata);
     public long ValueLength => Metadata.ValueLength;
     public object?[] Values { get { EnsureItemAlive(); return Parent.GetItemValue(Name); } set { EnsureItemAlive(); ArgumentNullException.ThrowIfNull(value); Session.Api.SetItemValues(Parent.Handle, Name, value); } }
@@ -116,6 +124,9 @@ public sealed class NotesRichTextItem : NotesItem
         return new NotesEmbeddedObject(Session, this, Session.Api.AttachRichTextFile(Parent.Handle, Name, sourcePath));
     }
 
+    /// <summary>Embeds a file object in this rich-text item.</summary>
+    public NotesEmbeddedObject AppendObject(string sourcePath) => AttachFile(sourcePath);
+
     public void AppendText(string value)
     {
         EnsureItemAlive();
@@ -131,6 +142,55 @@ public sealed class NotesRichTextItem : NotesItem
         EnsureItemAlive();
         ArgumentNullException.ThrowIfNull(style);
         _appendStyleState = style.ExportState();
+    }
+
+    /// <summary>
+    /// Persists the current document, including all changes made to this rich-text item.
+    /// Rich-text edits are stored in the owning note; there is no separate native item
+    /// handle to update independently.
+    /// </summary>
+    public void Update()
+    {
+        EnsureItemAlive();
+        Parent.Save();
+        _richTextRevision++;
+    }
+
+    /// <summary>Adds a document link to another document in this rich-text item.</summary>
+    public void AppendDocLink(NotesDocument document, string? comment = null)
+    {
+        EnsureItemAlive();
+        ArgumentNullException.ThrowIfNull(document);
+        if (!string.Equals(Parent.ParentDatabase.ReplicaID, document.ParentDatabase.ReplicaID, StringComparison.OrdinalIgnoreCase))
+            throw new ArgumentException("The linked document must be in the same database replica.", nameof(document));
+        Session.Api.AppendRichTextDocLink(Parent.Handle, Name, document.ParentDatabase.Handle, document.UniversalId, comment ?? string.Empty);
+        _richTextRevision++;
+    }
+
+    /// <summary>Adds a document link represented by a local Notes URL.</summary>
+    public void AppendNotesURL(string notesUrl, string? comment = null)
+    {
+        EnsureItemAlive();
+        ArgumentException.ThrowIfNullOrWhiteSpace(notesUrl);
+        if (!Uri.TryCreate(notesUrl.Trim(), UriKind.Absolute, out var uri) ||
+            !uri.Scheme.Equals("notes", StringComparison.OrdinalIgnoreCase))
+            throw new ArgumentException("The value must be a valid notes:// URL.", nameof(notesUrl));
+        var parts = uri.AbsolutePath.Trim('/').Split('/', StringSplitOptions.RemoveEmptyEntries);
+        if (parts.Length < 3 || !uint.TryParse(parts[^1], System.Globalization.NumberStyles.HexNumber, System.Globalization.CultureInfo.InvariantCulture, out var noteId))
+            throw new ArgumentException("The Notes URL must contain a hexadecimal NoteID.", nameof(notesUrl));
+        var filePath = Uri.UnescapeDataString(string.Join('/', parts[..^2]));
+        using var database = Session.OpenDatabase(uri.Host, filePath);
+        if (!database.IsOpen) throw new NotesException(4091, $"Unable to open Notes URL database '{filePath}'.");
+        using var document = database.GetDocumentByID(noteId) ?? throw new NotesException(4091, $"Unable to open Notes URL document '{noteId:X8}'.");
+        AppendDocLink(document, comment);
+    }
+
+    /// <summary>Appends an empty Domino RichText table with the requested dimensions.</summary>
+    public void AppendTable(int rows, int columns)
+    {
+        EnsureItemAlive();
+        Session.Api.AppendRichTextTable(Parent.Handle, Name, rows, columns);
+        _richTextRevision++;
     }
 
     public void AppendParagraphStyle(NotesRichTextParagraphStyle style)

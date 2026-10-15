@@ -3,6 +3,7 @@ using System.Runtime.InteropServices;
 namespace DotNetToDomino.Interop;
 
 internal readonly record struct NotesComputeWithFormResult(bool Success, string[] FailedFields);
+public readonly record struct NotesComputeWithFormError(string FieldName, ushort ErrorCode, string Message);
 
 internal readonly record struct NotesModifiedNoteResult(
     uint[] NoteIds,
@@ -46,26 +47,33 @@ internal sealed partial class NotesNativeApi
     }
 
     internal NotesComputeWithFormResult ComputeDocumentWithFormAndCollectErrors(nint note)
+        => ComputeDocumentWithFormAndCollectErrors(note, 0, 0, out _);
+
+    internal NotesComputeWithFormResult ComputeDocumentWithFormAndCollectErrors(nint note, nint formNote, uint flags, out NotesComputeWithFormError[] errors)
     {
         EnsureInitialized();
         using var thread = EnterThread();
         var validationFailed = false;
         var failedFields = new List<string>();
+        var detailedErrors = new List<NotesComputeWithFormError>();
         var seenFields = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
-        Parity_ComputeWithFormErrorProc callback = (field, _, _, _, _, _) =>
+        Parity_ComputeWithFormErrorProc callback = (field, _, error, errorText, errorTextSize, _) =>
         {
             validationFailed = true;
             var fieldName = GetComputeWithFormFieldName(field);
             if (fieldName.Length > 0 && seenFields.Add(fieldName)) failedFields.Add(fieldName);
+            var message = errorText == 0 || errorTextSize == 0 ? string.Empty : FromLmbcs((nint)errorText, errorTextSize);
+            detailedErrors.Add(new NotesComputeWithFormError(fieldName, error, message));
             return ComputeWithFormNextFieldAction;
         };
 
-        var status = Resolve<Parity_NSFNoteComputeWithForm>("NSFNoteComputeWithForm")(note, 0, 0, callback, 0);
+        var status = Resolve<Parity_NSFNoteComputeWithForm>("NSFNoteComputeWithForm")(note, formNote, flags, callback, 0);
         GC.KeepAlive(callback);
         if (status != 0 && status != ComputeWithFormValidationFailedStatus)
             CheckStatus(status, "NSFNoteComputeWithForm");
 
+        errors = detailedErrors.ToArray();
         return new NotesComputeWithFormResult(
             !validationFailed && status != ComputeWithFormValidationFailedStatus,
             failedFields.ToArray());

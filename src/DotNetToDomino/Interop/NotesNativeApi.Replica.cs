@@ -25,7 +25,7 @@ internal sealed partial class NotesNativeApi
         finally { Marshal.FreeHGlobal(buffer); }
     }
 
-    internal nint CreateDatabaseCopy(string sourceServer, string sourceFile, string destinationServer, string destinationFile, bool includeDocuments)
+    internal nint CreateDatabaseCopy(string sourceServer, string sourceFile, string destinationServer, string destinationFile, bool includeDocuments, bool replica = false)
     {
         EnsureInitialized();
         using var thread = EnterThread();
@@ -58,8 +58,9 @@ internal sealed partial class NotesNativeApi
             }
 
             var noteClass = includeDocuments ? ReplicaNoteClassAll : ReplicaNoteClassAllNonData;
+            const uint DbCopyReplica = 0x00000001;
             CheckStatus(Resolve<Replica_NSFDbCreateAndCopy>("NSFDbCreateAndCopy")(
-                sourcePath, destinationPath, noteClass, 0, 0, out var newDb), "NSFDbCreateAndCopy");
+                sourcePath, destinationPath, noteClass, 0, replica ? DbCopyReplica : 0, out var newDb), "NSFDbCreateAndCopy");
             return unchecked((nint)newDb);
         }
         finally

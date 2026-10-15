@@ -17,6 +17,7 @@ internal sealed partial class NotesNativeApi
     private readonly Dictionary<(string ExportName, Type DelegateType), Delegate> _delegates = new();
     private bool _initialized;
     private int _initializationThreadId;
+    private string _notesIni = string.Empty;
 
     internal NotesNativeApi(NotesRuntimeLibrary runtime)
     {
@@ -29,6 +30,8 @@ internal sealed partial class NotesNativeApi
     {
         if (_initialized)
             return;
+
+        _notesIni = notesIni is null ? string.Empty : Path.GetFullPath(notesIni);
 
         var args = new List<string> { Path.Combine(_runtime.RuntimeDirectory, "dotnet-to-domino") };
         if (!string.IsNullOrWhiteSpace(notesIni))
@@ -189,16 +192,18 @@ internal sealed partial class NotesNativeApi
         var idFile = GetEnvironmentString("KeyFileName");
         if (idFile.Length == 0)
             idFile = GetEnvironmentString("ServerKeyFileName");
+        if (idFile.Length == 0 && _notesIni.Length > 0)
+            idFile = ReadIniValue("KeyFileName");
+        if (idFile.Length == 0 && _notesIni.Length > 0)
+            idFile = ReadIniValue("ServerKeyFileName");
         if (idFile.Length == 0)
             throw new NotesException("Unable to determine the Notes/Domino ID file from KeyFileName or ServerKeyFileName.");
 
-        // KeyFileName is relative to the Notes data directory, while the native
-        // loader changes the process working directory to the program directory.
         if (!Path.IsPathRooted(idFile))
         {
             var dataDirectory = GetEnvironmentString("Directory");
-            if (string.IsNullOrWhiteSpace(dataDirectory)) dataDirectory = _runtime.RuntimeDirectory;
-            if (!Path.IsPathRooted(dataDirectory)) dataDirectory = Path.Combine(_runtime.RuntimeDirectory, dataDirectory);
+            if (dataDirectory.Length == 0) dataDirectory = ReadIniValue("Directory");
+            if (!Path.IsPathRooted(dataDirectory)) dataDirectory = Path.Combine(Path.GetDirectoryName(_notesIni) ?? _runtime.RuntimeDirectory, dataDirectory);
             idFile = Path.GetFullPath(Path.Combine(dataDirectory, idFile));
         }
 
@@ -224,6 +229,20 @@ internal sealed partial class NotesNativeApi
             Zero(passwordText.Pointer, passwordText.Length + 1);
             Marshal.FreeHGlobal(userName);
         }
+    }
+
+    private string ReadIniValue(string key)
+    {
+        try
+        {
+            foreach (var raw in File.ReadLines(_notesIni))
+            {
+                var line = raw.Trim();
+                if (line.StartsWith(key + "=", StringComparison.OrdinalIgnoreCase)) return line[(key.Length + 1)..].Trim().Trim('"');
+            }
+        }
+        catch { }
+        return string.Empty;
     }
 
     private string GetEnvironmentString(string name)

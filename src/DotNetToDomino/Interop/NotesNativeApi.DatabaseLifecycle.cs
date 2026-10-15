@@ -4,7 +4,7 @@ namespace DotNetToDomino.Interop;
 
 internal sealed partial class NotesNativeApi
 {
-    internal void CreateDatabase(string server, string filePath)
+    internal void CreateDatabase(string server, string filePath, byte encryptionStrength = 0)
     {
         EnsureInitialized();
         using var thread = EnterThread();
@@ -15,7 +15,12 @@ internal sealed partial class NotesNativeApi
         {
             Zero(networkPath, 4096);
             CheckStatus(Resolve<OSPathNetConstructDelegate>("OSPathNetConstruct")(0, serverName.Pointer, file.Pointer, networkPath), "OSPathNetConstruct(create database)");
-            CheckStatus(Resolve<DbLife_NSFDbCreate>("NSFDbCreate")(networkPath, unchecked((ushort)0xFF01), 0), "NSFDbCreate");
+            const ushort DbCreateLocalSecurity = 0x0001;
+            var options = encryptionStrength == 0 ? (ushort)0 : DbCreateLocalSecurity;
+            CheckStatus(Resolve<DbLife_NSFDbCreateExtended>("NSFDbCreateExtended")(networkPath, unchecked((ushort)0xFF01), 0, options, encryptionStrength, 0), "NSFDbCreateExtended");
+            var database = OpenDatabase(server, filePath);
+            try { InitializeNewDatabaseAcl(database); }
+            finally { CloseDatabase(database); }
         }
         finally { Marshal.FreeHGlobal(networkPath); }
     }
@@ -120,6 +125,7 @@ internal sealed partial class NotesNativeApi
     }
 
     [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate ushort DbLife_NSFDbCreate(nint pathName, ushort dbClass, int forceCreation);
+    [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate ushort DbLife_NSFDbCreateExtended(nint pathName, ushort dbClass, int forceCreation, ushort options, byte encryptStrength, uint maxFileSize);
     [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate ushort DbLife_NSFDbDelete(nint pathName);
     [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate ushort DbLife_NSFNoteCreate(nint db, out nint note);
     [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate ushort DbLife_NSFProfileOpen(nint db, nint profileName, ushort profileNameLength, nint userName, ushort userNameLength, int copyProfile, out nint note);

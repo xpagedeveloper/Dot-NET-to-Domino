@@ -21,7 +21,7 @@ This list is the actionable companion to [lotusscript-api-inventory.json](lotuss
 | `CurrentDatabase` | missing | No current database context property. |
 | `CurrentAgent` | missing | No current agent context property. |
 | `DocumentContext` | missing | No document-context property. |
-| `EffectiveUserName` | missing | `UserName`/`CommonUserName` exist, but effective-name semantics are not exposed. |
+| `EffectiveUserName` | implemented | In a standalone C API session this is the ID-file identity (`UserName`); there is no implicit agent signer context to override it. |
 | `International` | missing | No NotesInternational wrapper/property. |
 | `LastExitStatus` | missing | No process/session exit-status property. |
 | `AddressBooks` | runtime | Public surface exists; live address-book parsing and wrapper behavior remain unverified. |
@@ -72,11 +72,11 @@ Complexity: `ParentDocument` 2, security/send flags 4, `Items` 3, `ComputeWithFo
 |---|---|---|
 | `IsReaders`/`IsAuthors`/`IsEncrypted`/`IsProtected`/`IsSigned`/`IsSummary` | runtime | Properties exist; all flag combinations need native runtime verification. |
 | `AppendParagraphStyle` | partial | Public member exists but intentionally fails closed pending safe composite-record ABI support. |
-| `AppendTable` | missing | No public high-level table append operation. |
-| `AppendDocLink` | missing | No public high-level doclink append operation. |
-| `AppendObject` | missing | No generic rich-text embedded-object append operation. |
-| `AppendNotesURL` | missing | No public Notes URL append method. |
-| `Update` | missing | No explicit rich-text item update method; current operations use native mutation paths. |
+| `AppendTable` | partial | Creates an empty table using canonical CDTABLEBEGIN/CELL/END records; live Notes validation and labels/styles remain. |
+| `AppendDocLink` | implemented | Uses `CompoundTextAddDocLink` with replica ID and document UNID; live Notes verification remains. |
+| `AppendObject` | partial | File-object embedding is implemented through the native attachment path; OLE and other object types remain. |
+| `AppendNotesURL` | partial | Local `notes://` document URLs are resolved and written as doclinks; view/database/remote URL variants remain. |
+| `Update` | implemented | Persists the owning document, which is the native storage unit for RichText. |
 | attachment metadata edge cases | partial | Attachment extraction and byte-array mapping exist; all embedded object types remain to be verified. |
 
 Complexity: item flags 2, `AppendParagraphStyle` 4, `AppendTable` 4, `AppendDocLink` 4, `AppendObject` 5, `AppendNotesURL` 4, `Update` 3, attachment edge cases 4.
@@ -136,3 +136,5 @@ Complexity: agent run/result 4, DXL importer 4, DXL exporter 4, `NotesInternatio
 Within the Notes object set currently represented by XPscript, no entire primary object was found with no C# counterpart. The C# counterparts exist for `NotesSession`, `NotesDatabase`, `NotesDbDirectory`, `NotesDocument`, collections, items, rich text, MIME, mail, views, agents, forms, streams, names, date/time, DXL and embedded objects.
 
 The missing entries above are therefore primarily members and behaviors, not whole primary objects. `NotesInternational` is the clearest support object currently missing entirely.
+
+

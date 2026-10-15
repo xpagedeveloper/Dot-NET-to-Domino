@@ -20,7 +20,9 @@ Regression coverage includes typed delegate caching, native BLOCKID layout, alre
 
 The property sweep reports its actual coverage. Passing it does not imply every method overload, live mail delivery, remote server operation, ID configuration, or runtime architecture has been exercised.
 
-The expanded NotesItem regression suite passes 21 cases on Notes 12.0.2 x64: repeated flag toggles, authors/readers/names dependencies, Unicode and duplicate/empty list entries, text/numeric/date values and lists, copying and save/reopen persistence, type transitions, DateTimeValue flag preservation, 40 KB nonsummary lists, rich-text flag mutation and original-value preservation after rejected writes. All 18 isolated native groups and all 10 offline tests pass. IsEncrypted/IsSigned flag tests do not test cryptographic signing or encryption on disk.
+The expanded NotesItem regression suite passes 25 cases on Notes 12.0.2 x64: repeated flag toggles, authors/readers/names dependencies, Unicode and duplicate/empty list entries, text/numeric/date values and lists, copying and save/reopen persistence, type transitions, DateTimeValue flag preservation, 40 KB nonsummary lists, rich-text flag mutation, original-value preservation after rejected writes, self-copy, and all-flag persistence. Test-only native calls also verify signatures after save/reopen, reject tampered signed content after save/reopen, and encrypt/decrypt signed data using the authenticated ID's public key. The signature is inside the sealed data and is verified after decryption.
+
+On 2026-10-13 all 19 isolated native groups pass, including four new database lifecycle cases. These verify metadata and replica-ID persistence, design-only/full copies, independent file names/titles/replica IDs, and independent document edits. See [database operation examples](database-operations.sv.md). From alpha.6 the public NotesDocument API includes Sign(), IsSigned, Signer and Verifier. The test harness uses public Sign() and signer/verifier properties and calls native encryption and independent signature verification directly; encryption is not exposed as a public document method.
 
 Authoritative references:
 

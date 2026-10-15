@@ -47,6 +47,11 @@ Check("NuGet assembly loaded", () =>
     if (typeof(NotesViewColumn).GetProperty(nameof(NotesViewColumn.Parent))?.PropertyType != typeof(NotesView)) throw new InvalidOperationException("NotesViewColumn.Parent is missing.");
     if (typeof(NotesViewEntry).GetProperty(nameof(NotesViewEntry.Parent))?.PropertyType != typeof(NotesView)) throw new InvalidOperationException("NotesViewEntry.Parent is missing.");
     if (typeof(NotesRichTextItem).GetMethod(nameof(NotesRichTextItem.AppendParagraphStyle), new[] { typeof(NotesRichTextParagraphStyle) }) is null) throw new InvalidOperationException("NotesRichTextItem.AppendParagraphStyle is missing.");
+    if (typeof(NotesRichTextItem).GetMethod(nameof(NotesRichTextItem.Update), Type.EmptyTypes) is null) throw new InvalidOperationException("NotesRichTextItem.Update is missing.");
+    if (typeof(NotesRichTextItem).GetMethod(nameof(NotesRichTextItem.AppendDocLink), new[] { typeof(NotesDocument), typeof(string) }) is null) throw new InvalidOperationException("NotesRichTextItem.AppendDocLink is missing.");
+    if (typeof(NotesRichTextItem).GetMethod(nameof(NotesRichTextItem.AppendNotesURL), new[] { typeof(string), typeof(string) }) is null) throw new InvalidOperationException("NotesRichTextItem.AppendNotesURL is missing.");
+    if (typeof(NotesRichTextItem).GetMethod(nameof(NotesRichTextItem.AppendObject), new[] { typeof(string) }) is null) throw new InvalidOperationException("NotesRichTextItem.AppendObject is missing.");
+    if (typeof(NotesRichTextItem).GetMethod(nameof(NotesRichTextItem.AppendTable), new[] { typeof(int), typeof(int) }) is null) throw new InvalidOperationException("NotesRichTextItem.AppendTable is missing.");
     if (typeof(NotesDateTime).GetMethod(nameof(NotesDateTime.SetAnyDate), Type.EmptyTypes) is null || typeof(NotesDateTime).GetMethod(nameof(NotesDateTime.SetAnyTime), Type.EmptyTypes) is null) throw new InvalidOperationException("NotesDateTime wildcard methods are missing.");
     foreach (var property in new[] { nameof(NotesDateTime.DateOnly), nameof(NotesDateTime.TimeOnly), nameof(NotesDateTime.GMTTime), nameof(NotesDateTime.ZoneTime) })
         if (typeof(NotesDateTime).GetProperty(property)?.PropertyType != typeof(string)) throw new InvalidOperationException($"NotesDateTime.{property} is missing.");
@@ -271,8 +276,8 @@ else
         using var database = session.GetDatabase(server, databasePath, false) ?? throw new InvalidOperationException("Database not found.");
         ExpectException<ArgumentNullException>("Database Title null", () => database.Title = null!);
         ExpectException<ArgumentNullException>("Database Categories null", () => database.Categories = null!);
-        ExpectException<ArgumentNullException>("Database TemplateName null", () => database.TemplateName = null!);
-        ExpectException<ArgumentNullException>("Database DesignTemplateName null", () => database.DesignTemplateName = null!);
+        ExpectException<ArgumentNullException>("Database TemplateName null", () => database.SetTemplateName(null!));
+        ExpectException<ArgumentNullException>("Database DesignTemplateName null", () => database.SetDesignTemplateName(null!));
         ExpectException<ArgumentNullException>("Database ReplicaID null", () => database.SetReplicaId(null!));
         using var document = database.CreateDocument();
         using var richText = document.CreateRichTextItem("Body");
@@ -309,6 +314,8 @@ else
         }
     });
     NotesItemRegressionTests.Run(session, server, databasePath, Check);
+    DatabaseLifecycleRegressionTests.Run(session, Check);
+    AclRegressionTests.Run(session, Check);
     NotesItemCryptoTests.Run(session, server, databasePath, Check);
     if (!string.IsNullOrWhiteSpace(databasePath)) Check("item surface", () =>
     {
@@ -436,14 +443,23 @@ else
         ExpectException<ArgumentNullException>("null replica ID is trapped", () => session.OpenByReplicaID(server, null!));
         Console.WriteLine("PASS exception trapping continued after invalid calls");
     });
-    if (!string.IsNullOrWhiteSpace(databasePath)) Check("database and document surface", () => { using var database = session.GetDatabase(server, databasePath, false) ?? throw new InvalidOperationException("Database not found."); if (!database.IsOpen) throw new InvalidOperationException(database.OpenError); _ = database.Title; _ = database.Categories; _ = database.TemplateName; _ = database.DesignTemplateName; _ = database.ReplicaID; _ = database.Size; _ = database.PercentUsed; _ = database.CurrentAccessLevel; _ = database.Created; _ = database.LastModified; _ = database.FileFormat; using var access = database.QueryAccess(); _ = access.Level; _ = access.LevelName; _ = access.AccessFlags; _ = access.NamesList; _ = access.Groups; _ = access.Roles; using var document = database.CreateDocument(); document.ReplaceItemValue("Form", "FullTest").Recycle(); document.ReplaceItemValue("Subject", "Full test").Recycle(); if (!document.HasItem("Subject") || document.GetString("Subject") != "Full test") throw new InvalidOperationException("Document item round trip failed."); using var mime = document.CreateMIMEEntity(); _ = mime.GetChildren(); _ = mime.GetHeaders(); using var content = session.CreateStream(); content.WriteText("MIME full test"); content.Position = 0; mime.SetContentFromText(content, "text/plain; charset=utf-8", 1727); try { mime.EncodeContent(11); throw new InvalidOperationException("Invalid MIME encoding was accepted."); } catch (ArgumentOutOfRangeException ex) when (ex.ParamName == "encoding") { } });
+    if (!string.IsNullOrWhiteSpace(databasePath)) Check("database and document surface", () => { using var database = session.GetDatabase(server, databasePath, false) ?? throw new InvalidOperationException("Database not found."); if (!database.IsOpen) throw new InvalidOperationException(database.OpenError); _ = database.Title; _ = database.Categories; _ = database.TemplateName; _ = database.DesignTemplateName; _ = database.ReplicaID; _ = database.Size; _ = database.PercentUsed; _ = database.CurrentAccessLevel; _ = database.Created; _ = database.LastModified; _ = database.FileFormat; using var access = database.QueryAccess(); _ = access.Level; _ = access.LevelName; _ = access.AccessFlags; _ = access.NamesList; _ = access.Groups; _ = access.Roles; using var document = database.CreateDocument(); document.ReplaceItemValue("Form", "FullTest").Recycle(); document.ReplaceItemValue("Subject", "Full test").Recycle(); if (!document.HasItem("Subject") || document.GetString("Subject") != "Full test") throw new InvalidOperationException("Document item round trip failed."); using var mime = document.CreateMIMEEntity(); var bodyItem = document.GetFirstItem("Body") ?? throw new InvalidOperationException("MIME Body item was not created."); using var itemMime = bodyItem.GetMIMEEntity() ?? throw new InvalidOperationException("NotesItem.GetMIMEEntity did not open the MIME item."); if (!itemMime.ContentType.Equals(mime.ContentType, StringComparison.OrdinalIgnoreCase)) throw new InvalidOperationException("NotesItem MIME entity did not resolve the same content type."); _ = mime.GetChildren(); _ = mime.GetHeaders(); using var content = session.CreateStream(); content.WriteText("MIME full test"); content.Position = 0; mime.SetContentFromText(content, "text/plain; charset=utf-8", 1727); try { mime.EncodeContent(11); throw new InvalidOperationException("Invalid MIME encoding was accepted."); } catch (ArgumentOutOfRangeException ex) when (ex.ParamName == "encoding") { } });
+    if (!string.IsNullOrWhiteSpace(databasePath)) Check("NotesItem MIME property", () =>
+    {
+        using var database = session.GetDatabase(server, databasePath, false) ?? throw new InvalidOperationException("Database not found.");
+        using var document = database.CreateDocument();
+        using var mime = document.CreateMIMEEntity();
+        using var item = document.GetFirstItem("Body") ?? throw new InvalidOperationException("MIME Body item was not created.");
+        if (!item.IsMIME) throw new InvalidOperationException("NotesItem.IsMIME returned false for a native MIME item.");
+        if (item.GetMIMEEntity() is null) throw new InvalidOperationException("NotesItem.GetMIMEEntity returned null.");
+    });
     if (!string.IsNullOrWhiteSpace(databasePath)) Check("nested MIME child guards", () =>
     {
         using var database = session.GetDatabase(server, databasePath, false) ?? throw new InvalidOperationException("Database not found.");
         using var document = database.CreateDocument();
         using var mime = document.CreateMIMEEntity();
         const string boundary = "dotnet-child-test";
-        var raw = "--" + boundary + "\r\nContent-Type: text/plain\r\n\r\nfirst\r\n--" + boundary + "\r\nContent-Type: text/plain\r\n\r\nsecond\r\n--" + boundary + "--\r\n";
+        var raw = "--" + boundary + "\r\nContent-Type: text/plain\r\nX-Test: remove-me\r\n\r\nfirst\r\n--" + boundary + "\r\nContent-Type: multipart/mixed; boundary=\"inner-test\"\r\n\r\n--inner-test\r\nContent-Type: text/plain\r\n\r\nnested\r\n--inner-test--\r\n--" + boundary + "--\r\n";
         using var stream = session.CreateStream();
         stream.Charset = "UTF-8";
         stream.WriteText(raw);
@@ -451,15 +467,44 @@ else
         mime.SetContentFromBytes(stream, "multipart/mixed; boundary=\"" + boundary + "\"", 1725);
         var children = mime.GetChildren();
         if (children.Count != 2) throw new InvalidOperationException($"Expected two MIME child entities, found {children.Count}.");
+        using var nested = children[1].GetFirstChildEntity() ?? throw new InvalidOperationException("Nested MIME child was not found.");
+        if (!nested.ContentAsText.Contains("nested", StringComparison.Ordinal)) throw new InvalidOperationException("Nested MIME child content read failed.");
         using var child = children[0];
-        ExpectException<NotSupportedException>("Child content read guard", () => _ = child.ContentAsText);
-        using var childContent = session.CreateStream();
-        childContent.WriteText("child update");
-        ExpectException<NotSupportedException>("Child content write guard", () => child.SetContentFromText(childContent, "text/plain", 1725));
-        ExpectException<NotSupportedException>("Child header lookup guard", () => child.GetHeaders());
-        ExpectException<NotSupportedException>("Child header creation guard", () => child.CreateHeader("X-Test"));
-        ExpectException<NotSupportedException>("Child header removal guard", () => child.RemoveHeaders("X-Test"));
-        ExpectException<NotSupportedException>("Child removal guard", child.Remove);
+        if (!child.ContentAsText.Contains("first", StringComparison.Ordinal)) throw new InvalidOperationException("Child content read failed.");
+        using var childTypeHeader = child.GetNthHeader("Content-Type") ?? throw new InvalidOperationException("Child Content-Type header was not found.");
+        if (!childTypeHeader.GetHeaderVal().Contains("text/plain", StringComparison.OrdinalIgnoreCase)) throw new InvalidOperationException("Child header lookup failed.");
+        child.RemoveHeaders("X-Test");
+    });
+    if (!string.IsNullOrWhiteSpace(databasePath)) Check("MIME child creation", () =>
+    {
+        using var database = session.GetDatabase(server, databasePath, false) ?? throw new InvalidOperationException("Database not found.");
+        using var document = database.CreateDocument();
+        using var mime = document.CreateMIMEEntity();
+        const string boundary = "dotnet-child-create-test";
+        var raw = "--" + boundary + "\r\nContent-Type: text/plain\r\n\r\nfirst\r\n--" + boundary + "--\r\n";
+        using var stream = session.CreateStream();
+        stream.Charset = "UTF-8";
+        stream.WriteText(raw);
+        stream.Position = 0;
+        mime.SetContentFromBytes(stream, "multipart/mixed; boundary=\"" + boundary + "\"", 1725);
+        using var created = mime.CreateChildEntity();
+        if (mime.GetChildren().Count != 2) throw new InvalidOperationException("CreateChildEntity did not add a direct child.");
+        if (!created.ContentType.Equals("text", StringComparison.OrdinalIgnoreCase) || !created.ContentSubType.Equals("plain", StringComparison.OrdinalIgnoreCase)) throw new InvalidOperationException("Created MIME child has an unexpected content type: " + created.ContentType + "/" + created.ContentSubType);
+    });
+    if (!string.IsNullOrWhiteSpace(databasePath)) Check("MIME child append", () =>
+    {
+        using var database = session.GetDatabase(server, databasePath, false) ?? throw new InvalidOperationException("Database not found.");
+        using var document = database.CreateDocument();
+        using var mime = document.CreateMIMEEntity();
+        const string boundary = "dotnet-append-test";
+        using var stream = session.CreateStream();
+        stream.Charset = "UTF-8";
+        stream.WriteText("--" + boundary + "\r\nContent-Type: text/plain\r\n\r\nfirst\r\n--" + boundary + "\r\nContent-Type: text/plain\r\n\r\nsecond\r\n--" + boundary + "--\r\n");
+        stream.Position = 0;
+        mime.SetContentFromBytes(stream, "multipart/mixed; boundary=\"" + boundary + "\"", 1725);
+        var children = mime.GetChildren();
+        if (children.Count != 2) throw new InvalidOperationException("Append test MIME children were not created.");
+        mime.AppendChildEntity(children[0]);
     });
 }
 
