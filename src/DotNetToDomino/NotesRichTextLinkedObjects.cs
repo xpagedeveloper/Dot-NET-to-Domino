@@ -485,6 +485,14 @@ public sealed class NotesRichTextTableCell : NotesRichTextLinkedObject
         RewriteCell(data => { if (data.Length < 14) throw new NotesException(91, "Invalid rich-text table cell record."); WriteUInt16(data, 12, (ushort)border); return data; });
     }
 
+    /// <summary>Sets the CDTABLECELL flags byte.</summary>
+    public void SetFlags(int flags)
+    {
+        EnsureLinkedAlive();
+        if (flags < 0 || flags > byte.MaxValue) throw new ArgumentOutOfRangeException(nameof(flags));
+        RewriteCell(data => { if (data.Length < 12) throw new NotesException(91, "Invalid rich-text table cell record."); data[11] = (byte)flags; return data; });
+    }
+
     private void RewriteCell(Func<byte[], byte[]> transform)
     {
         var current = CurrentRecord();
