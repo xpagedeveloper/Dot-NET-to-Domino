@@ -406,6 +406,13 @@ else
                 if (!nav.FindFirstElement(NotesRichTextNavigator.ElementTable)) throw new InvalidOperationException("RTL table missing.");
                 using var table = nav.GetElement() as NotesRichTextTable ?? throw new InvalidOperationException("Unexpected RTL table type.");
                 if (!table.RightToLeft) throw new InvalidOperationException("Table RightToLeft flag did not persist in the CD record.");
+                table.SetStyle(0x23);
+            }
+            using (var nav = body.CreateNavigator())
+            {
+                if (!nav.FindFirstElement(NotesRichTextNavigator.ElementTable)) throw new InvalidOperationException("Styled table missing.");
+                using var table = nav.GetElement() as NotesRichTextTable ?? throw new InvalidOperationException("Unexpected styled table type.");
+                if (!table.RightToLeft || (table.Style & 0x23) != 0x23) throw new InvalidOperationException("Table style or direction flag did not persist.");
                 using (var editableCell = table.GetCell(1, 1) ?? throw new InvalidOperationException("Editable table cell missing."))
                 {
                     editableCell.SetBorder(7);

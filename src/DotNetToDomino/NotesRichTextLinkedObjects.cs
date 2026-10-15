@@ -301,6 +301,27 @@ public sealed class NotesRichTextTable : NotesRichTextLinkedObject
         RichTextItem.RewriteRichTextRecords(rewritten);
         AcceptCurrentRevision();
     }
+    /// <summary>Sets the table style word while preserving the current direction flag.</summary>
+    public void SetStyle(int style)
+    {
+        EnsureLinkedAlive();
+        if (style < 0 || style > ushort.MaxValue) throw new ArgumentOutOfRangeException(nameof(style));
+        var current = CurrentRecord();
+        var records = Records();
+        var rewritten = NotesRichTextCdTransform.Transform(records, record =>
+        {
+            if (record.SegmentIndex != current.SegmentIndex || record.RecordIndex != current.RecordIndex)
+                return NotesRichTextRecordRewrite.Preserve(record);
+            var data = (byte[])record.Data.Clone();
+            if (data.Length < 14) throw new NotesException(91, "Invalid rich-text table header record.");
+            var currentStyle = ReadUInt16(data, 12);
+            var direction = (ushort)(currentStyle & TableRightToLeft);
+            WriteUInt16(data, 12, (ushort)(style | direction));
+            return new NotesRichTextRecordRewrite(record.SegmentIndex, record.RecordIndex, record.Signature, data);
+        });
+        RichTextItem.RewriteRichTextRecords(rewritten);
+        AcceptCurrentRevision();
+    }
     /// <summary>Returns the cell at the zero-based row and column, if present.</summary>
     public NotesRichTextTableCell? GetCell(int row, int column)
     {
