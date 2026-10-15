@@ -325,9 +325,12 @@ public sealed class NotesRichTextItem : NotesItem
     public void Compact()
     {
         EnsureItemAlive();
+        if (_sectionDepth != 0) throw new InvalidOperationException("A rich-text section is still open. Call EndSection() before Compact().");
+        ValidateCompoundText();
         var records = ReadRichTextRecords();
         var compacted = NotesRichTextCdTransform.Compact(records);
         RewriteRichTextRecords(compacted);
+        ValidateCompoundText();
     }
 
     public NotesRichTextNavigator CreateNavigator()
