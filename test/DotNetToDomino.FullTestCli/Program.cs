@@ -412,7 +412,7 @@ else
             using var savedNavigator = savedBody.CreateNavigator();
             if (!savedNavigator.FindFirstElement(NotesRichTextNavigator.ElementTable)) throw new InvalidOperationException("Saved color table missing.");
             using var savedTable = savedNavigator.GetElement() as NotesRichTextTable ?? throw new InvalidOperationException("Saved color table type mismatch.");
-            if (savedTable.StyleColor1 != 0x00112233 || savedTable.StyleColor2 != 0x00445566)
+            if (savedTable.StyleColor1 != 0x00112233 || savedTable.StyleColor2 != 0x00445566 || savedTable.Color != 0x00112233 || savedTable.AlternateColor != 0x00445566)
                 throw new InvalidOperationException($"Table colors did not persist: {savedTable.StyleColor1:X8}/{savedTable.StyleColor2:X8}.");
         }
         finally { if (!document.IsNewNote) document.Remove(true); }
