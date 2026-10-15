@@ -69,6 +69,7 @@ internal sealed partial class NotesNativeApi
         EnsureInitialized();
         if (rows is < 1 or > 255) throw new ArgumentOutOfRangeException(nameof(rows));
         if (columns is < 1 or > 64) throw new ArgumentOutOfRangeException(nameof(columns));
+        if (rows > 1) throw new NotSupportedException("Multi-row rich-text tables require canonical PAB records and are not yet supported by this native writer.");
         using var thread = EnterThread();
         using var itemName = ToLmbcs(name);
         CheckStatus(Resolve<RichText_CompoundTextCreate>("CompoundTextCreate")(unchecked((uint)note), itemName.Pointer, out var compound), "CompoundTextCreate(table)");

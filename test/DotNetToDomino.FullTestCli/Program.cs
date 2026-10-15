@@ -282,6 +282,7 @@ else
         using var document = database.CreateDocument();
         using var richText = document.CreateRichTextItem("Body");
         richText.AppendText("Rich text full test");
+        ExpectException<NotSupportedException>("Multi-row rich-text table guard", () => richText.AppendTable(2, 2));
         richText.AppendTable(1, 2);
         using (var tableNavigator = richText.CreateNavigator())
         {
