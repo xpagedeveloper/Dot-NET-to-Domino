@@ -710,7 +710,7 @@ public sealed class NotesRichTextRange : NotesObject
             .ToHashSet();
         var rewritten = NotesRichTextCdTransform.Transform(records, record =>
         {
-            if (!selected.Contains((record.SegmentIndex, record.RecordIndex)) || record.Signature != 0xFF85 || record.Data.Length < 8)
+            if (!selected.Contains((record.SegmentIndex, record.RecordIndex)) || record.Signature != 133 || record.Data.Length < 8)
                 return NotesRichTextRecordRewrite.Preserve(record);
             var data = (byte[])record.Data.Clone();
             if (state.NotesFont != NotesRichTextStyle.StyleNoChange) data[4] = checked((byte)state.NotesFont);
@@ -731,16 +731,18 @@ public sealed class NotesRichTextRange : NotesObject
         EnsureRangeAlive();
         var records = _item.ReadRichTextRecords();
         if (records.Count == 0 || _endRecord < _beginRecord) return;
-        // Native CD records are the persistence unit. Navigator positions that
-        // land inside a text run remove that complete run, matching Notes' rich
-        // text element semantics and avoiding malformed partial CDTEXT records.
         var selected = records
             .Select((record, index) => (record, index))
             .Where(value => value.index >= _beginRecord && value.index <= _endRecord)
             .Select(value => (value.record.SegmentIndex, value.record.RecordIndex))
             .ToHashSet();
         var rewritten = NotesRichTextCdTransform.Transform(records, record =>
-            selected.Contains((record.SegmentIndex, record.RecordIndex)) ? null : NotesRichTextRecordRewrite.Preserve(record));
+        {
+            if (!selected.Contains((record.SegmentIndex, record.RecordIndex))) return NotesRichTextRecordRewrite.Preserve(record);
+            return record.Signature == 133 && record.Data.Length >= 8 && record.Text.Length > 0
+                ? null
+                : NotesRichTextRecordRewrite.Preserve(record);
+        });
         _item.RewriteRichTextRecords(rewritten);
         ResetCore();
     }
