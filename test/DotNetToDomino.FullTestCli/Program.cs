@@ -1153,6 +1153,7 @@ else
             using var body = document.CreateRichTextItem("Body");
             body.AppendText("alpha beta alpha");
             using var range = body.CreateRange();
+            ExpectException<NotSupportedException>("Unsupported FindAndReplace options", () => range.FindAndReplace("alpha", "omega", 1));
             if (range.FindAndReplace("alpha", "omega") != 2) throw new InvalidOperationException("FindAndReplace returned the wrong count.");
             document.Save();
             using var reopened = database.GetDocumentByID(document.NoteId)!;
