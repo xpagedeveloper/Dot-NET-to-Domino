@@ -397,7 +397,8 @@ public sealed class NotesRichTextDocLink : NotesRichTextLinkedObject
         if (data.Length >= 6)
         {
             var strings = ReadStrings(data, 6, 3);
-            return (string.Empty, string.Empty, string.Empty, strings[0], strings[1], strings[2]);
+            var target = Session.Api.GetRichTextLinkTarget(RichTextItem.Parent.Handle, (ushort)(data[4] | (data[5] << 8)));
+            return (target.Replica, target.View, target.Document, strings[0], strings[1], strings[2]);
         }
         return (string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty);
     }

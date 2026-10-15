@@ -140,9 +140,12 @@ och vylänkar kontrolleras också, inklusive nollställda dokument-/vy-UNID där
 de inte används. Borttagning av den mittersta länken verifieras efter Compact
 och återöppning, med de intilliggande länkarna bevarade.
 
-Dessa tester skapar länkar via compound-text-API:et. Äldre CDLINK2-records
-som refererar till dokumentets separata `$Links`-item behöver fortfarande
-kompletterad avläsning av länkmålet i `NotesRichTextDocLink`.
+`NotesRichTextDocLink` läser också CDLINK2-records via dokumentets separata
+`$Links`-item (TYPE_NOTELINK_LIST). Indexet är nollbaserat. Saknad lista,
+fel datatyp, trunkerad lista och ogiltigt index ger ett hanterat undantag.
+Ett native-test skriver en binär CDLINK2/$Links-fixture, sparar och återöppnar
+den och jämför navigatorns mål med Notes egen DXL-export. Saknad lista testas
+också. Detta kompletterar testerna av länkar skapade via compound-text-API:et.
 
 ## Compact
 

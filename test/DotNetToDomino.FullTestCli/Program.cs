@@ -745,6 +745,65 @@ else
             if (cleanup?.IsOpen == true) cleanup.Remove();
         }
     });
+    if (!string.IsNullOrWhiteSpace(databasePath)) Check("rich text legacy CDLINK2 reference list", () =>
+    {
+        using var database = session.OpenDatabase(server, databasePath);
+        using var document = database.CreateDocument();
+        try
+        {
+            document.Save();
+            using var body = document.CreateRichTextItem("Body");
+            body.AppendDocLink(document, "Legacy link");
+            var records = (System.Collections.IEnumerable)typeof(NotesRichTextItem).GetMethod("ReadRichTextRecords", BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(body, null)!;
+            var exported = records.Cast<object>().Select(r => (byte[])r.GetType().GetProperty("Data", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(r)!).Single(b => b.Length >= 44 && b[0] == 0x92 && b[1] == 0xff);
+            var references = new byte[82];
+            references[0] = 2;
+            // Leave the first entry empty: resolving index 1 must use the second entry.
+            Array.Copy(exported, 4, references, 42, 40);
+            var legacy = new byte[exported.Length - 38];
+            legacy[0] = 0x91; legacy[1] = 0xff;
+            legacy[2] = (byte)legacy.Length; legacy[3] = (byte)(legacy.Length >> 8);
+            legacy[4] = 1;
+            Array.Copy(exported, 44, legacy, 6, exported.Length - 44);
+            var api = typeof(NotesSession).GetProperty("Api", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(session)!;
+            var apiType = api.GetType();
+            var handle = typeof(NotesDocument).GetProperty("Handle", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(document)!;
+            using var thread = (IDisposable)apiType.GetMethod("EnterThread", BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(api, null)!;
+            var append = (Delegate)apiType.GetMethod("Resolve", BindingFlags.Instance | BindingFlags.NonPublic)!.MakeGenericMethod(apiType.GetNestedType("Ops_NSFItemAppend", BindingFlags.NonPublic)!).Invoke(api, new object[] { "NSFItemAppend" })!;
+            void AppendRaw(string name, ushort type, byte[] data)
+            {
+                var namePointer = System.Runtime.InteropServices.Marshal.StringToHGlobalAnsi(name);
+                var valuePointer = System.Runtime.InteropServices.Marshal.AllocHGlobal(data.Length);
+                try
+                {
+                    System.Runtime.InteropServices.Marshal.Copy(data, 0, valuePointer, data.Length);
+                    var status = (ushort)append.DynamicInvoke(handle, (ushort)0, namePointer, (ushort)name.Length, type, valuePointer, (uint)data.Length)!;
+                    if (status != 0) throw new InvalidOperationException($"Native fixture append failed: {status:X4}");
+                }
+                finally { System.Runtime.InteropServices.Marshal.FreeHGlobal(valuePointer); System.Runtime.InteropServices.Marshal.FreeHGlobal(namePointer); }
+            }
+            body.Remove();
+            AppendRaw("$Links", 7, references);
+            AppendRaw("Body", 1, legacy);
+            document.Save();
+            using var reopened = database.GetDocumentByID(document.NoteId)!;
+            using var item = reopened.GetFirstItem("Body")!;
+            using var savedBody = item.GetRichTextItem()!;
+            using var navigator = savedBody.CreateNavigator();
+            using var link = navigator.GetFirstElement(5) as NotesRichTextDocLink ?? throw new InvalidOperationException("Legacy link missing.");
+            if (link.DbReplicaID != database.ReplicaID || link.DocUNID != document.UniversalID || link.DisplayComment != "Legacy link") throw new InvalidOperationException("Legacy link target mismatch.");
+            using var exporter = session.CreateDXLExporter();
+            exporter.OutputDOCTYPE = false; exporter.RichTextOption = 0;
+            using var dxl = exporter.Export(reopened);
+            using var bytes = new MemoryStream(dxl.ToArray());
+            var xml = System.Xml.Linq.XDocument.Load(bytes);
+            if ((string?)xml.Descendants().SingleOrDefault(e => e.Name.LocalName == "doclink")?.Attribute("document") != document.UniversalID) throw new InvalidOperationException($"Notes did not independently resolve legacy link: {xml}");
+            using var linksItem = reopened.GetFirstItem("$Links")!;
+            linksItem.Remove();
+            ExpectException<InvalidOperationException>("Missing legacy link list", () => { _ = link.DocUNID; });
+        }
+        finally { if (!document.IsNewNote) document.Remove(true); }
+    });
     if (!string.IsNullOrWhiteSpace(databasePath)) Check("view navigation", () =>
     {
         using var database = session.GetDatabase(server, databasePath, false) ?? throw new InvalidOperationException("Database not found.");

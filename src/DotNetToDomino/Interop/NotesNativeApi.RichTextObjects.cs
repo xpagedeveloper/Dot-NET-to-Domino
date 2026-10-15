@@ -134,6 +134,21 @@ internal sealed partial class NotesNativeApi
         }
     }
 
+    internal (string Replica, string View, string Document) GetRichTextLinkTarget(nint note, ushort linkId)
+    {
+        EnsureInitialized();
+        using var thread = EnterThread();
+        if (!HasItem(note, "$Links")) throw new InvalidOperationException("The rich text link has no $Links reference list.");
+        var info = GetItemMetadata(note, "$Links");
+        if (info.DataType != 7) throw new InvalidOperationException("The $Links item is not a NOTELINK_LIST.");
+        var data = CopyItemValueWithoutType(info);
+        if (data.Length < 2) throw new InvalidOperationException("The $Links reference list is truncated.");
+        var count = data[0] | (data[1] << 8);
+        if (linkId >= count || data.Length < 2 + count * 40) throw new InvalidOperationException("The rich text link references an invalid $Links entry.");
+        var offset = 2 + linkId * 40;
+        return (FormatRichTextTimeDate(data, offset), FormatRichTextUnid(data, offset + 8), FormatRichTextUnid(data, offset + 24));
+    }
+
     internal IReadOnlyList<NotesRichTextRecordData> GetRichTextRecords(nint note, string itemName)
     {
         EnsureInitialized();
