@@ -58,6 +58,7 @@ Check("NuGet assembly loaded", () =>
     if (typeof(NotesMail).GetProperty(nameof(NotesMail.IsMIME))?.PropertyType != typeof(bool) || typeof(NotesMail).GetProperty(nameof(NotesMail.AttachmentCount))?.PropertyType != typeof(int) || !typeof(NotesMail).GetMethods().Any(method => method.Name == "AddAttachment")) throw new InvalidOperationException("NotesMail MIME/attachment state surface is missing.");
     if (typeof(NotesRichTextItem).GetMethod("AttachFile") is null) throw new InvalidOperationException("NotesRichTextItem.AttachFile surface is missing.");
     if (typeof(NotesRichTextTable).GetMethod("Remove") is null || typeof(NotesRichTextDocLink).GetMethod("Remove") is null) throw new InvalidOperationException("Rich-text linked-object removal surface is missing.");
+    if (typeof(NotesRichTextTable).GetMethod(nameof(NotesRichTextTable.RemoveRow), new[] { typeof(int) }) is null) throw new InvalidOperationException("NotesRichTextTable.RemoveRow is missing.");
     if (typeof(NotesDocumentCollection).GetMethod("StampAllMulti", new[] { typeof(NotesDocument) }) is null || typeof(NotesNoteCollection).GetMethod("StampAllMulti", new[] { typeof(NotesDocument) }) is null) throw new InvalidOperationException("Collection StampAllMulti source-document surface is missing.");
     if (typeof(NotesDocumentCollection).GetMethod("Merge", new[] { typeof(NotesDocumentCollection) }) is null || typeof(NotesDocumentCollection).GetMethod("Subtract", new[] { typeof(NotesDocumentCollection) }) is null) throw new InvalidOperationException("NotesDocumentCollection set-operation surface is missing.");
     if (typeof(NotesDocumentCollection).GetMethod("Clone") is null || typeof(NotesDocumentCollection).GetMethod("Contains", new[] { typeof(NotesDocument) }) is null) throw new InvalidOperationException("NotesDocumentCollection Clone/Contains surface is missing.");
@@ -382,6 +383,36 @@ else
             }
             finally { if (!document.IsNewNote) document.Remove(true); }
         }
+    });
+    if (!string.IsNullOrWhiteSpace(databasePath)) Check("rich text table row removal native DXL", () =>
+    {
+        using var database = session.OpenDatabase(server, databasePath);
+        using var document = database.CreateDocument();
+        try
+        {
+            using (var body = document.CreateRichTextItem("Body")) { body.AppendTable(3, 2); }
+            document.Save();
+            using var reopened = database.GetDocumentByID(document.NoteId) ?? throw new InvalidOperationException("Row-removal document missing.");
+            using (var item = reopened.GetFirstItem("Body") ?? throw new InvalidOperationException("Row-removal Body missing."))
+            using (var body = item.GetRichTextItem() ?? throw new InvalidOperationException("Row-removal Body is not rich text."))
+            using (var nav = body.CreateNavigator())
+            {
+                if (!nav.FindFirstElement(NotesRichTextNavigator.ElementTable)) throw new InvalidOperationException("Row-removal table missing.");
+                using var table = nav.GetElement() as NotesRichTextTable ?? throw new InvalidOperationException("Unexpected row-removal table type.");
+                table.RemoveRow(1);
+            }
+            reopened.Save();
+            using var saved = database.GetDocumentByID(document.NoteId) ?? throw new InvalidOperationException("Row-removal save missing.");
+            using var savedItem = saved.GetFirstItem("Body") ?? throw new InvalidOperationException("Row-removal saved Body missing.");
+            using var savedBody = savedItem.GetRichTextItem() ?? throw new InvalidOperationException("Row-removal saved Body is not rich text.");
+            using var savedNav = savedBody.CreateNavigator();
+            if (!savedNav.FindFirstElement(NotesRichTextNavigator.ElementTable)) throw new InvalidOperationException("Row-removal saved table missing.");
+            using var savedTable = savedNav.GetElement() as NotesRichTextTable ?? throw new InvalidOperationException("Unexpected saved row-removal table type.");
+            if (savedTable.RowCount != 2 || savedTable.ColumnCount != 2 || savedTable.Cells.Count != 4)
+                throw new InvalidOperationException($"RemoveRow produced {savedTable.RowCount}x{savedTable.ColumnCount} with {savedTable.Cells.Count} cells.");
+            Console.WriteLine("VERIFIED rich-text table RemoveRow and native save/reopen");
+        }
+        finally { if (!document.IsNewNote) document.Remove(true); }
     });
     if (!string.IsNullOrWhiteSpace(databasePath)) Check("rich text multi-segment table removal", () =>
     {

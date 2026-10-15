@@ -303,6 +303,60 @@ public sealed class NotesRichTextTable : NotesRichTextLinkedObject
         }
         return null;
     }
+
+    /// <summary>Removes one zero-based table row, including all rich-text records inside its cells.</summary>
+    public void RemoveRow(int row)
+    {
+        EnsureLinkedAlive();
+        if (row < 0) throw new ArgumentOutOfRangeException(nameof(row));
+        var records = Records();
+        var start = CurrentFlatIndex(records);
+        var cellIndexes = new List<int>();
+        var nestedDepth = 0;
+        var tableEnd = -1;
+        for (var i = start + 1; i < records.Count; i++)
+        {
+            var record = records[i];
+            if (record.Signature == NestedTableBeginSignature) { nestedDepth++; continue; }
+            if (record.Signature == NestedTableEndSignature) { if (nestedDepth > 0) nestedDepth--; continue; }
+            if (nestedDepth > 0) continue;
+            if (record.Signature == TableEndSignature) { tableEnd = i; break; }
+            if (record.ElementType == NotesRichTextNavigator.ElementTableCell && record.Data.Length >= 4 && record.Data[2] == row)
+                cellIndexes.Add(i);
+        }
+        if (tableEnd < 0) throw new NotesException(91, "Rich text table has no matching end record.");
+        if (cellIndexes.Count == 0) throw new ArgumentOutOfRangeException(nameof(row), "The table row does not exist.");
+
+        var remove = new HashSet<(int Segment, int Record)>();
+        foreach (var cellIndex in cellIndexes)
+        {
+            var end = tableEnd - 1;
+            for (var i = cellIndex + 1; i < tableEnd; i++)
+            {
+                var candidate = records[i];
+                if (candidate.ElementType == NotesRichTextNavigator.ElementTableCell && candidate.Data.Length >= 4)
+                {
+                    end = i - 1;
+                    break;
+                }
+            }
+            for (var i = cellIndex; i <= end; i++) remove.Add((records[i].SegmentIndex, records[i].RecordIndex));
+        }
+
+        var rewritten = NotesRichTextCdTransform.Transform(records, record =>
+        {
+            if (remove.Contains((record.SegmentIndex, record.RecordIndex))) return null;
+            if (record.ElementType == NotesRichTextNavigator.ElementTableCell && record.Data.Length >= 4 && record.Data[2] > row)
+            {
+                var data = (byte[])record.Data.Clone();
+                data[2]--;
+                return new NotesRichTextRecordRewrite(record.SegmentIndex, record.RecordIndex, record.Signature, data);
+            }
+            return NotesRichTextRecordRewrite.Preserve(record);
+        });
+        RichTextItem.RewriteRichTextRecords(rewritten);
+        Recycle();
+    }
     public void Remove()
     {
         EnsureLinkedAlive();
