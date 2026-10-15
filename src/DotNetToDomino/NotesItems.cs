@@ -63,8 +63,10 @@ public class NotesItem : NotesObject
     public NotesItem CopyToDocument(NotesDocument destination, string? newName = null)
     {
         EnsureItemAlive(); ArgumentNullException.ThrowIfNull(destination);
+        if (!ReferenceEquals(Session, destination.ParentDatabase.Parent)) throw new ArgumentException("The destination must belong to the same NotesSession.", nameof(destination));
         var targetName = string.IsNullOrWhiteSpace(newName) ? Name : newName.Trim();
         Session.Api.CopyItemToDocument(Parent.Handle, Name, destination.Handle, targetName);
+        destination.AdvanceRichTextRevision(targetName);
         return destination.GetFirstItem(targetName) ?? throw new InvalidOperationException("Copied NotesItem could not be reopened.");
     }
     protected void EnsureItemAlive() { EnsureAlive(); if (_removed) throw new ObjectDisposedException(nameof(NotesItem), "NotesItem has been removed from its document."); _ = Parent.Handle; }

@@ -157,6 +157,13 @@ internal sealed partial class NotesNativeApi
     internal void SetItemFlags(nint note, string name, ushort newFlags)
     {
         var info = GetItemMetadata(note, name);
+        if (info.DataType == NotesTypeComposite)
+        {
+            // A logical rich text item can span several physical items. Moving
+            // only its first segment would reorder content and lose its flags.
+            RestoreCompositeFlags(note, name, newFlags);
+            return;
+        }
         var raw = CopyItemValueWithoutType(info);
         var pointer = Marshal.AllocHGlobal(Math.Max(1, raw.Length));
         try

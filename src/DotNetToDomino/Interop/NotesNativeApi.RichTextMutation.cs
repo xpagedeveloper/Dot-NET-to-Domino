@@ -157,6 +157,8 @@ internal sealed partial class NotesNativeApi
 
     private void RestoreCompositeFlags(nint note, string itemName, ushort flags)
     {
+        EnsureInitialized();
+        using var thread = EnterThread();
         using var name = ToLmbcs(itemName);
         var status = Resolve<Attachment_NSFItemInfo>("NSFItemInfo")(note, name.Pointer, checked((ushort)name.Length),
             out var block, out var type, out var valueBlock, out var valueLength);

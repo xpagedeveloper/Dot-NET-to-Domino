@@ -136,6 +136,12 @@ internal sealed partial class NotesNativeApi
 
     internal (string Replica, string View, string Document) GetRichTextLinkTarget(nint note, ushort linkId)
     {
+        var data = GetRichTextLinkTargetData(note, linkId);
+        return (FormatRichTextTimeDate(data, 0), FormatRichTextUnid(data, 8), FormatRichTextUnid(data, 24));
+    }
+
+    private byte[] GetRichTextLinkTargetData(nint note, ushort linkId)
+    {
         EnsureInitialized();
         using var thread = EnterThread();
         if (!HasItem(note, "$Links")) throw new InvalidOperationException("The rich text link has no $Links reference list.");
@@ -146,7 +152,7 @@ internal sealed partial class NotesNativeApi
         var count = data[0] | (data[1] << 8);
         if (linkId >= count || data.Length < 2 + count * 40) throw new InvalidOperationException("The rich text link references an invalid $Links entry.");
         var offset = 2 + linkId * 40;
-        return (FormatRichTextTimeDate(data, offset), FormatRichTextUnid(data, offset + 8), FormatRichTextUnid(data, offset + 24));
+        return data.AsSpan(offset, 40).ToArray();
     }
 
     internal IReadOnlyList<NotesRichTextRecordData> GetRichTextRecords(nint note, string itemName)

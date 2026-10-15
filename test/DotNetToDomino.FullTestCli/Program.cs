@@ -798,11 +798,57 @@ else
             using var bytes = new MemoryStream(dxl.ToArray());
             var xml = System.Xml.Linq.XDocument.Load(bytes);
             if ((string?)xml.Descendants().SingleOrDefault(e => e.Name.LocalName == "doclink")?.Attribute("document") != document.UniversalID) throw new InvalidOperationException($"Notes did not independently resolve legacy link: {xml}");
+            using (var destination = database.CreateDocument())
+            {
+                try
+                {
+                    using var copied = savedBody.CopyToDocument(destination, "CopiedBody");
+                    destination.Save();
+                    using var copiedReopened = database.GetDocumentByID(destination.NoteId)!;
+                    using var copiedDxl = exporter.Export(copiedReopened);
+                    using var copiedBytes = new MemoryStream(copiedDxl.ToArray());
+                    var copiedXml = System.Xml.Linq.XDocument.Load(copiedBytes);
+                    if ((string?)copiedXml.Descendants().SingleOrDefault(e => e.Name.LocalName == "doclink")?.Attribute("document") != document.UniversalID) throw new InvalidOperationException("CopyToDocument lost the legacy link target.");
+                }
+                finally { if (!destination.IsNewNote) destination.Remove(true); }
+            }
             using var linksItem = reopened.GetFirstItem("$Links")!;
             linksItem.Remove();
             ExpectException<InvalidOperationException>("Missing legacy link list", () => { _ = link.DocUNID; });
         }
         finally { if (!document.IsNewNote) document.Remove(true); }
+    });
+    if (!string.IsNullOrWhiteSpace(databasePath)) Check("rich text multi segment item copy", () =>
+    {
+        using var database = session.OpenDatabase(server, databasePath);
+        using var source = database.CreateDocument();
+        using var destination = database.CreateDocument();
+        try
+        {
+            using var body = source.CreateRichTextItem("Body");
+            var expected = string.Concat(Enumerable.Range(0, 1800).Select(i => $"COPY-{i:D4}-Åäö-" + new string('x', 60)));
+            foreach (var text in Enumerable.Range(0, 1800).Select(i => $"COPY-{i:D4}-Åäö-" + new string('x', 60))) body.AppendText(text);
+            body.AppendTable(2, 3);
+            body.IsProtected = true;
+            source.Save();
+            using var copied = body.CopyToDocument(destination, "RenamedBody");
+            destination.Save();
+            using var reopened = database.GetDocumentByID(destination.NoteId)!;
+            using var savedItem = reopened.GetFirstItem("RenamedBody")!;
+            if (!savedItem.IsProtected) throw new InvalidOperationException("Rich text copy lost item flags.");
+            using var exporter = session.CreateDXLExporter();
+            exporter.OutputDOCTYPE = false; exporter.RichTextOption = 0;
+            using var dxl = exporter.Export(reopened);
+            using var bytes = new MemoryStream(dxl.ToArray());
+            var xml = System.Xml.Linq.XDocument.Load(bytes);
+            var richText = xml.Descendants().Single(e => e.Name.LocalName == "richtext");
+            if (richText.Value != expected || richText.Descendants().Count(e => e.Name.LocalName == "tablecell") != 6) throw new InvalidOperationException("Multi-segment copy lost text or table cells.");
+        }
+        finally
+        {
+            if (!source.IsNewNote) source.Remove(true);
+            if (!destination.IsNewNote) destination.Remove(true);
+        }
     });
     if (!string.IsNullOrWhiteSpace(databasePath)) Check("view navigation", () =>
     {

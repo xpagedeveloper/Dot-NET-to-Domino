@@ -147,6 +147,27 @@ Ett native-test skriver en binär CDLINK2/$Links-fixture, sparar och återöppna
 den och jämför navigatorns mål med Notes egen DXL-export. Saknad lista testas
 också. Detta kompletterar testerna av länkar skapade via compound-text-API:et.
 
+## Kopiera rich text-items
+
+```csharp
+using var copied = body.CopyToDocument(destinationDocument, "CopiedBody");
+destinationDocument.Save();
+```
+
+Kopieringen tar med samtliga CD-segment. CDLINK2-länkar omvandlas till
+självständiga CDLINKEXPORT2-records med mål från källdokumentets `$Links`.
+Destinationsdokumentets egen referenslista behöver därför inte ersättas.
+Länkarnas mål löses innan destinationen ändras. Båda dokumenten måste tillhöra
+samma session. Befintliga navigatorpositioner i destinationsfältet blir ogiltiga.
+
+Native-tester verifierar kopierad CDLINK2-länk via Notes DXL efter återöppning,
+och ett fält med över 100 KB Unicode-text, tabell och skyddsflagga.
+Flagguppdatering på rich text appliceras på samtliga fysiska segment i samma
+ordning, så att ändring av exempelvis `IsProtected` inte flyttar första segmentet
+sist eller ger olika flaggor på fortsättningssegmenten.
+Kopiering av externa `$Fonts`-beroenden och alla typer av embedded objects
+är ännu inte verifierad som komplett.
+
 ## Compact
 
 `body.Compact()` bygger om itemets CD-ström via Notes native compound-text-

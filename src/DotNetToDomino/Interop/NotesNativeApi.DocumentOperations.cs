@@ -129,10 +129,35 @@ internal sealed partial class NotesNativeApi
         var info = GetItemMetadata(sourceNote, sourceName);
         // Deleting a self-copy would invalidate the BLOCKID before copying it.
         if (sourceNote == destinationNote && string.Equals(sourceName, destinationName, StringComparison.OrdinalIgnoreCase)) return;
+        // CDLINK2 indexes belong to the source document's $Links item. Resolve
+        // them before mutating the destination, and export self-contained links.
+        NotesRichTextRecordRewrite[]? composite = null;
+        if (info.DataType == NotesTypeComposite)
+        {
+            composite = GetRichTextRecords(sourceNote, sourceName).Select(record =>
+            {
+                if (record.Signature != RichTextSigLink2) return NotesRichTextRecordRewrite.Preserve(record);
+                var data = record.Data;
+                if (data.Length < 6) throw new InvalidOperationException("The CDLINK2 record is truncated.");
+                var target = GetRichTextLinkTargetData(sourceNote, (ushort)(data[4] | (data[5] << 8)));
+                var exported = new byte[checked(data.Length + 38)];
+                if (exported.Length > ushort.MaxValue) throw new InvalidOperationException("The exported rich text link exceeds the CD record size limit.");
+                exported[0] = 0x92; exported[1] = 0xff;
+                exported[2] = (byte)exported.Length; exported[3] = (byte)(exported.Length >> 8);
+                target.CopyTo(exported, 4);
+                Array.Copy(data, 6, exported, 44, data.Length - 6);
+                return new NotesRichTextRecordRewrite(record.SegmentIndex, record.RecordIndex, RichTextSigLinkExport2, exported);
+            }).ToArray();
+        }
         if (HasItem(destinationNote, destinationName)) DeleteItem(destinationNote, destinationName);
         using var newName = ToLmbcs(destinationName);
         CheckStatus(Resolve<Ops_NSFItemCopyAndRename>("NSFItemCopyAndRename")(
             destinationNote, info.ItemBlock, newName.Pointer), "NSFItemCopyAndRename");
+        if (composite is not null)
+        {
+            ReplaceRichTextCdRecords(destinationNote, destinationName, GetRichTextRecords(destinationNote, destinationName), composite);
+            RestoreCompositeFlags(destinationNote, destinationName, info.Flags);
+        }
     }
 
     internal void PutDocumentInFolder(nint db, uint noteId, string folderName, bool createOnFail)
