@@ -399,6 +399,13 @@ else
             {
                 if (!nav.FindFirstElement(NotesRichTextNavigator.ElementTable)) throw new InvalidOperationException("Row-removal table missing.");
                 using var table = nav.GetElement() as NotesRichTextTable ?? throw new InvalidOperationException("Unexpected row-removal table type.");
+                table.SetRightToLeft(true);
+            }
+            using (var nav = body.CreateNavigator())
+            {
+                if (!nav.FindFirstElement(NotesRichTextNavigator.ElementTable)) throw new InvalidOperationException("RTL table missing.");
+                using var table = nav.GetElement() as NotesRichTextTable ?? throw new InvalidOperationException("Unexpected RTL table type.");
+                if (!table.RightToLeft) throw new InvalidOperationException("Table RightToLeft flag did not persist in the CD record.");
                 using (var editableCell = table.GetCell(1, 1) ?? throw new InvalidOperationException("Editable table cell missing."))
                 {
                     editableCell.SetBorder(7);

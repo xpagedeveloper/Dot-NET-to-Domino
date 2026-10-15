@@ -281,6 +281,26 @@ public sealed class NotesRichTextTable : NotesRichTextLinkedObject
     }
     public bool RightToLeft { get { var data = CurrentRecord().Data; return data.Length >= 14 && (ReadUInt16(data, 12) & TableRightToLeft) != 0; } }
     public int Style { get { var data = CurrentRecord().Data; return data.Length >= 14 ? ReadUInt16(data, 12) : 0; } }
+    /// <summary>Sets the table direction flag in the CDTABLEBEGIN style word.</summary>
+    public void SetRightToLeft(bool rightToLeft)
+    {
+        EnsureLinkedAlive();
+        var current = CurrentRecord();
+        var records = Records();
+        var rewritten = NotesRichTextCdTransform.Transform(records, record =>
+        {
+            if (record.SegmentIndex != current.SegmentIndex || record.RecordIndex != current.RecordIndex)
+                return NotesRichTextRecordRewrite.Preserve(record);
+            var data = (byte[])record.Data.Clone();
+            if (data.Length < 14) throw new NotesException(91, "Invalid rich-text table header record.");
+            var style = ReadUInt16(data, 12);
+            style = rightToLeft ? (ushort)(style | TableRightToLeft) : (ushort)(style & ~TableRightToLeft);
+            WriteUInt16(data, 12, style);
+            return new NotesRichTextRecordRewrite(record.SegmentIndex, record.RecordIndex, record.Signature, data);
+        });
+        RichTextItem.RewriteRichTextRecords(rewritten);
+        AcceptCurrentRevision();
+    }
     /// <summary>Returns the cell at the zero-based row and column, if present.</summary>
     public NotesRichTextTableCell? GetCell(int row, int column)
     {
@@ -397,6 +417,7 @@ public sealed class NotesRichTextTable : NotesRichTextLinkedObject
         return (maxRow + 1, maxColumn + 1);
     }
     private static ushort ReadUInt16(byte[] data, int offset) => (ushort)(data[offset] | (data[offset + 1] << 8));
+    private static void WriteUInt16(byte[] data, int offset, ushort value) { data[offset] = (byte)value; data[offset + 1] = (byte)(value >> 8); }
 }
 
 /// <summary>Read-only metadata for a rich-text table cell.</summary>
