@@ -117,7 +117,7 @@ internal sealed partial class NotesNativeApi
     {
         var data = new byte[20]; PutU16(data, 0, 164); PutU16(data, 2, 20); data[4] = checked((byte)row); data[5] = checked((byte)column); data[15] = 1; data[16] = 1; PutU16(data, 18, 0); return data;
     }
-    private static byte[] BuildTableEnd() { var data = new byte[4]; PutU16(data, 0, 165); PutU16(data, 2, 4); return data; }
+    private static byte[] BuildTableEnd() { var data = new byte[8]; PutU16(data, 0, 165); PutU16(data, 2, 8); return data; }
 
     private static void PutU16(byte[] data, int offset, ushort value) { data[offset] = (byte)value; data[offset + 1] = (byte)(value >> 8); }
 
