@@ -126,8 +126,10 @@ public sealed class NotesRichTextItem : NotesItem
         ArgumentException.ThrowIfNullOrWhiteSpace(sourcePath);
         sourcePath = sourcePath.Trim();
         if (!File.Exists(sourcePath)) throw new FileNotFoundException("Rich-text attachment source file was not found.", sourcePath);
+        var before = _insertRecord is null ? null : ReadRichTextRecords();
         var metadata = Session.Api.AttachRichTextFile(Parent.Handle, Name, sourcePath);
-        Parent.AdvanceRichTextRevision(Name);
+        if (before is null) Parent.AdvanceRichTextRevision(Name);
+        else RepositionAppendedRecords(before);
         return new NotesEmbeddedObject(Session, this, metadata);
     }
 
@@ -410,12 +412,18 @@ public sealed class NotesRichTextItem : NotesItem
     {
         var before = ReadRichTextRecords();
         append();
-        var after = ReadRichTextRecords();
-        if (_insertRecord is not int insertion)
+        if (_insertRecord is null)
         {
             Parent.AdvanceRichTextRevision(Name);
             return;
         }
+        RepositionAppendedRecords(before);
+    }
+
+    private void RepositionAppendedRecords(IReadOnlyList<NotesRichTextRecordData> before)
+    {
+        if (_insertRecord is not int insertion) { Parent.AdvanceRichTextRevision(Name); return; }
+        var after = ReadRichTextRecords();
         var oldKeys = before.Select(r => (r.SegmentIndex, r.RecordIndex, r.Signature)).ToHashSet();
         var inserted = after.Where(r => !oldKeys.Contains((r.SegmentIndex, r.RecordIndex, r.Signature))).Select(NotesRichTextRecordRewrite.Preserve).ToArray();
         if (inserted.Length == 0) throw new NotesException(91, "Rich-text insertion produced no compound-text records.");
