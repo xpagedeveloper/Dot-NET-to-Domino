@@ -1153,6 +1153,32 @@ else
         using var reopenedSection = (NotesRichTextSection)reopenedNavigator.GetElement()!;
         if (reopenedSection.IsExpanded) throw new InvalidOperationException("Section expansion change was not persisted.");
     });
+    if (!string.IsNullOrWhiteSpace(databasePath)) Check("rich text table cell clear native DXL", () =>
+    {
+        using var database = session.OpenDatabase(server, databasePath);
+        using var notes = database.CreateNoteCollection(false);
+        notes.SelectDocuments = true;
+        notes.BuildCollection();
+        var noteId = notes.FirstOrDefault();
+        if (noteId == 0) throw new InvalidOperationException("Table DXL database has no document.");
+        using var document = database.GetDocumentByID(noteId)!;
+        using var item = document.GetFirstItem("Body") ?? throw new InvalidOperationException("Table DXL Body item missing.");
+        using var body = item.GetRichTextItem()!;
+        using var navigator = body.CreateNavigator();
+        if (!navigator.FindFirstElement(NotesRichTextNavigator.ElementTable)) throw new InvalidOperationException("Table CD record missing.");
+        using var table = (NotesRichTextTable)navigator.GetElement()!;
+        var beforeRows = table.RowCount; var beforeColumns = table.ColumnCount;
+        using var cell = table.GetCell(0, 0) ?? throw new InvalidOperationException("First table cell missing.");
+        cell.Remove();
+        body.Update();
+        using var reopened = database.GetDocumentByID(noteId)!;
+        using var reopenedItem = reopened.GetFirstItem("Body")!;
+        using var reopenedBody = reopenedItem.GetRichTextItem()!;
+        using var reopenedNavigator = reopenedBody.CreateNavigator();
+        if (!reopenedNavigator.FindFirstElement(NotesRichTextNavigator.ElementTable)) throw new InvalidOperationException("Table missing after cell clear.");
+        using var reopenedTable = (NotesRichTextTable)reopenedNavigator.GetElement()!;
+        if (reopenedTable.RowCount != beforeRows || reopenedTable.ColumnCount != beforeColumns) throw new InvalidOperationException("Cell clear changed table dimensions.");
+    });
     if (!string.IsNullOrWhiteSpace(databasePath)) Check("view navigation", () =>
     {
         using var database = session.GetDatabase(server, databasePath, false) ?? throw new InvalidOperationException("Database not found.");
