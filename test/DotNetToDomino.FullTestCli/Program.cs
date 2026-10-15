@@ -1073,6 +1073,31 @@ else
         }
         finally { if (!document.IsNewNote) document.Remove(true); }
     });
+    if (!string.IsNullOrWhiteSpace(databasePath)) Check("rich text range partial removal native", () =>
+    {
+        using var database = session.OpenDatabase(server, databasePath);
+        using var document = database.CreateDocument();
+        try
+        {
+            using var body = document.CreateRichTextItem("Body");
+            body.AppendText("abcdef");
+            using var range = body.CreateRange();
+            using var navigator = body.CreateNavigator();
+            navigator.FindFirstString("abcdef");
+            range.SetBegin(navigator);
+            var begin = typeof(NotesRichTextRange).GetField("_beginOffset", BindingFlags.Instance | BindingFlags.NonPublic)!;
+            var end = typeof(NotesRichTextRange).GetField("_endOffset", BindingFlags.Instance | BindingFlags.NonPublic)!;
+            var beginRecord = typeof(NotesRichTextRange).GetField("_beginRecord", BindingFlags.Instance | BindingFlags.NonPublic)!;
+            var endRecord = typeof(NotesRichTextRange).GetField("_endRecord", BindingFlags.Instance | BindingFlags.NonPublic)!;
+            begin.SetValue(range, 2); end.SetValue(range, 4); endRecord.SetValue(range, beginRecord.GetValue(range));
+            range.Remove();
+            document.Save();
+            using var reopened = database.GetDocumentByID(document.NoteId)!;
+            using var item = reopened.GetFirstItem("Body")!;
+            if (!string.Equals(item.Text, "abef", StringComparison.Ordinal)) throw new InvalidOperationException($"Partial range removal returned '{item.Text}'.");
+        }
+        finally { if (!document.IsNewNote) document.Remove(true); }
+    });
     if (!string.IsNullOrWhiteSpace(databasePath)) Check("rich text range cross segment style", () =>
     {
         using var database = session.OpenDatabase(server, databasePath);

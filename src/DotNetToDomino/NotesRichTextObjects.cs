@@ -738,7 +738,7 @@ public sealed class NotesRichTextRange : NotesObject
             .ToHashSet();
         var rewritten = NotesRichTextCdTransform.Transform(records, record =>
         {
-            if (record.Signature != 133 || record.Data.Length < 8 || record.Text.Length == 0)
+            if (record.Signature != 0xFF85 || record.Data.Length < 8 || record.Text.Length == 0)
                 return NotesRichTextRecordRewrite.Preserve(record);
             if (!selected.Contains((record.SegmentIndex, record.RecordIndex))) return NotesRichTextRecordRewrite.Preserve(record);
             var start = record.SegmentIndex == records[_beginRecord].SegmentIndex && record.RecordIndex == records[_beginRecord].RecordIndex ? Math.Clamp(_beginOffset, 0, record.Text.Length) : 0;
