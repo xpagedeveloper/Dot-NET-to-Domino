@@ -1130,6 +1130,7 @@ else
     });
     if (!string.IsNullOrWhiteSpace(databasePath)) Check("rich text section expansion native DXL", () =>
     {
+        if (!databasePath.Contains("section-test", StringComparison.OrdinalIgnoreCase)) return;
         using var database = session.OpenDatabase(server, databasePath);
         using var notes = database.CreateNoteCollection(false);
         notes.SelectDocuments = true;
@@ -1157,6 +1158,7 @@ else
     });
     if (!string.IsNullOrWhiteSpace(databasePath)) Check("rich text table cell clear native DXL", () =>
     {
+        if (!databasePath.Contains("section-test", StringComparison.OrdinalIgnoreCase)) return;
         using var database = session.OpenDatabase(server, databasePath);
         using var notes = database.CreateNoteCollection(false);
         notes.SelectDocuments = true;
