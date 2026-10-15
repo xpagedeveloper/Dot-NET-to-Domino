@@ -1206,6 +1206,31 @@ else
         }
         finally { if (!document.IsNewNote) document.Remove(true); }
     });
+    if (!string.IsNullOrWhiteSpace(databasePath)) Check("rich text begin end section native", () =>
+    {
+        using var database = session.OpenDatabase(server, databasePath);
+        using var document = database.CreateDocument();
+        try
+        {
+            using var body = document.CreateRichTextItem("Body");
+            body.BeginSection("Stateful section");
+            body.AppendText("Text inside section");
+            body.EndSection();
+            document.Save();
+            using var reopened = database.GetDocumentByID(document.NoteId)!;
+            using var item = reopened.GetFirstItem("Body")!;
+            using var savedBody = item.GetRichTextItem()!;
+            using var navigator = savedBody.CreateNavigator();
+            if (!navigator.FindFirstElement(NotesRichTextNavigator.ElementSection)) throw new InvalidOperationException("Stateful section was not found.");
+            using var section = (NotesRichTextSection)navigator.GetElement()!;
+            if (section.Title != "Stateful section") throw new InvalidOperationException("Stateful section title did not persist.");
+            using var range = savedBody.CreateRange();
+            if (!navigator.FindFirstString("Text inside section")) throw new InvalidOperationException("Section content did not persist.");
+            range.SetBegin(navigator);
+            if (!string.Equals(range.TextRun, "Text inside section", StringComparison.Ordinal)) throw new InvalidOperationException("Section content text did not persist.");
+        }
+        finally { if (!document.IsNewNote) document.Remove(true); }
+    });
     if (!string.IsNullOrWhiteSpace(databasePath)) Check("view navigation", () =>
     {
         using var database = session.GetDatabase(server, databasePath, false) ?? throw new InvalidOperationException("Database not found.");

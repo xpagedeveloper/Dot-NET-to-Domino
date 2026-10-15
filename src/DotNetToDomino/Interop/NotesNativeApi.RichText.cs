@@ -140,6 +140,43 @@ internal sealed partial class NotesNativeApi
         finally { if (!closed) try { Resolve<RichText_CompoundTextDiscard>("CompoundTextDiscard")(compound); } catch { } }
     }
 
+    internal void BeginRichTextSection(nint note, string name, string title, bool expanded)
+        => AppendRichTextSectionBoundary(note, name, title, expanded, begin: true);
+
+    internal void EndRichTextSection(nint note, string name)
+        => AppendRichTextSectionBoundary(note, name, string.Empty, expanded: false, begin: false);
+
+    private void AppendRichTextSectionBoundary(nint note, string name, string title, bool expanded, bool begin)
+    {
+        EnsureInitialized();
+        using var thread = EnterThread();
+        using var itemName = ToLmbcs(name);
+        using var titleText = ToLmbcs(title + "\0");
+        CheckStatus(Resolve<RichText_CompoundTextCreate>("CompoundTextCreate")(unchecked((uint)note), itemName.Pointer, out var compound), "CompoundTextCreate(section boundary)");
+        var closed = false;
+        try
+        {
+            if (begin)
+            {
+                CheckStatus(Resolve<RichText_CompoundTextAddParagraphExt>("CompoundTextAddParagraphExt")(compound, 0xFFFFFFFFu, RichTextDefaultFontId, 0, 0, 0), "CompoundTextAddParagraphExt(section-before)");
+                var bar = new byte[12 + titleText.Length];
+                bar[0] = 172; bar[1] = 0xFF; PutU16(bar, 2, checked((ushort)bar.Length));
+                if (expanded) PutU32(bar, 4, 0x00000002u);
+                Marshal.Copy(titleText.Pointer, bar, 12, titleText.Length);
+                AppendRichTextCdRecords(compound, new[] { bar });
+                CheckStatus(Resolve<RichText_CompoundTextAddParagraphExt>("CompoundTextAddParagraphExt")(compound, 0xFFFFFFFFu, RichTextDefaultFontId, 0, 0, 0), "CompoundTextAddParagraphExt(section-content)");
+            }
+            else
+            {
+                AppendRichTextCdRecords(compound, new[] { BuildSectionEnd() });
+                CheckStatus(Resolve<RichText_CompoundTextAddParagraphExt>("CompoundTextAddParagraphExt")(compound, 0xFFFFFFFFu, RichTextDefaultFontId, 0, 0, 0), "CompoundTextAddParagraphExt(section-after)");
+            }
+            CheckStatus(Resolve<RichText_CompoundTextClose>("CompoundTextClose")(compound, 0, 0, 0, 0), "CompoundTextClose(section boundary)");
+            closed = true;
+        }
+        finally { if (!closed) try { Resolve<RichText_CompoundTextDiscard>("CompoundTextDiscard")(compound); } catch { } }
+    }
+
     private void AppendRichTextCdRecords(uint compound, IReadOnlyList<byte[]> records)
     {
         var total = records.Sum(r => r.Length + (r.Length & 1));

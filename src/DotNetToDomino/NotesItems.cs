@@ -98,6 +98,7 @@ public class NotesItem : NotesObject
 public sealed class NotesRichTextItem : NotesItem
 {
     private NotesRichTextStyleState? _appendStyleState;
+    private int _sectionDepth;
 
     internal NotesRichTextItem(NotesSession session, NotesDocument parent, string name) : base(session, parent, name) { }
 
@@ -250,6 +251,24 @@ public sealed class NotesRichTextItem : NotesItem
         EnsureItemAlive();
         ArgumentNullException.ThrowIfNull(title);
         Session.Api.AppendRichTextSection(Parent.Handle, Name, title, expanded);
+        Parent.AdvanceRichTextRevision(Name);
+    }
+
+    public void BeginSection(string title, bool expanded = true)
+    {
+        EnsureItemAlive();
+        ArgumentNullException.ThrowIfNull(title);
+        Session.Api.BeginRichTextSection(Parent.Handle, Name, title, expanded);
+        _sectionDepth++;
+        Parent.AdvanceRichTextRevision(Name);
+    }
+
+    public void EndSection()
+    {
+        EnsureItemAlive();
+        if (_sectionDepth == 0) throw new InvalidOperationException("No rich-text section is currently open.");
+        Session.Api.EndRichTextSection(Parent.Handle, Name);
+        _sectionDepth--;
         Parent.AdvanceRichTextRevision(Name);
     }
 
