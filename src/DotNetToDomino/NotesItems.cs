@@ -189,7 +189,44 @@ public sealed class NotesRichTextItem : NotesItem
         var revision = Parent.GetRichTextRevision(Name);
         if (revision == _preparedRevision) return;
         if (_sectionDepth != 0) throw new InvalidOperationException("A rich-text section is still open. Call EndSection() before saving the document.");
+        ValidateCompoundText();
         _preparedRevision = revision;
+    }
+
+    /// <summary>Checks the compound-text stream before it is persisted.</summary>
+    /// <remarks>
+    /// The C API can expose a partially edited CD stream after a managed transform.
+    /// Saving such a stream lets Notes reject (or, on some releases, repair) the note
+    /// later. Validate its structural begin/end pairs at the managed save boundary so
+    /// callers get a deterministic exception while the rich-text item is inspectable.
+    /// </remarks>
+    private void ValidateCompoundText()
+    {
+        var records = ReadRichTextRecords();
+        var tableDepth = 0;
+        var sectionDepth = 0;
+        var embeddedDepth = 0;
+        foreach (var record in records)
+        {
+            switch (record.Signature)
+            {
+                case 163: case 207: tableDepth++; break;
+                case 165: case 209:
+                    if (--tableDepth < 0) throw new NotesException(91, "Rich-text table end record has no matching begin record.");
+                    break;
+                case unchecked((ushort)-84): sectionDepth++; break;
+                case unchecked((ushort)-82):
+                    if (--sectionDepth < 0) throw new NotesException(91, "Rich-text section end record has no matching begin record.");
+                    break;
+                case unchecked((ushort)-87): case unchecked((ushort)-83): case unchecked((ushort)-130): embeddedDepth++; break;
+                case 170: case 174: case 127:
+                    if (--embeddedDepth < 0) throw new NotesException(91, "Rich-text embedded-object end record has no matching begin record.");
+                    break;
+            }
+        }
+        if (tableDepth != 0) throw new NotesException(91, "Rich-text table has no matching end record.");
+        if (sectionDepth != 0) throw new NotesException(91, "Rich-text section has no matching end record.");
+        if (embeddedDepth != 0) throw new NotesException(91, "Rich-text embedded object has no matching end record.");
     }
 
     /// <summary>Adds a document link to another document in this rich-text item.</summary>
