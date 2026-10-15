@@ -494,10 +494,10 @@ public sealed class NotesRichTextTable : NotesRichTextLinkedObject
         EnsureLinkedAlive();
         if (count < 1) throw new ArgumentOutOfRangeException(nameof(count));
         if (targetRow < 0) throw new ArgumentOutOfRangeException(nameof(targetRow));
-        for (var i = 0; i < count; i++) AddRowBefore(targetRow);
+        AddRowBefore(targetRow, count);
     }
 
-    private void AddRowBefore(int targetRow)
+    private void AddRowBefore(int targetRow, int count)
     {
         var records = Records();
         var tableStart = CurrentFlatIndex(records);
@@ -519,9 +519,9 @@ public sealed class NotesRichTextTable : NotesRichTextLinkedObject
         var sourceCells = cells.Where(cell => cell.Row == targetRow).ToArray();
         if (sourceCells.Length == 0) throw new ArgumentOutOfRangeException(nameof(targetRow), "The table row does not exist.");
         var maxRow = cells.Max(cell => cell.Row);
-        if (maxRow >= byte.MaxValue) throw new InvalidOperationException("A rich-text table cannot exceed 256 rows.");
+        if (maxRow > byte.MaxValue - count) throw new InvalidOperationException("A rich-text table cannot exceed 256 rows.");
         var clones = new List<(ushort Signature, byte[] Data)>();
-        foreach (var cell in sourceCells)
+        for (var copy = 0; copy < count; copy++) foreach (var cell in sourceCells)
         {
             var end = tableEnd;
             for (var i = cell.Index + 1; i < tableEnd; i++)
