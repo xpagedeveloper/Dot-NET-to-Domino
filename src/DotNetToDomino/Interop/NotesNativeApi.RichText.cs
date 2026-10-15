@@ -115,7 +115,7 @@ internal sealed partial class NotesNativeApi
     private static byte[] BuildTableBegin() { var data = new byte[16]; PutU16(data, 0, 163); PutU16(data, 2, 16); return data; }
     private static byte[] BuildTableCell(int row, int column)
     {
-        var data = new byte[20]; PutU16(data, 0, 164); PutU16(data, 2, 20); data[4] = checked((byte)row); data[5] = checked((byte)column); data[15] = 1; data[16] = 1; PutU16(data, 18, 0); return data;
+        var data = new byte[20]; PutU16(data, 0, 164); PutU16(data, 2, 20); data[4] = checked((byte)row); data[5] = checked((byte)column); data[13] = 1; data[15] = 1; data[16] = 1; PutU16(data, 18, 0); return data;
     }
     private static byte[] BuildTableEnd() { var data = new byte[8]; PutU16(data, 0, 165); PutU16(data, 2, 8); return data; }
 
