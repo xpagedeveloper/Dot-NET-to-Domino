@@ -439,6 +439,36 @@ public sealed class NotesRichTextTableCell : NotesRichTextLinkedObject
         });
     }
 
+    /// <summary>Sets the left and right cell margins in twips.</summary>
+    public void SetMargins(int left, int right)
+    {
+        EnsureLinkedAlive();
+        if (left < 0 || left > ushort.MaxValue) throw new ArgumentOutOfRangeException(nameof(left));
+        if (right < 0 || right > ushort.MaxValue) throw new ArgumentOutOfRangeException(nameof(right));
+        RewriteCell(data =>
+        {
+            if (data.Length < 8) throw new NotesException(91, "Invalid rich-text table cell record.");
+            WriteUInt16(data, 4, (ushort)left);
+            WriteUInt16(data, 6, (ushort)right);
+            return data;
+        });
+    }
+
+    /// <summary>Sets the row and column span, where each value must be at least one.</summary>
+    public void SetSpan(int rowSpan, int columnSpan)
+    {
+        EnsureLinkedAlive();
+        if (rowSpan is < 1 or > byte.MaxValue) throw new ArgumentOutOfRangeException(nameof(rowSpan));
+        if (columnSpan is < 1 or > byte.MaxValue) throw new ArgumentOutOfRangeException(nameof(columnSpan));
+        RewriteCell(data =>
+        {
+            if (data.Length < 16) throw new NotesException(91, "Invalid rich-text table cell record.");
+            data[14] = (byte)rowSpan;
+            data[15] = (byte)columnSpan;
+            return data;
+        });
+    }
+
     private void RewriteCell(Func<byte[], byte[]> transform)
     {
         var current = CurrentRecord();

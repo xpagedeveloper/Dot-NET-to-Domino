@@ -403,6 +403,8 @@ else
                 {
                     editableCell.SetBorder(7);
                     editableCell.SetBackgroundColor(42);
+                    editableCell.SetMargins(111, 222);
+                    editableCell.SetSpan(2, 2);
                 }
             }
             using (var nav = body.CreateNavigator())
@@ -410,7 +412,8 @@ else
                 if (!nav.FindFirstElement(NotesRichTextNavigator.ElementTable)) throw new InvalidOperationException("Updated row-removal table missing.");
                 using var table = nav.GetElement() as NotesRichTextTable ?? throw new InvalidOperationException("Unexpected updated row-removal table type.");
                 using (var updatedCell = table.GetCell(1, 1) ?? throw new InvalidOperationException("Updated table cell missing."))
-                    if (updatedCell.Border != 7 || updatedCell.BackgroundColor != 42) throw new InvalidOperationException("Table cell writable fields did not persist in the CD record.");
+                    if (updatedCell.Border != 7 || updatedCell.BackgroundColor != 42 || updatedCell.LeftMargin != 111 || updatedCell.RightMargin != 222 || updatedCell.RowSpan != 2 || updatedCell.ColumnSpan != 2)
+                        throw new InvalidOperationException("Table cell writable fields did not persist in the CD record.");
                 table.RemoveRow(1);
             }
             reopened.Save();
