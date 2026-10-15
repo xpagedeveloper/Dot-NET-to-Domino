@@ -1398,6 +1398,23 @@ else
         }
         finally { if (!document.IsNewNote) document.Remove(true); }
     });
+    if (!string.IsNullOrWhiteSpace(databasePath)) Check("rich text document save insertion guard", () =>
+    {
+        using var database = session.OpenDatabase(server, databasePath);
+        using var document = database.CreateDocument();
+        try
+        {
+            using var body = document.CreateRichTextItem("Body");
+            body.AppendText("Insertion guard");
+            using var navigator = body.CreateNavigator();
+            if (!navigator.FindFirstElement(NotesRichTextNavigator.ElementTextRun)) throw new InvalidOperationException("Insertion guard fixture missing.");
+            body.BeginInsert(navigator);
+            ExpectException<InvalidOperationException>("Open insertion document save guard", document.Save);
+            body.EndInsert();
+            document.Save();
+        }
+        finally { if (!document.IsNewNote) document.Remove(true); }
+    });
     if (!string.IsNullOrWhiteSpace(databasePath)) Check("view navigation", () =>
     {
         using var database = session.GetDatabase(server, databasePath, false) ?? throw new InvalidOperationException("Database not found.");
