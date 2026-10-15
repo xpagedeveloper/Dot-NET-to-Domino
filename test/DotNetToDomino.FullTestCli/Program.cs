@@ -462,6 +462,35 @@ else
         }
         finally { if (!document.IsNewNote) document.Remove(true); }
     });
+    if (!string.IsNullOrWhiteSpace(databasePath)) Check("rich text multiple table row isolation", () =>
+    {
+        using var database = session.OpenDatabase(server, databasePath);
+        using var document = database.CreateDocument();
+        try
+        {
+            using (var sourceBody = document.CreateRichTextItem("Body")) { sourceBody.AppendTable(2, 1); sourceBody.AppendText("between"); sourceBody.AppendTable(3, 1); }
+            document.Save();
+            using var reopened = database.GetDocumentByID(document.NoteId) ?? throw new InvalidOperationException("Multiple-table document missing.");
+            using var item = reopened.GetFirstItem("Body") ?? throw new InvalidOperationException("Multiple-table Body missing.");
+            using var body = item.GetRichTextItem() ?? throw new InvalidOperationException("Multiple-table Body is not rich text.");
+            using (var nav = body.CreateNavigator())
+            {
+                if (!nav.FindFirstElement(NotesRichTextNavigator.ElementTable)) throw new InvalidOperationException("First table missing.");
+                using var first = nav.GetElement() as NotesRichTextTable ?? throw new InvalidOperationException("First table type mismatch.");
+                if (first.RowCount != 2) throw new InvalidOperationException("First table initial row count was incorrect.");
+                first.AddRow();
+            }
+            using var verify = body.CreateNavigator();
+            if (!verify.FindFirstElement(NotesRichTextNavigator.ElementTable)) throw new InvalidOperationException("First table missing after AddRow.");
+            using var updatedFirst = verify.GetElement() as NotesRichTextTable ?? throw new InvalidOperationException("Updated first table type mismatch.");
+            if (updatedFirst.RowCount != 3) throw new InvalidOperationException("First table AddRow did not persist.");
+            if (!verify.FindNextElement(NotesRichTextNavigator.ElementTable)) throw new InvalidOperationException("Second table missing after AddRow.");
+            using var second = verify.GetElement() as NotesRichTextTable ?? throw new InvalidOperationException("Second table type mismatch.");
+            if (second.RowCount != 3 || second.Cells.Count != 3) throw new InvalidOperationException("AddRow changed the second table.");
+            Console.WriteLine("VERIFIED AddRow isolates multiple tables");
+        }
+        finally { if (!document.IsNewNote) document.Remove(true); }
+    });
     if (!string.IsNullOrWhiteSpace(databasePath)) Check("rich text multi-segment table removal", () =>
     {
         using var database = session.OpenDatabase(server, databasePath);
