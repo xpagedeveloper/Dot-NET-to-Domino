@@ -177,12 +177,16 @@ public sealed class NotesRichTextItem : NotesItem
 
     /// <summary>Starts inserting before the first record covered by a rich-text range.</summary>
     public void BeginInsert(NotesRichTextRange range)
+        => BeginInsert(range, atEnd: false);
+
+    /// <summary>Starts inserting at the beginning or end of a rich-text range.</summary>
+    public void BeginInsert(NotesRichTextRange range, bool atEnd)
     {
         EnsureItemAlive();
         ArgumentNullException.ThrowIfNull(range);
         if (!ReferenceEquals(range.RichTextItem, this)) throw new ArgumentException("The range must belong to this rich-text item.", nameof(range));
         if (_insertRecord is not null) throw new InvalidOperationException("Rich-text insertion is already active.");
-        _insertRecord = range.BeginRecord;
+        _insertRecord = atEnd ? range.EndRecord + 1 : range.BeginRecord;
     }
 
     /// <summary>Starts inserting before a concrete rich-text element.</summary>

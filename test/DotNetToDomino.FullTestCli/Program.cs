@@ -641,6 +641,9 @@ else
             body.BeginInsert(range);
             body.AppendText("INSERT-RANGE-");
             body.EndInsert();
+            body.BeginInsert(range, atEnd: true);
+            body.AppendText("INSERT-RANGE-END");
+            body.EndInsert();
             using var sectionNavigator = body.CreateNavigator();
             if (!sectionNavigator.FindFirstElement(NotesRichTextNavigator.ElementTextRun)) throw new InvalidOperationException("Section insertion fixture missing.");
             body.BeginInsert(sectionNavigator);
