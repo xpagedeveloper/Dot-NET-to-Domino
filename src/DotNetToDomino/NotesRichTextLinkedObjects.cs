@@ -95,7 +95,22 @@ public sealed class NotesRichTextSection : NotesRichTextLinkedObject
 
     internal NotesRichTextSection(NotesSession session, NotesRichTextItem item, NotesRichTextRecordData record) : base(session, item, record) { }
 
-    public bool IsExpanded { get { var data = CurrentRecord().Data; return data.Length >= 8 && (ReadUInt32(data, 4) & BarExpanded) != 0; } }
+    public bool IsExpanded
+    {
+        get { var data = CurrentRecord().Data; return data.Length >= 8 && (ReadUInt32(data, 4) & BarExpanded) != 0; }
+        set
+        {
+            EnsureLinkedAlive();
+            RewriteHeader(data =>
+            {
+                if (data.Length < 8) throw new NotesException(91, "Invalid rich-text section header.");
+                var flags = ReadUInt32(data, 4);
+                flags = value ? flags | BarExpanded : flags & ~BarExpanded;
+                WriteUInt32(data, 4, flags);
+                return data;
+            });
+        }
+    }
     public string Title
     {
         get
