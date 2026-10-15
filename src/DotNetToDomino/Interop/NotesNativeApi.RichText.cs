@@ -69,7 +69,6 @@ internal sealed partial class NotesNativeApi
         EnsureInitialized();
         if (rows is < 1 or > 255) throw new ArgumentOutOfRangeException(nameof(rows));
         if (columns is < 1 or > 64) throw new ArgumentOutOfRangeException(nameof(columns));
-        if (rows > 1) throw new NotSupportedException("Multi-row rich-text tables require canonical PAB records and are not yet supported by this native writer.");
         using var thread = EnterThread();
         using var itemName = ToLmbcs(name);
         CheckStatus(Resolve<RichText_CompoundTextCreate>("CompoundTextCreate")(unchecked((uint)note), itemName.Pointer, out var compound), "CompoundTextCreate(table)");
@@ -115,15 +114,19 @@ internal sealed partial class NotesNativeApi
 
     private static byte[] BuildTableBegin()
     {
-        var data = new byte[16]; PutU16(data, 0, 163); PutU16(data, 2, 16);
-        PutU16(data, 6, 90); PutU16(data, 8, 90); PutU16(data, 10, 90); PutU16(data, 12, 90);
+        var data = new byte[14]; data[0] = 163; data[1] = 14;
+        PutU16(data, 4, 90); PutU16(data, 6, 90); PutU16(data, 8, 90); PutU16(data, 10, 90);
         return data;
     }
     private static byte[] BuildTableCell(int row, int column)
     {
-        var data = new byte[20]; PutU16(data, 0, 164); PutU16(data, 2, 20); data[4] = checked((byte)row); data[5] = checked((byte)column); PutU16(data, 6, (ushort)(120 + column * 900)); PutU16(data, 8, (ushort)(900 + column * 900)); data[13] = 1; data[15] = 1; data[16] = 1; PutU16(data, 18, 0); return data;
+        var data = new byte[18]; data[0] = 164; data[1] = 18;
+        data[2] = checked((byte)row); data[3] = checked((byte)column);
+        PutU16(data, 4, (ushort)(120 + column * 480)); PutU16(data, 6, (ushort)(420 + column * 480));
+        data[11] = 0x02; data[14] = 1; data[15] = 1;
+        return data;
     }
-    private static byte[] BuildTableEnd() { var data = new byte[8]; PutU16(data, 0, 165); PutU16(data, 2, 8); return data; }
+    private static byte[] BuildTableEnd() { var data = new byte[6]; data[0] = 165; data[1] = 6; return data; }
 
     private static void PutU16(byte[] data, int offset, ushort value) { data[offset] = (byte)value; data[offset + 1] = (byte)(value >> 8); }
 

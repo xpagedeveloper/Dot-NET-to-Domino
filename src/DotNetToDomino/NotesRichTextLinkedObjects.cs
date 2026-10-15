@@ -288,8 +288,8 @@ public sealed class NotesRichTextTable : NotesRichTextLinkedObject
             if (record.Signature == NestedTableEndSignature) { if (nestedDepth > 0) nestedDepth--; continue; }
             if (nestedDepth > 0) continue;
             if (record.Signature == TableEndSignature) break;
-            if (record.ElementType != NotesRichTextNavigator.ElementTableCell || record.Data.Length < 20) continue;
-            if (record.Data[4] == row && record.Data[5] == column)
+            if (record.ElementType != NotesRichTextNavigator.ElementTableCell || record.Data.Length < 18) continue;
+            if (record.Data[2] == row && record.Data[3] == column)
                 return new NotesRichTextTableCell(Session, RichTextItem, record);
         }
         return null;
@@ -327,9 +327,9 @@ public sealed class NotesRichTextTable : NotesRichTextLinkedObject
             if (record.Signature == NestedTableEndSignature) { if (nestedDepth > 0) nestedDepth--; continue; }
             if (nestedDepth > 0) continue;
             if (record.Signature == TableEndSignature) break;
-            if (record.ElementType != NotesRichTextNavigator.ElementTableCell || record.Data.Length < 6) continue;
-            maxRow = Math.Max(maxRow, record.Data[4]);
-            maxColumn = Math.Max(maxColumn, record.Data[5]);
+            if (record.ElementType != NotesRichTextNavigator.ElementTableCell || record.Data.Length < 4) continue;
+            maxRow = Math.Max(maxRow, record.Data[2]);
+            maxColumn = Math.Max(maxColumn, record.Data[3]);
         }
         return (maxRow + 1, maxColumn + 1);
     }
@@ -340,19 +340,19 @@ public sealed class NotesRichTextTable : NotesRichTextLinkedObject
 public sealed class NotesRichTextTableCell : NotesRichTextLinkedObject
 {
     internal NotesRichTextTableCell(NotesSession session, NotesRichTextItem item, NotesRichTextRecordData record) : base(session, item, record) { }
-    public int Row { get { var data = PositionRecord().Data; return data.Length > 4 ? data[4] : 0; } }
-    public int Column { get { var data = PositionRecord().Data; return data.Length > 5 ? data[5] : 0; } }
-    public int LeftMargin { get { var data = PositionRecord().Data; return data.Length >= 8 ? ReadUInt16(data, 6) : 0; } }
-    public int RightMargin { get { var data = PositionRecord().Data; return data.Length >= 10 ? ReadUInt16(data, 8) : 0; } }
-    public int FractionalWidth { get { var data = PositionRecord().Data; return data.Length >= 12 ? ReadUInt16(data, 10) : 0; } }
-    public int Border { get { var data = PositionRecord().Data; return data.Length > 12 ? data[12] : 0; } }
-    public int Flags { get { var data = PositionRecord().Data; return data.Length > 13 ? data[13] : 0; } }
+    public int Row { get { var data = PositionRecord().Data; return data.Length > 2 ? data[2] : 0; } }
+    public int Column { get { var data = PositionRecord().Data; return data.Length > 3 ? data[3] : 0; } }
+    public int LeftMargin { get { var data = PositionRecord().Data; return data.Length >= 6 ? ReadUInt16(data, 4) : 0; } }
+    public int RightMargin { get { var data = PositionRecord().Data; return data.Length >= 8 ? ReadUInt16(data, 6) : 0; } }
+    public int FractionalWidth { get { var data = PositionRecord().Data; return data.Length >= 10 ? ReadUInt16(data, 8) : 0; } }
+    public int Border { get { var data = PositionRecord().Data; return data.Length > 10 ? data[10] : 0; } }
+    public int Flags { get { var data = PositionRecord().Data; return data.Length > 11 ? data[11] : 0; } }
     /// <summary>Indicates that the cell uses the wider Notes 4.5+ border encoding.</summary>
-    public bool UsesV42Borders => (Flags & 0x01) != 0;
-    public int V42Border { get { var data = PositionRecord().Data; return data.Length >= 16 ? ReadUInt16(data, 14) : 0; } }
-    public int BackgroundColor { get { var data = PositionRecord().Data; return data.Length >= 20 ? ReadUInt16(data, 18) : 0; } }
-    public int RowSpan { get { var data = PositionRecord().Data; return data.Length >= 18 ? Math.Max(1, (int)data[16]) : 1; } }
-    public int ColumnSpan { get { var data = PositionRecord().Data; return data.Length >= 18 ? Math.Max(1, (int)data[17]) : 1; } }
+    public bool UsesV42Borders => (Flags & 0x02) != 0;
+    public int V42Border { get { var data = PositionRecord().Data; return data.Length >= 14 ? ReadUInt16(data, 12) : 0; } }
+    public int BackgroundColor { get { var data = PositionRecord().Data; return data.Length >= 18 ? ReadUInt16(data, 16) : 0; } }
+    public int RowSpan { get { var data = PositionRecord().Data; return data.Length >= 16 ? Math.Max(1, (int)data[14]) : 1; } }
+    public int ColumnSpan { get { var data = PositionRecord().Data; return data.Length >= 16 ? Math.Max(1, (int)data[15]) : 1; } }
     public void Remove() { EnsureLinkedAlive(); RemoveRecordSpan(CurrentFlatIndex(Records()), CurrentFlatIndex(Records())); }
     private static ushort ReadUInt16(byte[] data, int offset) => (ushort)(data[offset] | (data[offset + 1] << 8));
 }

@@ -1,0 +1,56 @@
+# RichText: tabellrecords och verifiering
+
+`NotesRichTextItem.AppendTable(rows, columns)` stöder 1–255 rader och
+1–64 kolumner. Följande exempel skapar en tabell och sparar dokumentet:
+
+```csharp
+using var document = database.CreateDocument();
+using var body = document.CreateRichTextItem("Body");
+body.AppendText("Före tabellen");
+body.AppendTable(3, 4);
+body.AppendText("Efter tabellen");
+document.Save();
+```
+
+## Record-layout
+
+HCL C API och HCL JNX definierar BSIG som två bytes: signatur följd av
+recordens totala längd. Det skiljer sig från WSIG, som har fyra bytes.
+Tabellrecordsen använder BSIG:
+
+| Record | Längd | Viktiga offsets (bytes) |
+| --- | ---: | --- |
+| CDTABLEBEGIN | 14 | LeftMargin 2, intercell-avstånd 4/6/8/10, Flags 12 |
+| CDTABLECELL | 18 | Row 2, Column 3, LeftMargin 4, RightMargin 6, FractionalWidth 8, Border 10, Flags 11, v42Border 12, RowSpan 14, ColumnSpan 15, BackgroundColor 16 |
+| CDTABLEEND | 6 | Fyra nollställda reservbytes efter BSIG |
+
+`CDTABLECELL_USE_BKGCOLOR` är `0x01` och
+`CDTABLECELL_USE_V42BORDERS` är `0x02`.
+
+Den tidigare skrivaren använde fyra bytes för BSIG. Läsaren hade samma
+förskjutning, så interna round-trip-kontroller kunde missa felet.
+Skrivare och läsare använder nu layouten ovan. Fler-radsbegränsningen är borttagen.
+
+## Tester
+
+`DotNetToDomino.FullTestCli`, filtret `rich text`, verifierar dimensioner,
+cellmetadata och sista cellen efter spara/återöppna. Dessutom kontrolleras
+tablerow/tablecell i HCL Notes egen strukturerade DXL-export för varje storlek.
+Tillfälliga sparade testdokument tas bort efter kontrollen.
+
+Detta verifierar native lagring och DXL-tolkning. Det är inte ett visuellt
+test av Notes-editorn eller bevis för att alla övriga RichText-metoder är färdiga.
+
+## Referenser
+
+- [HCL C API: BSIG](https://opensource.hcltechsw.com/domino-c-api-docs/reference/Data/BSIG/)
+- [HCL C API: CDTABLECELL](https://opensource.hcltechsw.com/domino-c-api-docs/reference/Data/CDTABLECELL/)
+- [HCL C API: canonical format](https://opensource.hcltechsw.com/domino-c-api-docs/howto/user_guide/Domino_Canonical_Format/)
+- [HCL JNX: BSIG](https://github.com/HCL-TECH-SOFTWARE/domino-jnx/blob/develop/domino-jnx-api/src/main/java/com/hcl/domino/richtext/structures/BSIG.java)
+- [HCL JNX: CDTableCell](https://github.com/HCL-TECH-SOFTWARE/domino-jnx/blob/develop/domino-jnx-api/src/main/java/com/hcl/domino/richtext/records/CDTableCell.java)
+- [HCL JNX: RichTextConstants](https://github.com/HCL-TECH-SOFTWARE/domino-jnx/blob/develop/domino-jnx-api/src/main/java/com/hcl/domino/richtext/RichTextConstants.java)
+
+`ODSWriteMemory` är HCL:s native C API för konvertering från host-layout till
+Dominos canonical-format. På Intel-plattformar kräver HCL inte denna konvertering
+för dessa records. Det tidigare antagandet att avsaknaden av funktionen förklarade
+tabellfelet var därför felaktigt.

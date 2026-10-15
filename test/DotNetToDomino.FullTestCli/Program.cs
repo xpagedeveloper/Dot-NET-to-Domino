@@ -282,16 +282,15 @@ else
         using var document = database.CreateDocument();
         using var richText = document.CreateRichTextItem("Body");
         richText.AppendText("Rich text full test");
-        ExpectException<NotSupportedException>("Multi-row rich-text table guard", () => richText.AppendTable(2, 2));
-        richText.AppendTable(1, 2);
+        richText.AppendTable(2, 2);
         using (var tableNavigator = richText.CreateNavigator())
         {
             if (!tableNavigator.FindFirstElement(NotesRichTextNavigator.ElementTable)) throw new InvalidOperationException("Appended rich-text table was not found.");
             using var table = tableNavigator.GetElement() as NotesRichTextTable ?? throw new InvalidOperationException("Table navigator returned an unexpected element type.");
-            if (table.RowCount != 1 || table.ColumnCount != 2) throw new InvalidOperationException($"Appended rich-text table dimensions were incorrect: {table.RowCount}x{table.ColumnCount}.");
+            if (table.RowCount != 2 || table.ColumnCount != 2) throw new InvalidOperationException($"Appended rich-text table dimensions were incorrect: {table.RowCount}x{table.ColumnCount}.");
             using var cell = table.GetCell(0, 1) ?? throw new InvalidOperationException("Appended rich-text table cell was not found.");
-            if (cell.Row != 0 || cell.Column != 1 || cell.RowSpan != 1 || cell.ColumnSpan != 1 || cell.LeftMargin < 0 || cell.RightMargin < 0 || cell.FractionalWidth < 0 || cell.Border < 0 || cell.Flags != 1 || !cell.UsesV42Borders || cell.V42Border < 0 || cell.BackgroundColor < 0) throw new InvalidOperationException("Rich-text table cell coordinates or metadata were incorrect.");
-            if (table.Cells.Count != 2) throw new InvalidOperationException($"Appended rich-text table cell collection was incorrect: {table.Cells.Count}.");
+            if (cell.Row != 0 || cell.Column != 1 || cell.RowSpan != 1 || cell.ColumnSpan != 1 || cell.LeftMargin < 0 || cell.RightMargin < 0 || cell.FractionalWidth < 0 || cell.Border < 0 || cell.Flags != 2 || !cell.UsesV42Borders || cell.V42Border < 0 || cell.BackgroundColor < 0) throw new InvalidOperationException("Rich-text table cell coordinates or metadata were incorrect.");
+            if (table.Cells.Count != 4) throw new InvalidOperationException($"Appended rich-text table cell collection was incorrect: {table.Cells.Count}.");
         }
         using var paragraphStyle = session.CreateRichTextParagraphStyle();
         paragraphStyle.Alignment = 1;
@@ -324,6 +323,49 @@ else
             using var style = session.CreateRichTextStyle();
             style.Bold = -1;
             range.SetStyle(style);
+        }
+    });
+    if (!string.IsNullOrWhiteSpace(databasePath)) Check("rich text table persistence and native DXL", () =>
+    {
+        using var database = session.OpenDatabase(server, databasePath);
+        foreach (var (rows, columns) in new[] { (1, 1), (1, 2), (2, 2), (3, 4), (1, 64), (2, 64), (255, 1) })
+        {
+            using var document = database.CreateDocument();
+            try
+            {
+                using (var body = document.CreateRichTextItem("Body"))
+                {
+                    body.AppendText("Before table");
+                    body.AppendTable(rows, columns);
+                    body.AppendText("After table");
+                }
+                document.Save();
+                using var reopened = database.GetDocumentByID(document.NoteId) ?? throw new InvalidOperationException("Saved table document missing.");
+                using var item = reopened.GetFirstItem("Body") ?? throw new InvalidOperationException("Saved Body missing.");
+                using var richText = item.GetRichTextItem() ?? throw new InvalidOperationException("Saved Body is not rich text.");
+                using var nav = richText.CreateNavigator();
+                if (!nav.FindFirstElement(NotesRichTextNavigator.ElementTable)) throw new InvalidOperationException("Saved table missing.");
+                using var table = nav.GetElement() as NotesRichTextTable ?? throw new InvalidOperationException("Unexpected saved table type.");
+                if (table.RowCount != rows || table.ColumnCount != columns || table.Cells.Count != rows * columns)
+                    throw new InvalidOperationException($"Saved table does not match {rows}x{columns}.");
+                using var lastCell = table.GetCell(rows - 1, columns - 1) ?? throw new InvalidOperationException("Last saved cell missing.");
+                if (lastCell.Row != rows - 1 || lastCell.Column != columns - 1 ||
+                    lastCell.LeftMargin != 120 + (columns - 1) * 480 || lastCell.RightMargin != 420 + (columns - 1) * 480 ||
+                    lastCell.RowSpan != 1 || lastCell.ColumnSpan != 1 || !lastCell.UsesV42Borders || lastCell.V42Border != 0)
+                    throw new InvalidOperationException("Saved cell fields differ from the native BSIG layout.");
+                using var exporter = session.CreateDXLExporter();
+                exporter.OutputDOCTYPE = false;
+                exporter.RichTextOption = 0;
+                using var dxl = exporter.Export(reopened);
+                using var xmlBytes = new MemoryStream(dxl.ToArray());
+                var xml = System.Xml.Linq.XDocument.Load(xmlBytes);
+                var exported = xml.Descendants().Single(e => e.Name.LocalName == "table");
+                var exportedRows = exported.Elements().Where(e => e.Name.LocalName == "tablerow").ToArray();
+                if (exportedRows.Length != rows || exportedRows.Any(row => row.Elements().Count(e => e.Name.LocalName == "tablecell") != columns))
+                    throw new InvalidOperationException($"Notes DXL export does not confirm {rows}x{columns}: {exported}");
+                Console.WriteLine($"VERIFIED saved table and Notes DXL {rows}x{columns}");
+            }
+            finally { if (!document.IsNewNote) document.Remove(true); }
         }
     });
     NotesItemRegressionTests.Run(session, server, databasePath, Check);
