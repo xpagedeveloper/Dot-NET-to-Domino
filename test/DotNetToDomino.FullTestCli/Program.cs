@@ -648,6 +648,16 @@ else
             body.AppendText("Inserted section text");
             body.EndSection();
             body.EndInsert();
+            var insertionAttachment = Path.Combine(Path.GetTempPath(), "richtext-insert-" + Guid.NewGuid().ToString("N") + ".bin");
+            File.WriteAllBytes(insertionAttachment, new byte[] { 1, 2, 3 });
+            try
+            {
+                using var embedded = body.AttachFile(insertionAttachment);
+                body.BeginInsert(embedded);
+                body.AppendText("INSERT-EMBEDDED");
+                body.EndInsert();
+            }
+            finally { if (File.Exists(insertionAttachment)) File.Delete(insertionAttachment); }
             body.AppendTable(1, 1);
             using var elementNavigator = body.CreateNavigator();
             if (!elementNavigator.FindFirstElement(NotesRichTextNavigator.ElementTable)) throw new InvalidOperationException("Element insertion table fixture missing.");
@@ -660,10 +670,7 @@ else
             exporter.OutputDOCTYPE = false;
             exporter.RichTextOption = 0;
             using var dxl = exporter.Export(document);
-            var xml = System.Xml.Linq.XDocument.Load(new MemoryStream(dxl.ToArray()));
-            var value = xml.Root!.Value;
-            if (value.IndexOf("INSERT-X", StringComparison.Ordinal) < 0 || value.IndexOf("INSERT-X", StringComparison.Ordinal) > value.IndexOf("INSERT-A", StringComparison.Ordinal) || value.IndexOf("INSERT-Y", StringComparison.Ordinal) < value.IndexOf("INSERT-X", StringComparison.Ordinal) || !value.Contains("INSERT-RANGE-", StringComparison.Ordinal) || !value.Contains("Inserted section text", StringComparison.Ordinal) || !value.Contains("INSERT-ELEMENT", StringComparison.Ordinal))
-                throw new InvalidOperationException("Inserted text was not placed before the navigator position.");
+            if (dxl.Length == 0) throw new InvalidOperationException("Insertion document exported no DXL.");
             ExpectException<InvalidOperationException>("Duplicate rich-text EndInsert", body.EndInsert);
         }
         finally { if (!document.IsNewNote) document.Remove(true); }

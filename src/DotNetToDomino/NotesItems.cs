@@ -183,6 +183,21 @@ public sealed class NotesRichTextItem : NotesItem
         _insertRecord = index;
     }
 
+    /// <summary>Starts inserting before an embedded object.</summary>
+    public void BeginInsert(NotesEmbeddedObject element)
+    {
+        EnsureItemAlive();
+        ArgumentNullException.ThrowIfNull(element);
+        if (!ReferenceEquals(element.Parent, this)) throw new ArgumentException("The embedded object must belong to this rich-text item.", nameof(element));
+        if (_insertRecord is not null) throw new InvalidOperationException("Rich-text insertion is already active.");
+        var records = ReadRichTextRecords();
+        var index = Enumerable.Range(0, records.Count).FirstOrDefault(i =>
+            records[i].ElementType == NotesRichTextNavigator.ElementEmbeddedObject &&
+            string.Equals(records[i].LinkedObjectName, element.Name, StringComparison.OrdinalIgnoreCase), -1);
+        if (index < 0) throw new InvalidOperationException("The embedded object no longer exists.");
+        _insertRecord = index;
+    }
+
     /// <summary>Ends the current insertion mode and restores normal append behavior.</summary>
     public void EndInsert()
     {
