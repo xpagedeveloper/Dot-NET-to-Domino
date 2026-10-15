@@ -469,6 +469,22 @@ public sealed class NotesRichTextTableCell : NotesRichTextLinkedObject
         });
     }
 
+    /// <summary>Sets the fractional width used by the table layout.</summary>
+    public void SetFractionalWidth(int width)
+    {
+        EnsureLinkedAlive();
+        if (width < 0 || width > ushort.MaxValue) throw new ArgumentOutOfRangeException(nameof(width));
+        RewriteCell(data => { if (data.Length < 10) throw new NotesException(91, "Invalid rich-text table cell record."); WriteUInt16(data, 8, (ushort)width); return data; });
+    }
+
+    /// <summary>Sets the extended v4.2 border word when present.</summary>
+    public void SetV42Border(int border)
+    {
+        EnsureLinkedAlive();
+        if (border < 0 || border > ushort.MaxValue) throw new ArgumentOutOfRangeException(nameof(border));
+        RewriteCell(data => { if (data.Length < 14) throw new NotesException(91, "Invalid rich-text table cell record."); WriteUInt16(data, 12, (ushort)border); return data; });
+    }
+
     private void RewriteCell(Func<byte[], byte[]> transform)
     {
         var current = CurrentRecord();
