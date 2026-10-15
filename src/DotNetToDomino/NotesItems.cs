@@ -219,9 +219,9 @@ public sealed class NotesRichTextItem : NotesItem
     {
         EnsureItemAlive();
         var revision = Parent.GetRichTextRevision(Name);
-        if (revision == _preparedRevision) return;
         if (_sectionDepth != 0) throw new InvalidOperationException("A rich-text section is still open. Call EndSection() before saving the document.");
         if (_insertRecord is not null) throw new InvalidOperationException("Rich-text insertion is still active. Call EndInsert() before saving the document.");
+        if (revision == _preparedRevision) return;
         ValidateCompoundText();
         _preparedRevision = revision;
     }

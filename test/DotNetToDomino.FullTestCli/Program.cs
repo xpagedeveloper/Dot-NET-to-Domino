@@ -1409,6 +1409,7 @@ else
             body.AppendText("Insertion guard");
             using var navigator = body.CreateNavigator();
             if (!navigator.FindFirstElement(NotesRichTextNavigator.ElementTextRun)) throw new InvalidOperationException("Insertion guard fixture missing.");
+            document.Save();
             body.BeginInsert(navigator);
             ExpectException<InvalidOperationException>("Open insertion document save guard", document.Save);
             body.EndInsert();
