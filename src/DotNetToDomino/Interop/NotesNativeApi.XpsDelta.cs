@@ -54,9 +54,12 @@ internal sealed partial class NotesNativeApi
             const uint styleSameAsPrevious = 0xFFFFFFFFu;
             const uint preserveLines = 0x00000002u;
             var fontId = BuildRichTextFontId(style, GetLastRichTextFontId(note, name));
+            var passThruHtml = style.PassThruHtml == -1;
+            if (passThruHtml) AppendRichTextCdRecords(compound, new[] { BuildRichTextHtmlBoundary(true) });
             CheckStatus(Resolve<RichText_CompoundTextAddTextExt>("CompoundTextAddTextExt")(
                 compound, styleSameAsPrevious, fontId, text.Pointer, checked((uint)text.Length), delimiter.Pointer, preserveLines, 0),
                 "CompoundTextAddTextExt(styled)");
+            if (passThruHtml) AppendRichTextCdRecords(compound, new[] { BuildRichTextHtmlBoundary(false) });
             CheckStatus(Resolve<RichText_CompoundTextClose>("CompoundTextClose")(compound, 0, 0, 0, 0), "CompoundTextClose");
             closed = true;
         }
@@ -164,6 +167,15 @@ internal sealed partial class NotesNativeApi
             finally { Resolve<Delta_OSMemFree>("OSMemFree")(textHandle); }
         }
         finally { Marshal.FreeHGlobal(formula); }
+    }
+
+    private static byte[] BuildRichTextHtmlBoundary(bool begin)
+    {
+        // CDHTMLBEGIN/CDHTMLEND: WSIG plus four reserved zero bytes.
+        var data = new byte[8];
+        PutU16(data, 0, begin ? (ushort)0xFFCC : (ushort)0xFFCD);
+        PutU16(data, 2, 8);
+        return data;
     }
 
     private uint GetLastRichTextFontId(nint note, string name)

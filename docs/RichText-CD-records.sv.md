@@ -96,9 +96,32 @@ body.AppendText("Fet text med samma storlek och färg");
 Detta verifierar native lagring och DXL-tolkning. Det är inte ett visuellt
 test av Notes-editorn eller bevis för att alla övriga RichText-metoder är färdiga.
 
+## PassThruHTML
+
+`NotesRichTextStyle.PassThruHTML = -1` gör efterföljande `AppendText` till
+pass-through HTML. `0` återgår till vanlig text och `255` behåller föregående
+inställning. Skrivaren lägger balanserade CDHTMLBEGIN/CDHTMLEND-records runt
+HTML-texten. Båda har åtta bytes: WSIG och fyra nollställda reservbytes.
+
+Native-testet sparar och återöppnar dokumentet och kontrollerar både DXL:s
+`run html="true"` och Notes HTML-konvertering. HTML-taggar behålls i HTML-läge;
+taggar som skrivs efter att läget stängts av exporteras som vanlig escapad text.
+
+```csharp
+using var htmlStyle = session.CreateRichTextStyle();
+htmlStyle.PassThruHTML = -1;
+body.AppendStyle(htmlStyle);
+body.AppendText("<strong>HTML-innehåll</strong>");
+htmlStyle.PassThruHTML = 0;
+body.AppendStyle(htmlStyle);
+body.AppendText("<strong>Detta visas som text</strong>");
+```
+
 ## Referenser
 
 - [HCL C API: BSIG](https://opensource.hcltechsw.com/domino-c-api-docs/reference/Data/BSIG/)
+- [HCL C API: CDHTMLBEGIN](https://opensource.hcltechsw.com/domino-c-api-docs/reference/Data/CDHTMLBEGIN/)
+- [HCL C API: CDHTMLEND](https://opensource.hcltechsw.com/domino-c-api-docs/reference/Data/CDHTMLEND/)
 - [HCL C API: CDTABLECELL](https://opensource.hcltechsw.com/domino-c-api-docs/reference/Data/CDTABLECELL/)
 - [HCL C API: canonical format](https://opensource.hcltechsw.com/domino-c-api-docs/howto/user_guide/Domino_Canonical_Format/)
 - [HCL JNX: BSIG](https://github.com/HCL-TECH-SOFTWARE/domino-jnx/blob/develop/domino-jnx-api/src/main/java/com/hcl/domino/richtext/structures/BSIG.java)

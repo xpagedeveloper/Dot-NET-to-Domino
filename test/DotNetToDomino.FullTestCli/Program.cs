@@ -505,6 +505,43 @@ else
                 throw new InvalidOperationException($"STYLE_NO_CHANGE changed prior attributes for {marker}: {font}");
         }
     });
+    if (!string.IsNullOrWhiteSpace(databasePath)) Check("rich text passthru HTML native DXL", () =>
+    {
+        using var database = session.OpenDatabase(server, databasePath);
+        using var document = database.CreateDocument();
+        try
+        {
+            using var body = document.CreateRichTextItem("Body");
+            using var raw = session.CreateRichTextStyle();
+            raw.PassThruHTML = -1;
+            body.AppendStyle(raw);
+            body.AppendText("<b>RAW-HTML-ONE</b>");
+            using var unchanged = session.CreateRichTextStyle();
+            body.AppendStyle(unchanged);
+            body.AppendText("<i>RAW-HTML-TWO</i>");
+            using var plain = session.CreateRichTextStyle();
+            plain.PassThruHTML = 0;
+            body.AppendStyle(plain);
+            body.AppendText("<b>LITERAL-AFTER-HTML</b>");
+            document.Save();
+            using var reopened = database.GetDocumentByID(document.NoteId)!;
+            using var savedItem = reopened.GetFirstItem("Body")!;
+            using var savedBody = savedItem.GetRichTextItem()!;
+            using var exporter = session.CreateDXLExporter();
+            exporter.OutputDOCTYPE = false;
+            exporter.RichTextOption = 0;
+            using var dxl = exporter.Export(reopened);
+            using var bytes = new MemoryStream(dxl.ToArray());
+            var xml = System.Xml.Linq.XDocument.Load(bytes);
+            var rawHtml = string.Concat(xml.Descendants().Where(e => e.Name.LocalName == "run" && (string?)e.Attribute("html") == "true").Select(e => e.Value));
+            if (!rawHtml.Contains("<b>RAW-HTML-ONE</b>", StringComparison.Ordinal) || !rawHtml.Contains("<i>RAW-HTML-TWO</i>", StringComparison.Ordinal) || rawHtml.Contains("LITERAL-AFTER-HTML", StringComparison.Ordinal))
+                throw new InvalidOperationException($"Passthru HTML boundaries were not represented in Notes DXL: {xml}");
+            var html = savedBody.ConvertToHTML();
+            if (!html.Contains("<b>RAW-HTML-ONE</b>", StringComparison.Ordinal) || !html.Contains("&lt;b&gt;LITERAL-AFTER-HTML&lt;/b&gt;", StringComparison.Ordinal))
+                throw new InvalidOperationException($"Notes HTML conversion did not distinguish raw and literal HTML: {html}");
+        }
+        finally { if (!document.IsNewNote) document.Remove(true); }
+    });
     NotesItemRegressionTests.Run(session, server, databasePath, Check);
     DatabaseLifecycleRegressionTests.Run(session, Check);
     AclRegressionTests.Run(session, Check);

@@ -79,15 +79,15 @@ internal sealed partial class NotesNativeApi
         {
             // Tables must be surrounded by paragraphs in a composite item.
             CheckStatus(Resolve<RichText_CompoundTextAddParagraphExt>("CompoundTextAddParagraphExt")(compound, 0xFFFFFFFFu, RichTextDefaultFontId, 0, 0, 0), "CompoundTextAddParagraphExt(table-before)");
-            AppendTableRecords(compound, new[] { BuildTableBegin() });
+            AppendRichTextCdRecords(compound, new[] { BuildTableBegin() });
             for (var row = 0; row < rows; row++)
                 for (var column = 0; column < columns; column++)
                 {
-                    AppendTableRecords(compound, new[] { BuildTableCell(row, column) });
+                    AppendRichTextCdRecords(compound, new[] { BuildTableCell(row, column) });
                     CheckStatus(Resolve<RichText_CompoundTextAddParagraphExt>("CompoundTextAddParagraphExt")(
                         compound, 0xFFFFFFFFu, RichTextDefaultFontId, 0, 0, 0), "CompoundTextAddParagraphExt(table-cell)");
                 }
-            AppendTableRecords(compound, new[] { BuildTableEnd() });
+            AppendRichTextCdRecords(compound, new[] { BuildTableEnd() });
             CheckStatus(Resolve<RichText_CompoundTextAddParagraphExt>("CompoundTextAddParagraphExt")(compound, 0xFFFFFFFFu, RichTextDefaultFontId, 0, 0, 0), "CompoundTextAddParagraphExt(table-after)");
             CheckStatus(Resolve<RichText_CompoundTextClose>("CompoundTextClose")(compound, 0, 0, 0, 0), "CompoundTextClose(table)");
             closed = true;
@@ -95,7 +95,7 @@ internal sealed partial class NotesNativeApi
         finally { if (!closed) try { Resolve<RichText_CompoundTextDiscard>("CompoundTextDiscard")(compound); } catch { } }
     }
 
-    private void AppendTableRecords(uint compound, IReadOnlyList<byte[]> records)
+    private void AppendRichTextCdRecords(uint compound, IReadOnlyList<byte[]> records)
     {
         var total = records.Sum(r => r.Length + (r.Length & 1));
         var buffer = Marshal.AllocHGlobal(total);
@@ -108,7 +108,7 @@ internal sealed partial class NotesNativeApi
                 offset += record.Length;
                 if ((record.Length & 1) != 0) Marshal.WriteByte(buffer, offset++, 0);
             }
-            CheckStatus(Resolve<Mutation_CompoundTextAddCDRecords>("CompoundTextAddCDRecords")(compound, buffer, checked((uint)total)), "CompoundTextAddCDRecords(table)");
+            CheckStatus(Resolve<Mutation_CompoundTextAddCDRecords>("CompoundTextAddCDRecords")(compound, buffer, checked((uint)total)), "CompoundTextAddCDRecords(rich text)");
         }
         finally { Marshal.FreeHGlobal(buffer); }
     }
