@@ -12,6 +12,10 @@ public sealed class NotesDocument : NotesObject
     private string _knownUniversalId;
     private readonly bool _isValidAtCreation;
     private NotesMimeDirectoryOwner? _mimeDirectoryOwner;
+    private readonly Dictionary<string, long> _richTextRevisions = new(StringComparer.OrdinalIgnoreCase);
+
+    internal long GetRichTextRevision(string itemName) => _richTextRevisions.GetValueOrDefault(itemName);
+    internal void AdvanceRichTextRevision(string itemName) => _richTextRevisions[itemName] = GetRichTextRevision(itemName) + 1;
 
     internal NotesDocument(NotesSession session, NotesDatabase parent, nint handle, uint? knownNoteId, string? knownUnid) : base(session)
     {

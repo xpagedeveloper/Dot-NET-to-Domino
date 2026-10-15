@@ -412,6 +412,33 @@ else
         }
         finally { if (!document.IsNewNote) document.Remove(true); }
     });
+    if (!string.IsNullOrWhiteSpace(databasePath)) Check("rich text stale linked references across wrappers", () =>
+    {
+        using var database = session.OpenDatabase(server, databasePath);
+        using var document = database.CreateDocument();
+        using var body = document.CreateRichTextItem("Body");
+        body.AppendText("Start");
+        body.AppendTable(1, 2);
+        body.AppendTable(3, 4);
+        using var aliasItem = document.GetFirstItem("Body")!;
+        using var alias = aliasItem.GetRichTextItem()!;
+        using var firstNav = body.CreateNavigator();
+        using var aliasNav = alias.CreateNavigator();
+        if (!firstNav.FindFirstElement(NotesRichTextNavigator.ElementTable) || !aliasNav.FindFirstElement(NotesRichTextNavigator.ElementTable))
+            throw new InvalidOperationException("Table fixture missing.");
+        using var first = (NotesRichTextTable)firstNav.GetElement()!;
+        using var stale = (NotesRichTextTable)aliasNav.GetElement()!;
+        using var staleCell = stale.GetCell(0, 1)!;
+        first.Remove();
+        ExpectException<InvalidOperationException>("Stale aliased table read", () => _ = stale.RowCount);
+        ExpectException<InvalidOperationException>("Stale aliased cell read", () => _ = staleCell.Column);
+        ExpectException<InvalidOperationException>("Stale aliased table remove", () => stale.Remove());
+        if (!aliasNav.FindFirstElement(NotesRichTextNavigator.ElementTable)) throw new InvalidOperationException("Aliased navigator did not refresh.");
+        using var remaining = (NotesRichTextTable)aliasNav.GetElement()!;
+        if (remaining.RowCount != 3 || remaining.ColumnCount != 4) throw new InvalidOperationException("Remaining table changed through stale reference.");
+        body.AppendText("End");
+        ExpectException<InvalidOperationException>("Stale table after append", () => _ = remaining.ColumnCount);
+    });
     NotesItemRegressionTests.Run(session, server, databasePath, Check);
     DatabaseLifecycleRegressionTests.Run(session, Check);
     AclRegressionTests.Run(session, Check);

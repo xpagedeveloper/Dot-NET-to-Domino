@@ -46,6 +46,21 @@ utan segmentnummer. Borttagning identifierar nu varje record med båda värdena.
 Sektioner använder samma korrigerade borttagningsfunktion och återvinns efter
 lyckad borttagning.
 
+## Referenser efter ändringar
+
+RichText-itemobjekt som tillhör samma öppna `NotesDocument` delar en
+ändringsräknare per itemnamn. Navigatorer läser om innehållet när räknaren
+ändras, även om ändringen gjordes genom ett annat itemobjekt.
+
+Tabeller, celler, sektioner och doclinks är positionsbundna. Efter en ändring
+av iteminnehållet kan gamla positioner identifiera helt andra records.
+De gamla objekten ger därför `InvalidOperationException`. Hämta objekten
+igen med navigatorn efter en append eller omskrivning. En sektions egen
+headeruppdatering uppdaterar dess räknare så att objektet kan fortsätta användas.
+
+Räknaren gäller samma öppna dokumentobjekt. Den upptäcker inte ändringar via
+extern native-kod eller ett separat öppnat dokumenthandle.
+
 Detta verifierar native lagring och DXL-tolkning. Det är inte ett visuellt
 test av Notes-editorn eller bevis för att alla övriga RichText-metoder är färdiga.
 

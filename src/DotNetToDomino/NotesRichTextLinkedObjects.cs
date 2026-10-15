@@ -8,6 +8,7 @@ public abstract class NotesRichTextLinkedObject : NotesObject
     private readonly int _segmentIndex;
     private readonly int _recordIndex;
     private readonly ushort _signature;
+    private long _revision;
 
     internal NotesRichTextLinkedObject(NotesSession session, NotesRichTextItem item, NotesRichTextRecordData record) : base(session)
     {
@@ -15,6 +16,7 @@ public abstract class NotesRichTextLinkedObject : NotesObject
         _segmentIndex = record.SegmentIndex;
         _recordIndex = record.RecordIndex;
         _signature = record.Signature;
+        _revision = item.RichTextRevision;
     }
 
     public NotesRichTextItem Parent { get { EnsureLinkedAlive(); return RichTextItem; } }
@@ -33,6 +35,7 @@ public abstract class NotesRichTextLinkedObject : NotesObject
 
     private protected int CurrentFlatIndex(IReadOnlyList<NotesRichTextRecordData> records)
     {
+        EnsureLinkedAlive();
         for (var i = 0; i < records.Count; i++)
         {
             var value = records[i];
@@ -56,7 +59,14 @@ public abstract class NotesRichTextLinkedObject : NotesObject
         Recycle();
     }
 
-    protected void EnsureLinkedAlive() { EnsureAlive(); RichTextItem.EnsureRichTextAlive(); }
+    protected void AcceptCurrentRevision() => _revision = RichTextItem.RichTextRevision;
+    protected void EnsureLinkedAlive()
+    {
+        EnsureAlive();
+        RichTextItem.EnsureRichTextAlive();
+        if (_revision != RichTextItem.RichTextRevision)
+            throw new InvalidOperationException("The rich text item has changed. Obtain the element again from a new navigator.");
+    }
     protected override void ReleaseNative() { }
 }
 
@@ -199,6 +209,7 @@ public sealed class NotesRichTextSection : NotesRichTextLinkedObject
             return new NotesRichTextRecordRewrite(record.SegmentIndex, record.RecordIndex, record.Signature, data);
         });
         RichTextItem.RewriteRichTextRecords(rewritten);
+        AcceptCurrentRevision();
     }
 
     private static int ResolveSectionEnd(IReadOnlyList<NotesRichTextRecordData> records, int start)

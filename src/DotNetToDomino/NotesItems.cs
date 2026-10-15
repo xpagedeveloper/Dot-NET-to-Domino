@@ -95,7 +95,6 @@ public class NotesItem : NotesObject
 /// <summary>Represents a Notes composite rich-text item.</summary>
 public sealed class NotesRichTextItem : NotesItem
 {
-    private long _richTextRevision;
     private NotesRichTextStyleState? _appendStyleState;
 
     internal NotesRichTextItem(NotesSession session, NotesDocument parent, string name) : base(session, parent, name) { }
@@ -121,7 +120,9 @@ public sealed class NotesRichTextItem : NotesItem
         ArgumentException.ThrowIfNullOrWhiteSpace(sourcePath);
         sourcePath = sourcePath.Trim();
         if (!File.Exists(sourcePath)) throw new FileNotFoundException("Rich-text attachment source file was not found.", sourcePath);
-        return new NotesEmbeddedObject(Session, this, Session.Api.AttachRichTextFile(Parent.Handle, Name, sourcePath));
+        var metadata = Session.Api.AttachRichTextFile(Parent.Handle, Name, sourcePath);
+        Parent.AdvanceRichTextRevision(Name);
+        return new NotesEmbeddedObject(Session, this, metadata);
     }
 
     /// <summary>Embeds a file object in this rich-text item.</summary>
@@ -134,7 +135,7 @@ public sealed class NotesRichTextItem : NotesItem
         var text = value;
         if (_appendStyleState is NotesRichTextStyleState style) Session.Api.AppendRichTextStyled(Parent.Handle, Name, text, style);
         else Session.Api.AppendRichText(Parent.Handle, Name, text);
-        _richTextRevision++;
+        Parent.AdvanceRichTextRevision(Name);
     }
 
     public void AppendStyle(NotesRichTextStyle style)
@@ -153,7 +154,7 @@ public sealed class NotesRichTextItem : NotesItem
     {
         EnsureItemAlive();
         Parent.Save();
-        _richTextRevision++;
+        Parent.AdvanceRichTextRevision(Name);
     }
 
     /// <summary>Adds a document link to another document in this rich-text item.</summary>
@@ -164,7 +165,7 @@ public sealed class NotesRichTextItem : NotesItem
         if (!string.Equals(Parent.ParentDatabase.ReplicaID, document.ParentDatabase.ReplicaID, StringComparison.OrdinalIgnoreCase))
             throw new ArgumentException("The linked document must be in the same database replica.", nameof(document));
         Session.Api.AppendRichTextDocLink(Parent.Handle, Name, document.ParentDatabase.Handle, document.UniversalId, comment ?? string.Empty);
-        _richTextRevision++;
+        Parent.AdvanceRichTextRevision(Name);
     }
 
     /// <summary>Adds a document link represented by a local Notes URL.</summary>
@@ -190,7 +191,7 @@ public sealed class NotesRichTextItem : NotesItem
     {
         EnsureItemAlive();
         Session.Api.AppendRichTextTable(Parent.Handle, Name, rows, columns);
-        _richTextRevision++;
+        Parent.AdvanceRichTextRevision(Name);
     }
 
     public void AppendParagraphStyle(NotesRichTextParagraphStyle style)
@@ -198,7 +199,7 @@ public sealed class NotesRichTextItem : NotesItem
         EnsureItemAlive();
         ArgumentNullException.ThrowIfNull(style);
         Session.Api.AppendRichTextParagraphStyle(Parent.Handle, Name, style.ExportState());
-        _richTextRevision++;
+        Parent.AdvanceRichTextRevision(Name);
     }
 
     public NotesRichTextNavigator CreateNavigator()
@@ -233,7 +234,7 @@ public sealed class NotesRichTextItem : NotesItem
         }
     }
 
-    internal long RichTextRevision { get { EnsureItemAlive(); return _richTextRevision; } }
+    internal long RichTextRevision { get { EnsureItemAlive(); return Parent.GetRichTextRevision(Name); } }
     internal void EnsureRichTextAlive() => EnsureItemAlive();
     internal IReadOnlyList<NotesRichTextRecordData> ReadRichTextRecords()
     {
@@ -246,7 +247,7 @@ public sealed class NotesRichTextItem : NotesItem
         EnsureItemAlive();
         var original = ReadRichTextRecords();
         Session.Api.ReplaceRichTextCdRecords(Parent.Handle, Name, original, records);
-        _richTextRevision++;
+        Parent.AdvanceRichTextRevision(Name);
     }
 
     internal void RemoveEmbeddedObject(NotesAttachmentMetadata metadata)
