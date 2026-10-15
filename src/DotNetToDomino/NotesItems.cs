@@ -267,8 +267,7 @@ public sealed class NotesRichTextItem : NotesItem
         ArgumentNullException.ThrowIfNull(document);
         if (!ReferenceEquals(Session, document.ParentDatabase.Parent))
             throw new ArgumentException("The linked document must belong to the same NotesSession.", nameof(document));
-        Session.Api.AppendRichTextDocLink(Parent.Handle, Name, document.ParentDatabase.Handle, document.UniversalId, comment ?? string.Empty);
-        Parent.AdvanceRichTextRevision(Name);
+        AppendWithInsertion(() => Session.Api.AppendRichTextDocLink(Parent.Handle, Name, document.ParentDatabase.Handle, document.UniversalId, comment ?? string.Empty));
     }
 
     /// <summary>Adds a link to a Notes database.</summary>
@@ -277,8 +276,7 @@ public sealed class NotesRichTextItem : NotesItem
         EnsureItemAlive();
         ArgumentNullException.ThrowIfNull(database);
         if (!ReferenceEquals(Session, database.Parent)) throw new ArgumentException("The linked database must belong to the same NotesSession.", nameof(database));
-        Session.Api.AppendRichTextDocLink(Parent.Handle, Name, database.Handle, null, comment ?? string.Empty);
-        Parent.AdvanceRichTextRevision(Name);
+        AppendWithInsertion(() => Session.Api.AppendRichTextDocLink(Parent.Handle, Name, database.Handle, null, comment ?? string.Empty));
     }
 
     /// <summary>Adds a link to a Notes view or folder.</summary>
@@ -287,8 +285,7 @@ public sealed class NotesRichTextItem : NotesItem
         EnsureItemAlive();
         ArgumentNullException.ThrowIfNull(view);
         if (!ReferenceEquals(Session, view.Parent.Parent)) throw new ArgumentException("The linked view must belong to the same NotesSession.", nameof(view));
-        Session.Api.AppendRichTextDocLink(Parent.Handle, Name, view.Parent.Handle, null, comment ?? string.Empty, view.UniversalID);
-        Parent.AdvanceRichTextRevision(Name);
+        AppendWithInsertion(() => Session.Api.AppendRichTextDocLink(Parent.Handle, Name, view.Parent.Handle, null, comment ?? string.Empty, view.UniversalID));
     }
 
     /// <summary>Adds a document link represented by a local Notes URL.</summary>
@@ -328,8 +325,7 @@ public sealed class NotesRichTextItem : NotesItem
     {
         EnsureItemAlive();
         ArgumentNullException.ThrowIfNull(title);
-        Session.Api.AppendRichTextSection(Parent.Handle, Name, title, expanded);
-        Parent.AdvanceRichTextRevision(Name);
+        AppendWithInsertion(() => Session.Api.AppendRichTextSection(Parent.Handle, Name, title, expanded));
     }
 
     public void BeginSection(string title, bool expanded = true)
