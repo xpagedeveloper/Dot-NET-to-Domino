@@ -286,10 +286,14 @@ public sealed class NotesRichTextTable : NotesRichTextLinkedObject
     public int PreTableRowCount => ReadPreTableByte(8);
     /// <summary>Number of columns recorded in the optional CDPRETABLEBEGIN header.</summary>
     public int PreTableColumnCount => ReadPreTableByte(9);
+    /// <summary>Flags from the optional CDPRETABLEBEGIN header.</summary>
+    public uint PreTableFlags => ReadPreTableUInt32(4);
     /// <summary>First RGB color from CDPRETABLEBEGIN, or zero when the optional header is absent.</summary>
     public uint StyleColor1 => ReadPreTableUInt32(24);
     /// <summary>Second RGB color from CDPRETABLEBEGIN, or zero when the optional header is absent.</summary>
     public uint StyleColor2 => ReadPreTableUInt32(28);
+    /// <summary>Inner border color value from CDPRETABLEBEGIN, or zero when absent.</summary>
+    public uint InnerBorderColor => ReadPreTableUInt32(32);
     /// <summary>Sets the table direction flag in the CDTABLEBEGIN style word.</summary>
     public void SetRightToLeft(bool rightToLeft)
     {
