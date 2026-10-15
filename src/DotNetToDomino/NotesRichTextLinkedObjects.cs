@@ -247,6 +247,29 @@ public sealed class NotesRichTextTable : NotesRichTextLinkedObject
     internal NotesRichTextTable(NotesSession session, NotesRichTextItem item, NotesRichTextRecordData record) : base(session, item, record) { }
     public int RowCount { get { var d = GetDimensions(); return d.Rows; } }
     public int ColumnCount { get { var d = GetDimensions(); return d.Columns; } }
+    /// <summary>Returns the cell records contained directly by this table.</summary>
+    public IReadOnlyList<NotesRichTextTableCell> Cells
+    {
+        get
+        {
+            EnsureLinkedAlive();
+            var records = Records();
+            var start = CurrentFlatIndex(records);
+            var result = new List<NotesRichTextTableCell>();
+            var nestedDepth = 0;
+            for (var i = start + 1; i < records.Count; i++)
+            {
+                var record = records[i];
+                if (record.Signature == NestedTableBeginSignature) { nestedDepth++; continue; }
+                if (record.Signature == NestedTableEndSignature) { if (nestedDepth > 0) nestedDepth--; continue; }
+                if (nestedDepth > 0) continue;
+                if (record.Signature == TableEndSignature) break;
+                if (record.ElementType == NotesRichTextNavigator.ElementTableCell)
+                    result.Add(new NotesRichTextTableCell(Session, RichTextItem, record));
+            }
+            return result;
+        }
+    }
     public bool RightToLeft { get { var data = CurrentRecord().Data; return data.Length >= 14 && (ReadUInt16(data, 12) & TableRightToLeft) != 0; } }
     public int Style { get { var data = CurrentRecord().Data; return data.Length >= 14 ? ReadUInt16(data, 12) : 0; } }
     /// <summary>Returns the cell at the zero-based row and column, if present.</summary>
