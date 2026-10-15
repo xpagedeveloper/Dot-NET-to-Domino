@@ -258,3 +258,14 @@ av alla tänkbara äldre eller okända recordvarianter har inte verifierats.
 Dominos canonical-format. På Intel-plattformar kräver HCL inte denna konvertering
 för dessa records. Det tidigare antagandet att avsaknaden av funktionen förklarade
 tabellfelet var därför felaktigt.
+
+## Sektioner och tabellceller
+
+`CDBAR` innehåller flaggorna och fontinformationen för en kollapsbar sektion.
+`NotesRichTextSection.IsExpanded` och textbaserade `Title` kan ändras och
+verifieras efter spara/öppna igen. Formelbaserade sektionstitlar lämnas
+oförändrade eftersom deras formeldata kräver separat kompilering och bevarande.
+
+En `CDTABLECELL` är en strukturell tabellpost. `NotesRichTextTableCell.Remove()`
+tömmer därför cellens innehåll och behåller själva cellposten; använd
+`NotesRichTextTable.RemoveRow()` när en hel rad ska tas bort.
