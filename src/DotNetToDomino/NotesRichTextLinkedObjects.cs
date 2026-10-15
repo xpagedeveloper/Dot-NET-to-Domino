@@ -467,6 +467,71 @@ public sealed class NotesRichTextTable : NotesRichTextLinkedObject
         for (var i = 0; i < count; i++) AddRow();
     }
 
+    /// <summary>Inserts <paramref name="count"/> copies immediately before the specified zero-based target row.</summary>
+    public void AddRow(int count, int targetRow)
+    {
+        EnsureLinkedAlive();
+        if (count < 1) throw new ArgumentOutOfRangeException(nameof(count));
+        if (targetRow < 0) throw new ArgumentOutOfRangeException(nameof(targetRow));
+        for (var i = 0; i < count; i++) AddRowBefore(targetRow);
+    }
+
+    private void AddRowBefore(int targetRow)
+    {
+        var records = Records();
+        var tableStart = CurrentFlatIndex(records);
+        var preTable = FindPreTable();
+        var tableEnd = -1;
+        var cells = new List<(int Index, int Row)>();
+        var nestedDepth = 0;
+        for (var i = tableStart + 1; i < records.Count; i++)
+        {
+            var record = records[i];
+            if (record.Signature == NestedTableBeginSignature) { nestedDepth++; continue; }
+            if (record.Signature == NestedTableEndSignature) { if (nestedDepth > 0) nestedDepth--; continue; }
+            if (nestedDepth > 0) continue;
+            if (record.Signature == TableEndSignature) { tableEnd = i; break; }
+            if (record.ElementType == NotesRichTextNavigator.ElementTableCell && record.Data.Length >= 4)
+                cells.Add((i, record.Data[2]));
+        }
+        if (tableEnd < 0 || cells.Count == 0) throw new NotesException(91, "Rich text table has no complete row structure.");
+        var sourceCells = cells.Where(cell => cell.Row == targetRow).ToArray();
+        if (sourceCells.Length == 0) throw new ArgumentOutOfRangeException(nameof(targetRow), "The table row does not exist.");
+        var maxRow = cells.Max(cell => cell.Row);
+        if (maxRow >= byte.MaxValue) throw new InvalidOperationException("A rich-text table cannot exceed 256 rows.");
+        var clones = new List<(ushort Signature, byte[] Data)>();
+        foreach (var cell in sourceCells)
+        {
+            var end = tableEnd;
+            for (var i = cell.Index + 1; i < tableEnd; i++)
+                if (records[i].ElementType == NotesRichTextNavigator.ElementTableCell && records[i].Data.Length >= 4) { end = i; break; }
+            for (var i = cell.Index; i < end; i++)
+            {
+                var data = (byte[])records[i].Data.Clone();
+                if (i == cell.Index) data[2] = checked((byte)targetRow);
+                clones.Add((records[i].Signature, data));
+            }
+        }
+        var rewritten = new List<NotesRichTextRecordRewrite>(records.Count + clones.Count);
+        var nextIndex = 0;
+        for (var i = 0; i < records.Count; i++)
+        {
+            var record = records[i];
+            var original = (byte[])record.Data.Clone();
+            if (preTable is not null && record.SegmentIndex == preTable.SegmentIndex && record.RecordIndex == preTable.RecordIndex && original.Length > 8)
+                original[8] = checked((byte)(original[8] + 1));
+            if (i == tableEnd)
+            {
+                foreach (var clone in clones) rewritten.Add(new NotesRichTextRecordRewrite(0, nextIndex++, clone.Signature, clone.Data));
+            }
+            if (record.ElementType == NotesRichTextNavigator.ElementTableCell && original.Length >= 4 && original[2] >= targetRow)
+                original[2] = checked((byte)(original[2] + 1));
+            rewritten.Add(new NotesRichTextRecordRewrite(0, nextIndex++, record.Signature, original));
+        }
+        RichTextItem.RewriteRichTextRecords(rewritten);
+        AcceptCurrentRevision();
+    }
+
     /// <summary>Removes one zero-based table row, including all rich-text records inside its cells.</summary>
     public void RemoveRow(int row)
     {
@@ -528,6 +593,19 @@ public sealed class NotesRichTextTable : NotesRichTextLinkedObject
         });
         RichTextItem.RewriteRichTextRecords(rewritten);
         Recycle();
+    }
+
+    /// <summary>Removes <paramref name="count"/> rows starting at the specified zero-based target row.</summary>
+    public void RemoveRow(int count, int targetRow)
+    {
+        EnsureLinkedAlive();
+        if (count < 1) throw new ArgumentOutOfRangeException(nameof(count));
+        if (targetRow < 0) throw new ArgumentOutOfRangeException(nameof(targetRow));
+        for (var i = 0; i < count; i++)
+        {
+            if (IsRecycled) return;
+            RemoveRow(targetRow);
+        }
     }
     public void Remove()
     {

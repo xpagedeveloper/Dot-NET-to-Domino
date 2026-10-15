@@ -57,7 +57,7 @@ public class NotesItem : NotesObject
     public NotesRichTextItem? GetRichTextItem()
     {
         EnsureItemAlive();
-        return Metadata.DataType == NotesNativeApi.NotesTypeComposite ? this as NotesRichTextItem ?? Parent.ParentDatabase.Own(new NotesRichTextItem(Session, Parent, Name)) : null;
+        return Metadata.DataType == NotesNativeApi.NotesTypeComposite ? this as NotesRichTextItem ?? Parent.RegisterRichText(Parent.ParentDatabase.Own(new NotesRichTextItem(Session, Parent, Name))) : null;
     }
     public void Remove() { EnsureItemAlive(); Session.Api.RemoveItemByBlock(Parent.Handle, Name); _removed = true; }
     public NotesItem CopyToDocument(NotesDocument destination, string? newName = null)
@@ -99,6 +99,7 @@ public sealed class NotesRichTextItem : NotesItem
 {
     private NotesRichTextStyleState? _appendStyleState;
     private int _sectionDepth;
+    private long _preparedRevision = -1;
 
     internal NotesRichTextItem(NotesSession session, NotesDocument parent, string name) : base(session, parent, name) { }
 
@@ -179,6 +180,15 @@ public sealed class NotesRichTextItem : NotesItem
         if (_sectionDepth != 0) throw new InvalidOperationException("A rich-text section is still open. Call EndSection() before Update().");
         Parent.Save();
         Parent.AdvanceRichTextRevision(Name);
+    }
+
+    internal void PrepareForDocumentSave()
+    {
+        EnsureItemAlive();
+        var revision = Parent.GetRichTextRevision(Name);
+        if (revision == _preparedRevision) return;
+        if (_sectionDepth != 0) throw new InvalidOperationException("A rich-text section is still open. Call EndSection() before saving the document.");
+        _preparedRevision = revision;
     }
 
     /// <summary>Adds a document link to another document in this rich-text item.</summary>
