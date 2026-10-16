@@ -20,10 +20,23 @@ public sealed class NotesSession : IDisposable
     public NotesSession() : this(ResolveDefaultRuntimeDirectoryWindows(), null, null) { }
     public NotesSession(string runtimeDirectory, string? notesIni = null, string? idPassword = null)
     {
+        if (string.IsNullOrWhiteSpace(runtimeDirectory))
+            throw new ArgumentException("The Notes program directory must be specified.", nameof(runtimeDirectory));
+        runtimeDirectory = Path.GetFullPath(runtimeDirectory.Trim());
+        if (!Directory.Exists(runtimeDirectory))
+            throw new DirectoryNotFoundException($"The Notes program directory was not found: '{runtimeDirectory}'. Verify the HCL Notes installation path.");
         lock (SessionGate)
         {
             if (_activeSession is { IsRecycled: false }) throw new InvalidOperationException("Only one NotesSession may be active in a process at a time.");
-            NotesIni = string.IsNullOrWhiteSpace(notesIni) ? string.Empty : Path.GetFullPath(notesIni);
+            NotesIni = string.IsNullOrWhiteSpace(notesIni) ? string.Empty : Path.GetFullPath(notesIni.Trim());
+            if (NotesIni.Length != 0)
+            {
+                var iniDirectory = Path.GetDirectoryName(NotesIni);
+                if (string.IsNullOrWhiteSpace(iniDirectory) || !Directory.Exists(iniDirectory))
+                    throw new DirectoryNotFoundException($"The directory containing notes.ini was not found: '{iniDirectory ?? NotesIni}'.");
+                if (!File.Exists(NotesIni))
+                    throw new FileNotFoundException($"The specified notes.ini file was not found: '{NotesIni}'.", NotesIni);
+            }
             _runtime = NotesRuntimeLibrary.Load(runtimeDirectory); _api = new NotesNativeApi(_runtime); RuntimeDirectory = _runtime.RuntimeDirectory;
             var ini = ResolveNotesIniPath(RuntimeDirectory, NotesIni);
             IniDir = ini.Length == 0 ? string.Empty : Path.GetDirectoryName(ini) ?? string.Empty; DataDir = ini.Length == 0 ? string.Empty : ReadNotesIniDataDirectory(ini, IniDir);
