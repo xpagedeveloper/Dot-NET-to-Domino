@@ -237,8 +237,11 @@ internal sealed partial class NotesNativeApi
         ArgumentException.ThrowIfNullOrWhiteSpace(filePath);
         var fullPath = Path.GetFullPath(filePath);
         var directory = Path.GetDirectoryName(fullPath);
-        if (!string.IsNullOrEmpty(directory)) Directory.CreateDirectory(directory);
-        File.WriteAllBytes(fullPath, bytes);
+        if (!string.IsNullOrEmpty(directory) && !Directory.Exists(directory))
+            throw new DirectoryNotFoundException($"The DXL output directory was not found: '{directory}'.");
+        try { File.WriteAllBytes(fullPath, bytes); }
+        catch (UnauthorizedAccessException ex) { throw new UnauthorizedAccessException($"Access was denied when writing DXL file '{fullPath}'.", ex); }
+        catch (IOException ex) { throw new IOException($"The DXL file '{fullPath}' could not be written.", ex); }
     }
 
     private ushort DxlDesignTypeToNoteClass(string designType)

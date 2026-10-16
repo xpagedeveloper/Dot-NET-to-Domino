@@ -32,19 +32,20 @@ public sealed class NotesStream : NotesObject
         filePath = filePath.Trim();
         mode = mode.Trim();
         _readOnly = mode.Equals("readonly", StringComparison.OrdinalIgnoreCase) || mode.Equals("read", StringComparison.OrdinalIgnoreCase);
+        var fullPath = Path.GetFullPath(filePath);
+        var directory = Path.GetDirectoryName(fullPath);
+        if (_readOnly && !File.Exists(fullPath))
+            throw new FileNotFoundException($"The stream file was not found: '{fullPath}'.", fullPath);
+        if (!_readOnly && !string.IsNullOrEmpty(directory) && !Directory.Exists(directory))
+            throw new DirectoryNotFoundException($"The stream output directory was not found: '{directory}'.");
         try
         {
-            var fullPath = Path.GetFullPath(filePath);
-            if (!_readOnly)
-            {
-                var directory = Path.GetDirectoryName(fullPath);
-                if (!string.IsNullOrEmpty(directory)) Directory.CreateDirectory(directory);
-            }
             _file = new FileStream(fullPath, _readOnly ? FileMode.Open : FileMode.OpenOrCreate, _readOnly ? FileAccess.Read : FileAccess.ReadWrite, FileShare.Read);
             _file.Position = 0;
             return true;
         }
-        catch { _file = null; _readOnly = false; return false; }
+        catch (UnauthorizedAccessException ex) { _file = null; _readOnly = false; throw new UnauthorizedAccessException($"Access was denied for stream file '{fullPath}'.", ex); }
+        catch (IOException ex) { _file = null; _readOnly = false; throw new IOException($"The stream file '{fullPath}' could not be opened.", ex); }
     }
 
     public void Close() { EnsureAlive(); _file?.Dispose(); _file = null; _readOnly = false; }
