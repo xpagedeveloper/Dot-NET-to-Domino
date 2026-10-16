@@ -10,5 +10,14 @@ public sealed class NotesInlineImage
     public string Extension => Type switch { 1 => ".gif", 2 => ".jpg", 4 => ".png", 5 => ".svg", 6 => ".tif", _ => ".bin" };
     public long Length => _data.LongLength;
     public byte[] ToByteArray() => (byte[])_data.Clone();
-    public void SaveAs(string path) { ArgumentException.ThrowIfNullOrWhiteSpace(path); File.WriteAllBytes(Path.GetFullPath(path), _data); }
+    public void SaveAs(string path)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(path);
+        var fullPath = Path.GetFullPath(path.Trim());
+        var directory = Path.GetDirectoryName(fullPath);
+        if (!string.IsNullOrWhiteSpace(directory) && !Directory.Exists(directory))
+            throw new DirectoryNotFoundException($"The output directory for the inline image was not found: '{directory}'.");
+        try { File.WriteAllBytes(fullPath, _data); }
+        catch (UnauthorizedAccessException ex) { throw new UnauthorizedAccessException($"The inline image could not be written to '{fullPath}'. Access was denied.", ex); }
+    }
 }

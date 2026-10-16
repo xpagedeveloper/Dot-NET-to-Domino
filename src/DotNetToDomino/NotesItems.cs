@@ -243,6 +243,9 @@ public sealed class NotesRichTextItem : NotesItem
     {
         EnsureItemAlive();
         ArgumentException.ThrowIfNullOrWhiteSpace(sourcePath);
+        sourcePath = Path.GetFullPath(sourcePath.Trim());
+        if (!File.Exists(sourcePath))
+            throw new FileNotFoundException($"The rich-text object source file was not found: '{sourcePath}'.", sourcePath);
         if (type != NotesConst.EMBED_ATTACHMENT)
             throw new NotSupportedException("OLE object and OLE object-link embedding require the Notes client OLE subsystem; the C API wrapper currently supports EMBED_ATTACHMENT only.");
         var before = _insertRecord is null ? null : ReadRichTextRecords();
