@@ -8,7 +8,7 @@ internal sealed partial class NotesNativeApi
     private const byte RichTextAttachmentHotspotEndSignature = 170;
     private const ushort RichTextAttachmentCompressionHuffman = 1;
 
-    internal NotesAttachmentMetadata AttachRichTextFile(nint note, string richTextItemName, string sourcePath)
+    internal NotesAttachmentMetadata AttachRichTextFile(nint note, string richTextItemName, string sourcePath, string? displayName = null)
     {
         EnsureInitialized();
         using var thread = EnterThread();
@@ -21,13 +21,14 @@ internal sealed partial class NotesNativeApi
         if (!File.Exists(sourcePath)) throw new FileNotFoundException("Attachment source file was not found.", sourcePath);
 
         var sourceName = Path.GetFileName(sourcePath);
+        var attachmentName = string.IsNullOrWhiteSpace(displayName) ? sourceName : displayName.Trim();
         if (sourceName.Length == 0) throw new ArgumentException("Attachment source must include a file name.", nameof(sourcePath));
-        if (sourceName.IndexOf('\0') >= 0) throw new ArgumentException("Attachment file name cannot contain NUL characters.", nameof(sourcePath));
-        if (TryFindAttachment(note, sourceName, out _)) throw new IOException($"An attachment named '{sourceName}' already exists in the document.");
+        if (attachmentName.IndexOf('\0') >= 0) throw new ArgumentException("Attachment file name cannot contain NUL characters.", nameof(displayName));
+        if (TryFindAttachment(note, attachmentName, out _)) throw new IOException($"An attachment named '{attachmentName}' already exists in the document.");
 
         using var itemName = ToLmbcs(AttachmentItemName);
         using var fileName = ToLmbcs(sourcePath);
-        using var originalName = ToLmbcs(sourceName);
+        using var originalName = ToLmbcs(attachmentName);
         CheckStatus(Resolve<RichText_NSFNoteAttachFile>("NSFNoteAttachFile")(
             note,
             itemName.Pointer,
@@ -38,14 +39,14 @@ internal sealed partial class NotesNativeApi
 
         try
         {
-            AppendRichTextAttachmentHotspot(note, richTextItemName, sourceName, sourceName);
-            if (!TryGetAttachmentMetadata(note, sourceName, out var metadata))
-                throw new FileNotFoundException("Attached file metadata could not be resolved.", sourceName);
+            AppendRichTextAttachmentHotspot(note, richTextItemName, attachmentName, attachmentName);
+            if (!TryGetAttachmentMetadata(note, attachmentName, out var metadata))
+                throw new FileNotFoundException("Attached file metadata could not be resolved.", attachmentName);
             return metadata;
         }
         catch
         {
-            if (TryFindAttachment(note, sourceName, out var itemBlock))
+            if (TryFindAttachment(note, attachmentName, out var itemBlock))
             {
                 try { _ = Resolve<RichText_NSFNoteDetachFile>("NSFNoteDetachFile")(note, itemBlock); }
                 catch { }
@@ -112,6 +113,7 @@ internal sealed partial class NotesNativeApi
         records[alignedBeginLength + 1] = 2;
         return records;
     }
+
 
     [UnmanagedFunctionPointer(CallingConvention.Winapi)]
     private delegate ushort RichText_NSFNoteAttachFile(

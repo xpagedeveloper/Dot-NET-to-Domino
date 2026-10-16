@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE database SYSTEM "xmlschemas/domino_12_0.dtd">
+<database xmlns="http://www.lotus.com/dxl" version="12.0" maintenanceversion="0.0" replicaid="0000000000000000">
+  <databaseinfo dbid="RichTextValidation" odsversion="52"/>
+  <note class="document">
+    <noteinfo noteid="00000001" unid="00000000000000000000000000000011" sequence="1"/>
+    <item name="Form"><text>Main Topic</text></item>
+    <item name="Subject"><text>RT-Text</text></item>
+    <item name="Body"><richtext><pardef id="1"/><par def="1"><run>Plain text</run></par><par def="1"><run>Second paragraph</run></par></richtext></item>
+  </note>
+  <note class="document">
+    <noteinfo noteid="00000002" unid="00000000000000000000000000000012" sequence="1"/>
+    <item name="Form"><text>Main Topic</text></item>
+    <item name="Subject"><text>RT-Table</text></item>
+    <item name="Body"><richtext><pardef id="1"/><table><tablerow><tablecell><par def="1"><run>Cell 1</run></par></tablecell><tablecell><par def="1"><run>Cell 2</run></par></tablecell></tablerow><tablerow><tablecell><par def="1"><run>Cell 3</run></par></tablecell><tablecell><par def="1"><run>Cell 4</run></par></tablecell></tablerow></table></richtext></item>
+  </note>
+  <note class="document">
+    <noteinfo noteid="00000003" unid="00000000000000000000000000000013" sequence="1"/>
+    <item name="Form"><text>Main Topic</text></item>
+    <item name="Subject"><text>RT-Section</text></item>
+    <item name="Body"><richtext><pardef id="1"/><section expanded="true"><sectiontitle><text>Validation section</text></sectiontitle><par def="1"><run>Section content</run></par></section></richtext></item>
+  </note>
+  <note class="document">
+    <noteinfo noteid="00000004" unid="00000000000000000000000000000014" sequence="1"/>
+    <item name="Form"><text>Main Topic</text></item>
+    <item name="Subject"><text>RT-DocLink</text></item>
+    <item name="Body"><richtext><pardef id="1"/><par def="1"><doclink document="00000000000000000000000000000011" description="RT-Text">Open RT-Text</doclink></par></richtext></item>
+  </note>
+</database>

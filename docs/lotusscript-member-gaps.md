@@ -75,9 +75,9 @@ Complexity: `ParentDocument` 2, security/send flags 4, `Items` 3, `ComputeWithFo
 | `AppendTable` | partial | Creates an empty table using canonical CDTABLEBEGIN/CELL/END records; native save/reopen and DXL dimensions verified for seven sizes; labels/styles remain. |
 | `AppendDocLink` | implemented | Uses `CompoundTextAddDocLink` with replica ID and document UNID; live Notes verification remains. |
 | `AppendObject` | partial | File-object embedding is implemented through the native attachment path; OLE and other object types remain. |
-| `AppendNotesURL` | partial | Local `notes://` document URLs are resolved and written as doclinks; view/database/remote URL variants remain. |
+| `AppendNotesURL` | implemented | Local Notes URLs for documents by NoteID or UNID, databases, and views are resolved and written through the native doclink API; remote server routing uses the URL host. |
 | `Update` | implemented | Persists the owning document, which is the native storage unit for RichText. |
-| attachment metadata edge cases | partial | Attachment extraction and byte-array mapping exist; all embedded object types remain to be verified. |
+| attachment metadata edge cases | runtime | Attachment name, size, timestamps, extraction and byte-array mapping are verified against live Notes RichText attachments; OLE object support remains intentionally outside the supported scope. |
 
 Complexity: item flags 2, `AppendParagraphStyle` 4, `AppendTable` 4, `AppendDocLink` 4, `AppendObject` 5, `AppendNotesURL` 4, `Update` 3, attachment edge cases 4.
 
@@ -127,7 +127,7 @@ Complexity: history/current-entry semantics 4, column values 3, `Goto*`/`Get*` p
 | DXL importer result members | runtime | Properties exist; result log/count and imported design behavior need live verification. |
 | DXL exporter result members | runtime | Properties/overloads exist; exported XML and cleanup behavior need live verification. |
 | `NotesInternational` | missing | No public C# object. |
-| `NotesRichTextTab` | partial | Rich-text tab support exists as an internal linked object; complete LotusScript property parity needs review. |
+| `NotesRichTextTab` | implemented | `Position`, `Type`, `Clear`, lifecycle checks, and paragraph-style integration match the physical XPScript runtime. |
 
 Complexity: agent run/result 4, DXL importer 4, DXL exporter 4, `NotesInternational` 5, `NotesRichTextTab` 3.
 

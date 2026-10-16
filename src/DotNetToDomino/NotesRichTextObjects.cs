@@ -1,7 +1,11 @@
 using System.Text;
+using System.Globalization;
+using System.Xml.Linq;
 using DotNetToDomino.Interop;
 
 namespace DotNetToDomino;
+
+public enum NotesRichTextListType { None, Bullet, Number, Check, Uncheck, Circle, Square, AlphaUpper, AlphaLower, RomanUpper, RomanLower }
 
 /// <summary>Represents character formatting for Notes rich text.</summary>
 public sealed class NotesRichTextStyle : NotesObject
@@ -97,6 +101,17 @@ public sealed class NotesRichTextStyle : NotesObject
 /// <summary>Represents paragraph formatting for Notes rich text.</summary>
 public sealed class NotesRichTextParagraphStyle : NotesObject
 {
+    // PABFLAG values from HCL editdflt.h / JNX NotesConstants.
+    public const int PabFlagBullet = 1024;
+    public const int PabFlagNumberedList = 4096;
+    public const int PabFlag2CheckedList = 8194;
+    public const int PabFlag2UncheckedList = 8192;
+    public const int PabFlag2CircleList = 2048;
+    public const int PabFlag2SquareList = 4096;
+    public const int PabFlag2AlphaUpperList = 6144;
+    public const int PabFlag2AlphaLowerList = 6146;
+    public const int PabFlag2RomanUpperList = 2050;
+    public const int PabFlag2RomanLowerList = 4098;
     public const int TabLeft = 0;
     public const int TabRight = 1;
     public const int TabDecimal = 2;
@@ -112,6 +127,8 @@ public sealed class NotesRichTextParagraphStyle : NotesObject
     private int _spacingAbove;
     private int _spacingBelow;
     private short _baseFlags;
+    private short _baseFlags2;
+    private NotesRichTextListType _listType;
 
     internal NotesRichTextParagraphStyle(NotesSession session, NotesCompoundStyleState state) : base(session)
     {
@@ -123,6 +140,8 @@ public sealed class NotesRichTextParagraphStyle : NotesObject
         _spacingAbove = unchecked((ushort)state.ParagraphSpacingBefore);
         _spacingBelow = unchecked((ushort)state.ParagraphSpacingAfter);
         _baseFlags = state.Flags;
+        _baseFlags2 = state.Flags2;
+        _listType = DecodeListType(_baseFlags, _baseFlags2);
         _pagination = DecodePagination(state.Flags);
         foreach (var tabValue in state.Tabs)
         {
@@ -169,6 +188,23 @@ public sealed class NotesRichTextParagraphStyle : NotesObject
     public int RightMargin { get { EnsureStyleAlive(); return _rightMargin; } set { EnsureStyleAlive(); _rightMargin = ValidateTwips(value, nameof(value)); } }
     public int SpacingAbove { get { EnsureStyleAlive(); return _spacingAbove; } set { EnsureStyleAlive(); _spacingAbove = ValidateTwips(value, nameof(value)); } }
     public int SpacingBelow { get { EnsureStyleAlive(); return _spacingBelow; } set { EnsureStyleAlive(); _spacingBelow = ValidateTwips(value, nameof(value)); } }
+    /// <summary>Gets whether this paragraph style requests a bullet marker.</summary>
+    public bool IsBullet { get { EnsureStyleAlive(); return (_baseFlags & PabFlagBullet) != 0; } }
+    /// <summary>Gets whether this paragraph style requests a numbered marker.</summary>
+    public bool IsNumberedList { get { EnsureStyleAlive(); return (_baseFlags & PabFlagNumberedList) != 0; } }
+    /// <summary>Gets or sets the list marker used by paragraphs written with this style.</summary>
+    public NotesRichTextListType ListType
+    {
+        get { EnsureStyleAlive(); return _listType; }
+        set
+        {
+            EnsureStyleAlive();
+            if (!Enum.IsDefined(value)) throw new ArgumentOutOfRangeException(nameof(value));
+            if (value is not (NotesRichTextListType.None or NotesRichTextListType.Bullet or NotesRichTextListType.Number))
+                throw new NotSupportedException("CompoundTextDefineStyle did not persist Flags2 list markers on this Notes runtime; use an existing native style for this list type.");
+            _listType = value;
+        }
+    }
     public IReadOnlyList<NotesRichTextTab> Tabs { get { EnsureStyleAlive(); return _tabs.Where(tab => !tab.IsRecycled).ToArray(); } }
 
     public void ClearAllTabs()
@@ -220,12 +256,54 @@ public sealed class NotesRichTextParagraphStyle : NotesObject
         var flags = unchecked((ushort)_baseFlags);
         flags = (ushort)(flags & ~(0x0001 | 0x0002 | 0x0004));
         flags = (ushort)(flags | _pagination);
+        flags = EncodeListType(flags, _listType);
+        var flags2 = EncodeListType2(unchecked((ushort)_baseFlags2), _listType);
         return new NotesCompoundStyleState(
             unchecked((short)_alignment), unchecked((short)_interLineSpacing), unchecked((short)_spacingAbove), unchecked((short)_spacingBelow),
-            unchecked((short)_leftMargin), unchecked((short)_rightMargin), unchecked((short)_firstLineLeftMargin), unchecked((short)flags), rawTabs);
+            unchecked((short)_leftMargin), unchecked((short)_rightMargin), unchecked((short)_firstLineLeftMargin), unchecked((short)flags), unchecked((short)flags2), rawTabs);
     }
 
     private static int DecodePagination(short flags) => unchecked((ushort)flags) & 0x0007;
+    private static NotesRichTextListType DecodeListType(short flags, short flags2)
+    {
+        var value = unchecked((ushort)flags);
+        if ((value & PabFlagBullet) != 0) return NotesRichTextListType.Bullet;
+        if ((value & PabFlagNumberedList) != 0) return NotesRichTextListType.Number;
+        return unchecked((ushort)flags2) switch
+        {
+            PabFlag2CheckedList => NotesRichTextListType.Check,
+            PabFlag2UncheckedList => NotesRichTextListType.Uncheck,
+            PabFlag2CircleList => NotesRichTextListType.Circle,
+            PabFlag2SquareList => NotesRichTextListType.Square,
+            PabFlag2AlphaUpperList => NotesRichTextListType.AlphaUpper,
+            PabFlag2AlphaLowerList => NotesRichTextListType.AlphaLower,
+            PabFlag2RomanUpperList => NotesRichTextListType.RomanUpper,
+            PabFlag2RomanLowerList => NotesRichTextListType.RomanLower,
+            _ => NotesRichTextListType.None
+        };
+    }
+    private static ushort EncodeListType(ushort flags, NotesRichTextListType type)
+    {
+        flags = (ushort)(flags & ~(PabFlagBullet | PabFlagNumberedList));
+        return type switch
+        {
+            NotesRichTextListType.Bullet => (ushort)(flags | PabFlagBullet),
+            NotesRichTextListType.Number => (ushort)(flags | PabFlagNumberedList),
+            _ => flags
+        };
+    }
+    private static ushort EncodeListType2(ushort flags, NotesRichTextListType type) => type switch
+    {
+        NotesRichTextListType.Check => (ushort)PabFlag2CheckedList,
+        NotesRichTextListType.Uncheck => (ushort)PabFlag2UncheckedList,
+        NotesRichTextListType.Circle => (ushort)PabFlag2CircleList,
+        NotesRichTextListType.Square => (ushort)PabFlag2SquareList,
+        NotesRichTextListType.AlphaUpper => (ushort)PabFlag2AlphaUpperList,
+        NotesRichTextListType.AlphaLower => (ushort)PabFlag2AlphaLowerList,
+        NotesRichTextListType.RomanUpper => (ushort)PabFlag2RomanUpperList,
+        NotesRichTextListType.RomanLower => (ushort)PabFlag2RomanLowerList,
+        _ => flags
+    };
     private static int ValidateTwips(int value, string name)
     {
         if (value < 0 || value > 0x3fff) throw new ArgumentOutOfRangeException(name, "Value must be between 0 and 16383 twips.");
@@ -294,6 +372,10 @@ public sealed class NotesRichTextNavigator : NotesObject
     public const int ElementEmbeddedObject = 8;
     /// <summary>Logical table end record.</summary>
     public const int ElementTableEnd = 9;
+    /// <summary>Read-only hotspot region.</summary>
+    public const int ElementHotspot = 10;
+    /// <summary>Inline CDGRAPHIC image header.</summary>
+    public const int ElementInlineImage = 11;
 
     private readonly NotesRichTextItem _item;
     private List<NotesRichTextRecordData> _records = [];
@@ -392,6 +474,16 @@ public sealed class NotesRichTextNavigator : NotesObject
         return MaterializeElement(CurrentRecord);
     }
 
+    /// <summary>Returns the inline image at the current image-header position.</summary>
+    public NotesInlineImage GetInlineImage()
+    {
+        EnsureNavigatorAlive(); RefreshIfChanged();
+        if (_currentIndex < 0 || _records[_currentIndex].ElementType != ElementInlineImage)
+            throw new InvalidOperationException("NotesRichTextNavigator is not positioned on an inline image.");
+        var imageIndex = _records.Take(_currentIndex + 1).Count(record => record.ElementType == ElementInlineImage) - 1;
+        return _item.GetInlineImage(imageIndex);
+    }
+
     public void SetPosition(object element)
     {
         EnsureNavigatorAlive();
@@ -417,7 +509,7 @@ public sealed class NotesRichTextNavigator : NotesObject
 
     private int FindElementEnd(int startIndex, int elementType)
     {
-        if (elementType is ElementTable or ElementEmbeddedObject)
+        if (elementType is ElementTable or ElementEmbeddedObject or ElementHotspot)
         {
             var table = elementType == ElementTable;
             var depth = 0;
@@ -509,6 +601,7 @@ public sealed class NotesRichTextNavigator : NotesObject
     internal int CurrentElementType { get { _ = CurrentRecord; return _lastElementType; } }
     internal NotesRichTextItem RichTextItem => _item;
 
+
     internal void SetBounds(int startRecord, int endRecord)
     {
         EnsureNavigatorAlive(); RefreshIfChanged();
@@ -569,8 +662,26 @@ public sealed class NotesRichTextNavigator : NotesObject
                 throw new FileNotFoundException("Rich text attachment object was not found.", record.LinkedObjectName);
             return new NotesEmbeddedObject(Session, _item, metadata);
         }
-        if (record.ElementType is ElementTextRun or ElementTextParagraph or ElementTableCell)
-            throw new InvalidOperationException("Text runs, text paragraphs, and table cells must be accessed through NotesRichTextRange.");
+        if (record.ElementType == ElementHotspot)
+            return new NotesRichTextHotspot(Session, _item, record);
+        if (record.ElementType == ElementInlineImage)
+        {
+            var imageIndex = _records.Take(_currentIndex + 1).Count(value => value.ElementType == ElementInlineImage) - 1;
+            return _item.GetInlineImage(imageIndex);
+        }
+if (record.ElementType is ElementTextRun or ElementTextParagraph)
+        {
+            var range = new NotesRichTextRange(Session, _item);
+            range.SetBegin(this);
+            var savedIndex = _currentIndex; var savedType = _lastElementType; var savedOffset = _charOffset;
+            var endIndex = FindElementEnd(_currentIndex, _lastElementType);
+            SetCurrent(endIndex, _lastElementType, _records[endIndex].Text.Length);
+            range.SetEnd(this);
+            SetCurrent(savedIndex, savedType, savedOffset);
+            return range;
+        }
+        if (record.ElementType == ElementTableCell)
+            return new NotesRichTextTableCell(Session, _item, record);
         throw new NotSupportedException($"Unsupported rich text element type {record.ElementType}.");
     }
 
@@ -585,13 +696,14 @@ public sealed class NotesRichTextNavigator : NotesObject
     }
     private static int ValidateElementType(int type)
     {
-        if (type is ElementTable or ElementTextRun or ElementTextParagraph or ElementDocLink or ElementSection or ElementTableCell or ElementEmbeddedObject or ElementTableEnd) return type;
+        if (type is ElementTable or ElementTextRun or ElementTextParagraph or ElementDocLink or ElementSection or ElementTableCell or ElementEmbeddedObject or ElementTableEnd or ElementHotspot or ElementInlineImage) return type;
         throw new ArgumentOutOfRangeException(nameof(type), $"Unsupported rich text element type {type}.");
     }
     private static int ValidateGetElementType(int type)
     {
-        if (type is ElementTable or ElementDocLink or ElementSection or ElementEmbeddedObject) return type;
-        if (type is ElementTextRun or ElementTextParagraph or ElementTableCell) throw new InvalidOperationException("Text runs, text paragraphs, and table cells must be accessed through NotesRichTextRange.");
+        if (type is ElementTable or ElementDocLink or ElementSection or ElementEmbeddedObject or ElementHotspot or ElementInlineImage) return type;
+        if (type is ElementTextRun or ElementTextParagraph) throw new InvalidOperationException("Text runs and text paragraphs must be accessed through NotesRichTextRange.");
+        if (type == ElementTableCell) return type;
         throw new ArgumentOutOfRangeException(nameof(type), $"Unsupported rich text element type {type}.");
     }
     private static int ValidateOccurrence(int occurrence)
@@ -667,15 +779,52 @@ public sealed class NotesRichTextRange : NotesObject
             var records = _item.ReadRichTextRecords();
             if (records.Count == 0 || _endRecord < _beginRecord) return string.Empty;
             var builder = new StringBuilder();
-            var started = false;
             for (var i = _beginRecord; i <= _endRecord && i < records.Count; i++)
             {
                 var record = records[i];
-                if (record.ElementType == NotesRichTextNavigator.ElementTextParagraph && started) break;
                 if (record.Text.Length == 0) continue;
-                started = true; builder.Append(SliceText(record.Text, i));
+                builder.Append(SliceText(record.Text, i));
             }
             return builder.ToString();
+        }
+    }
+    /// <summary>Gets the PAB paragraph-style identifier referenced by this paragraph.</summary>
+    public int ParagraphStyleId
+    {
+        get
+        {
+            EnsureRangeAlive();
+            var records = _item.ReadRichTextRecords();
+            for (var i = Math.Min(_beginRecord, records.Count - 1); i >= 0; i--)
+            {
+                if (records[i].Signature != 0x0083 || records[i].Data.Length < 4) continue;
+                return records[i].Data[2] | (records[i].Data[3] << 8);
+            }
+            return 0;
+        }
+    }
+    /// <summary>Gets the Notes list style for this paragraph, resolved from the document's DXL paragraph definition.</summary>
+    public NotesRichTextListType ListType
+    {
+        get
+        {
+            EnsureRangeAlive();
+            var id = ParagraphStyleId;
+            if (id <= 0) return NotesRichTextListType.None;
+            using var exporter = Session.CreateDXLExporter(); exporter.OutputDOCTYPE = false;
+            using var dxl = exporter.Export(_item.Parent);
+            var xml = XDocument.Parse(Encoding.UTF8.GetString(dxl.ToArray()));
+            var ns = XNamespace.Get("http://www.lotus.com/dxl");
+            var style = xml.Descendants(ns + "pardef").FirstOrDefault(e => (string?)e.Attribute("id") == id.ToString(CultureInfo.InvariantCulture));
+            return style?.Attribute("list")?.Value.ToLowerInvariant() switch
+            {
+                "bullet" => NotesRichTextListType.Bullet, "number" => NotesRichTextListType.Number,
+                "check" => NotesRichTextListType.Check, "uncheck" => NotesRichTextListType.Uncheck,
+                "circle" => NotesRichTextListType.Circle, "square" => NotesRichTextListType.Square,
+                "alphaupper" => NotesRichTextListType.AlphaUpper, "alphalower" => NotesRichTextListType.AlphaLower,
+                "romanupper" => NotesRichTextListType.RomanUpper, "romanlower" => NotesRichTextListType.RomanLower,
+                _ => NotesRichTextListType.None
+            };
         }
     }
     public string TextRun
@@ -694,13 +843,20 @@ public sealed class NotesRichTextRange : NotesObject
     /// <summary>Replaces occurrences of <paramref name="findText"/> in the range and returns the replacement count.</summary>
     public int FindAndReplace(string findText, string replaceText) => FindAndReplace(findText, replaceText, 0);
 
-    /// <summary>Replaces occurrences in the range. Options are reserved for Notes-compatible flags.</summary>
+    /// <summary>Replaces the next occurrence, or all occurrences with <c>RT_REPL_ALL</c>, using Notes-compatible matching flags.</summary>
     public int FindAndReplace(string findText, string replaceText, int options)
     {
         EnsureRangeAlive();
         ArgumentException.ThrowIfNullOrEmpty(findText);
         ArgumentNullException.ThrowIfNull(replaceText);
-        if (options != 0) throw new NotSupportedException("FindAndReplace options are not implemented for managed rich-text CD transforms.");
+        const int supported = NotesConst.RT_FIND_CASEINSENSITIVE | NotesConst.RT_FIND_PITCHINSENSITIVE | NotesConst.RT_FIND_ACCENTINSENSITIVE | 8 | 16;
+        if ((options & ~supported) != 0) throw new ArgumentOutOfRangeException(nameof(options), "Unknown FindAndReplace option flags.");
+        var compareOptions = CompareOptions.None;
+        if ((options & NotesConst.RT_FIND_CASEINSENSITIVE) != 0) compareOptions |= CompareOptions.IgnoreCase;
+        if ((options & NotesConst.RT_FIND_PITCHINSENSITIVE) != 0) compareOptions |= CompareOptions.IgnoreWidth | CompareOptions.IgnoreKanaType;
+        if ((options & NotesConst.RT_FIND_ACCENTINSENSITIVE) != 0) compareOptions |= CompareOptions.IgnoreNonSpace;
+        var replaceAll = (options & NotesConst.RT_REPL_ALL) != 0;
+        var preserveCase = (options & NotesConst.RT_REPL_PRESERVECASE) != 0;
         var records = _item.ReadRichTextRecords();
         var replacements = 0;
         var recordIndex = -1;
@@ -712,9 +868,19 @@ public sealed class NotesRichTextRange : NotesObject
             var start = index == _beginRecord ? Math.Clamp(_beginOffset, 0, record.Text.Length) : 0;
             var end = index == _endRecord ? Math.Clamp(_endOffset, start, record.Text.Length) : record.Text.Length;
             var selected = record.Text[start..end];
-            if (selected.Length == 0 || !selected.Contains(findText, StringComparison.Ordinal)) return NotesRichTextRecordRewrite.Preserve(record);
-            var changed = selected.Replace(findText, replaceText, StringComparison.Ordinal);
-            replacements += CountOccurrences(selected, findText);
+            if (selected.Length == 0) return NotesRichTextRecordRewrite.Preserve(record);
+            var changed = new StringBuilder(); var cursor = 0; var foundInRecord = 0;
+            while (cursor < selected.Length)
+            {
+                var found = CultureInfo.CurrentCulture.CompareInfo.IndexOf(selected, findText, cursor, compareOptions);
+                if (found < 0 || (!replaceAll && replacements + foundInRecord > 0)) break;
+                changed.Append(selected, cursor, found - cursor);
+                var match = selected.Substring(found, findText.Length);
+                var replacement = preserveCase ? PreserveReplacementCase(match, replaceText) : replaceText;
+                changed.Append(replacement); foundInRecord++; replacements++; cursor = found + findText.Length;
+            }
+            if (foundInRecord == 0) return NotesRichTextRecordRewrite.Preserve(record);
+            changed.Append(selected, cursor, selected.Length - cursor);
             var text = record.Text[..start] + changed + record.Text[end..];
             var encoded = Session.Api.EncodeRichTextText(text.Replace('\n', '\0'));
             var data = new byte[8 + encoded.Length];
@@ -725,6 +891,14 @@ public sealed class NotesRichTextRange : NotesObject
         });
         if (replacements > 0) { _item.RewriteRichTextRecords(rewritten); ResetCore(); }
         return replacements;
+    }
+
+    private static string PreserveReplacementCase(string match, string replacement)
+    {
+        if (match.Length > 0 && match.All(char.IsUpper)) return replacement.ToUpper(CultureInfo.CurrentCulture);
+        if (match.Length > 0 && match.All(char.IsLower)) return replacement.ToLower(CultureInfo.CurrentCulture);
+        if (match.Length > 0 && char.IsUpper(match[0])) return replacement.Length == 0 ? replacement : char.ToUpper(replacement[0], CultureInfo.CurrentCulture) + replacement[1..];
+        return replacement;
     }
 
     public NotesRichTextRange Clone() { EnsureRangeAlive(); return new NotesRichTextRange(Session, _item, _beginRecord, _beginOffset, _endRecord, _endOffset, _type); }
@@ -868,6 +1042,8 @@ public sealed class NotesEmbeddedObject : NotesObject
     }
 
     public byte[] ToByteArray() { EnsureEmbeddedAlive(); return Session.Api.ReadAttachmentBytes(_parent.Parent.Handle, _metadata.Name); }
+    /// <summary>Gets a copy of the embedded attachment bytes.</summary>
+    public byte[] Bytes => ToByteArray();
     public void Remove()
     {
         EnsureEmbeddedAlive();

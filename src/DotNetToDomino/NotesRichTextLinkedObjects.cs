@@ -1,4 +1,5 @@
 using DotNetToDomino.Interop;
+using System.Text;
 
 namespace DotNetToDomino;
 
@@ -68,6 +69,68 @@ public abstract class NotesRichTextLinkedObject : NotesObject
             throw new InvalidOperationException("The rich text item has changed. Obtain the element again from a new navigator.");
     }
     protected override void ReleaseNative() { }
+}
+
+/// <summary>Read-only metadata for a compound-text hotspot region.</summary>
+public sealed class NotesRichTextHotspot : NotesRichTextLinkedObject
+{
+    internal NotesRichTextHotspot(NotesSession session, NotesRichTextItem item, NotesRichTextRecordData record)
+        : base(session, item, record) { }
+
+    /// <summary>Returns the CDHOTSPOTBEGIN signature that opened this region.</summary>
+    public ushort Signature { get { var record = CurrentRecord(); return record.Signature; } }
+
+    /// <summary>Returns the Notes hotspot type from the record, when present.</summary>
+    public ushort HotspotType
+    {
+        get
+        {
+            var data = CurrentRecord().Data;
+            return data.Length >= 6 ? ReadUInt16(data, 4) : (ushort)0;
+        }
+    }
+
+    /// <summary>Returns the hotspot flags from the record, when present.</summary>
+    public ushort Flags
+    {
+        get
+        {
+            var data = CurrentRecord().Data;
+            return data.Length >= 8 ? ReadUInt16(data, 6) : (ushort)0;
+        }
+    }
+
+    public bool IsFileHotspot => HotspotType == 4;
+    public bool IsLinkHotspot => HotspotType is 11 or 32;
+
+    /// <summary>Returns visible CDTEXT within this hotspot region.</summary>
+    public string Text
+    {
+        get
+        {
+            var records = Records();
+            var start = CurrentFlatIndex(records);
+            var result = new StringBuilder();
+            var depth = 0;
+            for (var i = start + 1; i < records.Count; i++)
+            {
+                var signature = records[i].Signature;
+                if (signature is 0xFFA9 or 0xFFAD or 0xFF7E) { depth++; continue; }
+                if (signature is 170 or 174 or 127)
+                {
+                    if (depth == 0) break;
+                    depth--;
+                    continue;
+                }
+                if (depth == 0 && records[i].ElementType == NotesRichTextNavigator.ElementTextRun)
+                    result.Append(records[i].Text);
+            }
+            return result.ToString();
+        }
+    }
+
+    private static ushort ReadUInt16(byte[] data, int offset) =>
+        (ushort)(data[offset] | (data[offset + 1] << 8));
 }
 
 /// <summary>Represents a Notes color value used by rich-text linked objects.</summary>
@@ -289,6 +352,47 @@ public sealed class NotesRichTextTable : NotesRichTextLinkedObject
     internal NotesRichTextTable(NotesSession session, NotesRichTextItem item, NotesRichTextRecordData record) : base(session, item, record) { }
     public int RowCount { get { var d = GetDimensions(); return d.Rows; } }
     public int ColumnCount { get { var d = GetDimensions(); return d.Columns; } }
+    /// <summary>Returns direct CDTABLEROWHEIGHT values in table order.</summary>
+    public IReadOnlyList<int> RowHeights
+    {
+        get
+        {
+            EnsureLinkedAlive();
+            var records = Records();
+            var start = CurrentFlatIndex(records);
+            var result = new List<int>();
+            for (var i = start + 1; i < records.Count; i++)
+            {
+                var record = records[i];
+                if (record.Signature == TableEndSignature || record.Signature == NestedTableEndSignature) break;
+                if (record.Signature == 582 && record.Data.Length >= 6) result.Add(ReadUInt16(record.Data, 4));
+            }
+            return result;
+        }
+    }
+    /// <summary>Returns table-label records contained by this table.</summary>
+    public IReadOnlyList<object?> RowLabels
+    {
+        get
+        {
+            EnsureLinkedAlive();
+            var records = Records();
+            var start = CurrentFlatIndex(records);
+            var labels = new List<object?>();
+            var nestedDepth = 0;
+            for (var i = start + 1; i < records.Count; i++)
+            {
+                var record = records[i];
+                if (record.Signature == NestedTableBeginSignature) { nestedDepth++; continue; }
+                if (record.Signature == NestedTableEndSignature) { if (nestedDepth > 0) nestedDepth--; continue; }
+                if (nestedDepth > 0) continue;
+                if (record.Signature == TableEndSignature) break;
+                if (record.Signature != 583 || record.Data.Length < 132) continue;
+                labels.Add(Session.Api.DecodeRichTextText(record.Data, 4, 128).TrimEnd('\0'));
+            }
+            return labels;
+        }
+    }
     /// <summary>Returns the cell records contained directly by this table.</summary>
     public IReadOnlyList<NotesRichTextTableCell> Cells
     {
@@ -313,6 +417,39 @@ public sealed class NotesRichTextTable : NotesRichTextLinkedObject
         }
     }
     public bool RightToLeft { get { var data = CurrentRecord().Data; return data.Length >= 14 && (ReadUInt16(data, 12) & TableRightToLeft) != 0; } }
+    /// <summary>Indicates that this table contains Notes tabbed-table CD records.</summary>
+    public bool IsTabbedTable
+    {
+        get
+        {
+            EnsureLinkedAlive();
+            var records = Records();
+            var start = CurrentFlatIndex(records);
+            for (var i = start + 1; i < records.Count; i++)
+            {
+                if (records[i].Signature == TableEndSignature) break;
+                if (records[i].Signature == 0xFFE3) return true;
+            }
+            return false;
+        }
+    }
+    /// <summary>Number of tabbed-table records contained directly by this table.</summary>
+    public int TabbedTableRecordCount
+    {
+        get
+        {
+            EnsureLinkedAlive();
+            var records = Records();
+            var start = CurrentFlatIndex(records);
+            var count = 0;
+            for (var i = start + 1; i < records.Count; i++)
+            {
+                if (records[i].Signature == TableEndSignature) break;
+                if (records[i].Signature == 0xFFE3) count++;
+            }
+            return count;
+        }
+    }
     public int Style { get { var data = CurrentRecord().Data; return data.Length >= 14 ? ReadUInt16(data, 12) : 0; } }
     /// <summary>Number of rows recorded in the optional CDPRETABLEBEGIN header.</summary>
     public int PreTableRowCount => ReadPreTableByte(8);
@@ -320,6 +457,14 @@ public sealed class NotesRichTextTable : NotesRichTextLinkedObject
     public int PreTableColumnCount => ReadPreTableByte(9);
     /// <summary>Flags from the optional CDPRETABLEBEGIN header.</summary>
     public uint PreTableFlags => ReadPreTableUInt32(4);
+    /// <summary>Column sizing bit mask 1 from CDPRETABLEBEGIN.</summary>
+    public uint PreTableColumnSizingBits1 => ReadPreTableUInt32(10);
+    /// <summary>Column sizing bit mask 2 from CDPRETABLEBEGIN.</summary>
+    public uint PreTableColumnSizingBits2 => ReadPreTableUInt32(14);
+    /// <summary>Viewer type flags from CDPRETABLEBEGIN.</summary>
+    public int PreTableViewerType => ReadPreTableByte(18);
+    /// <summary>Minimum row height in twips from CDPRETABLEBEGIN.</summary>
+    public int PreTableMinRowHeight => ReadPreTableUInt16(20);
     /// <summary>First RGB color from CDPRETABLEBEGIN, or zero when the optional header is absent.</summary>
     public uint StyleColor1 => ReadPreTableUInt32(24);
     /// <summary>Second RGB color from CDPRETABLEBEGIN, or zero when the optional header is absent.</summary>
@@ -426,7 +571,12 @@ public sealed class NotesRichTextTable : NotesRichTextLinkedObject
             if (nestedDepth > 0) continue;
             if (record.Signature == TableEndSignature) break;
             if (record.ElementType != NotesRichTextNavigator.ElementTableCell || record.Data.Length < 18) continue;
-            if (record.Data[2] == row && record.Data[3] == column)
+            var cellRow = record.Data[2];
+            var cellColumn = record.Data[3];
+            var rowSpan = Math.Max(1, (int)record.Data[14]);
+            var columnSpan = Math.Max(1, (int)record.Data[15]);
+            if (row >= cellRow && row < cellRow + rowSpan &&
+                column >= cellColumn && column < cellColumn + columnSpan)
                 return new NotesRichTextTableCell(Session, RichTextItem, record);
         }
         return null;
@@ -583,6 +733,17 @@ public sealed class NotesRichTextTable : NotesRichTextLinkedObject
         }
         if (tableEnd < 0) throw new NotesException(91, "Rich text table has no matching end record.");
         if (cellIndexes.Count == 0) throw new ArgumentOutOfRangeException(nameof(row), "The table row does not exist.");
+        // Removing a range that extends past the last row would otherwise
+        // decrement the table header by more rows than were actually removed,
+        // leaving an invalid CDPRETABLEBEGIN row count. Validate the complete
+        // requested range before rewriting any records.
+        var directRows = records.Skip(start + 1).Take(tableEnd - start - 1)
+            .Where(record => record.ElementType == NotesRichTextNavigator.ElementTableCell && record.Data.Length >= 4)
+            .Select(record => (int)record.Data[2])
+            .Distinct()
+            .ToArray();
+        if (directRows.Length == 0 || row > directRows.Max() || count > directRows.Max() - row + 1)
+            throw new ArgumentOutOfRangeException(nameof(count), "The requested row range does not exist.");
         var tableKeys = records.Skip(start).Take(tableEnd - start + 1)
             .Select(record => (record.SegmentIndex, record.RecordIndex)).ToHashSet();
 
@@ -713,6 +874,111 @@ public sealed class NotesRichTextTableCell : NotesRichTextLinkedObject
     public int BackgroundColor { get { var data = PositionRecord().Data; return data.Length >= 18 ? ReadUInt16(data, 16) : 0; } }
     public int RowSpan { get { var data = PositionRecord().Data; return data.Length >= 16 ? Math.Max(1, (int)data[14]) : 1; } }
     public int ColumnSpan { get { var data = PositionRecord().Data; return data.Length >= 16 ? Math.Max(1, (int)data[15]) : 1; } }
+    /// <summary>Indicates that this cell spans more than one row or column.</summary>
+    public bool IsMerged => RowSpan > 1 || ColumnSpan > 1;
+    /// <summary>Returns the plain text stored directly in this table cell.</summary>
+    public string Text
+    {
+        get
+        {
+            EnsureLinkedAlive();
+            var records = Records();
+            var start = CurrentFlatIndex(records);
+            var builder = new StringBuilder();
+            for (var i = start + 1; i < records.Count; i++)
+            {
+                var record = records[i];
+                if (record.Signature == NotesRichTextTable.TableEndSignature ||
+                    (record.ElementType == NotesRichTextNavigator.ElementTableCell && i != start)) break;
+                if (record.Text.Length != 0) builder.Append(record.Text);
+            }
+            return builder.ToString();
+        }
+    }
+    /// <summary>Creates a range covering the content of this table cell.</summary>
+    public NotesRichTextRange CreateRange()
+    {
+        EnsureLinkedAlive();
+        var records = Records();
+        var start = CurrentFlatIndex(records);
+        var end = start;
+        for (var i = start + 1; i < records.Count; i++)
+        {
+            if (records[i].Signature == NotesRichTextTable.TableEndSignature || records[i].ElementType == NotesRichTextNavigator.ElementTableCell) break;
+            end = i;
+        }
+        using var navigator = RichTextItem.CreateNavigator();
+        navigator.SetInternalPosition(start, 0);
+        var range = RichTextItem.CreateRange();
+        range.SetBegin(navigator);
+        navigator.SetInternalPosition(end, records[end].Text.Length);
+        range.SetEnd(navigator);
+        return range;
+    }    /// <summary>Appends text inside this cell, before the next cell or table-end record.</summary>
+    /// <summary>Appends styled text inside this cell.</summary>
+    public void AppendText(string text, NotesRichTextStyle style)
+    {
+        EnsureLinkedAlive();
+        ArgumentNullException.ThrowIfNull(text);
+        ArgumentNullException.ThrowIfNull(style);
+        var records = Records();
+        var start = CurrentFlatIndex(records);
+        var insertion = start + 1;
+        for (; insertion < records.Count; insertion++)
+            if (records[insertion].Signature == NotesRichTextTable.TableEndSignature || records[insertion].ElementType == NotesRichTextNavigator.ElementTableCell) break;
+        using var navigator = RichTextItem.CreateNavigator();
+        navigator.SetInternalPosition(insertion, 0);
+        RichTextItem.BeginInsert(navigator);
+        try
+        {
+            RichTextItem.AppendStyle(style);
+            RichTextItem.AppendText(text);
+            RichTextItem.EndInsert();
+        }
+        catch
+        {
+            try { RichTextItem.EndInsert(); } catch { }
+            throw;
+        }
+    }
+    public void AppendText(string text)
+    {
+        EnsureLinkedAlive();
+        ArgumentNullException.ThrowIfNull(text);
+        var records = Records();
+        var start = CurrentFlatIndex(records);
+        var insertion = start + 1;
+        for (; insertion < records.Count; insertion++)
+        {
+            if (records[insertion].Signature == NotesRichTextTable.TableEndSignature ||
+                records[insertion].ElementType == NotesRichTextNavigator.ElementTableCell)
+                break;
+        }
+        using var navigator = RichTextItem.CreateNavigator();
+        navigator.SetInternalPosition(insertion, 0);
+        RichTextItem.BeginInsert(navigator);
+        try
+        {
+            RichTextItem.AppendText(text);
+            RichTextItem.EndInsert();
+        }
+        catch
+        {
+            try { RichTextItem.EndInsert(); } catch { }
+            throw;
+        }
+    }
+    /// <summary>Clears the cell contents while preserving the structural table cell.</summary>
+    public void Clear() => Remove();
+
+    /// <summary>Replaces text only within this cell's content range.</summary>
+    public int FindAndReplace(string findText, string replaceText, int options = 0)
+    {
+        EnsureLinkedAlive();
+        using var range = CreateRange();
+        return range.FindAndReplace(findText, replaceText, options);
+    }
+
     public void Remove()
     {
         EnsureLinkedAlive();
@@ -830,7 +1096,9 @@ public sealed class NotesRichTextTableCell : NotesRichTextLinkedObject
 /// <summary>Represents a document link in Notes rich text.</summary>
 public sealed class NotesRichTextDocLink : NotesRichTextLinkedObject
 {
+    public enum TargetKind { Application, View, Document, Database = Application }
     private const ushort LinkExport2Signature = unchecked((ushort)-110);
+    private const ushort Link2Signature = unchecked((ushort)-111);
     internal NotesRichTextDocLink(NotesSession session, NotesRichTextItem item, NotesRichTextRecordData record) : base(session, item, record) { }
 
     public string DbReplicaID => ParseTarget().DbReplicaId;
@@ -838,7 +1106,182 @@ public sealed class NotesRichTextDocLink : NotesRichTextLinkedObject
     public string DocUNID => ParseTarget().DocUnid;
     public string DisplayComment => ParseTarget().DisplayComment;
     public string ServerHint => ParseTarget().ServerHint;
-    public string HotSpotText => ParseTarget().HotspotText;
+    public TargetKind Kind
+    {
+        get
+        {
+            var target = ParseTarget();
+            if (!string.IsNullOrWhiteSpace(target.DocUnid)) return TargetKind.Document;
+            if (!string.IsNullOrWhiteSpace(target.ViewUnid)) return TargetKind.View;
+            return TargetKind.Application;
+        }
+    }
+    public bool IsDatabaseLink => Kind == TargetKind.Database;
+    /// <summary>Indicates an application (database) link. This is the preferred terminology; <see cref="IsDatabaseLink"/> remains as a compatibility alias.</summary>
+    public bool IsApplicationLink => Kind == TargetKind.Application;
+    public bool IsViewLink => Kind == TargetKind.View;
+    public bool IsDocumentLink => Kind == TargetKind.Document;
+    /// <summary>Gets the visible text enclosed by the surrounding HOTLINK hotspot.
+    /// The third CDLINK2/CDLINKEXPORT2 string is the target anchor and is exposed
+    /// separately through <see cref="Anchor"/>.</summary>
+    public string HotSpotText => ReadHotSpotText();
+    /// <summary>Gets the optional anchor in the target document.</summary>
+    public string Anchor => ParseTarget().HotspotText;
+    /// <summary>Replaces comment, server hint and target anchor on this link only. Does not change visible hotspot text.</summary>
+    public void SetLinkText(string displayComment, string serverHint, string hotspotText) => SetLinkMetadata(displayComment, serverHint, hotspotText);
+
+    /// <summary>Replaces the visible text of this hotspot while preserving its CDTEXT run formatting.</summary>
+    /// <remarks>For a hotspot made of multiple formatted CDTEXT runs, the replacement is split across the existing runs. A replacement shorter than the number of runs is rejected because removing a run would change the compound-text structure.</remarks>
+    public void SetHotSpotText(string text)
+    {
+        EnsureLinkedAlive();
+        ArgumentNullException.ThrowIfNull(text);
+        var records = Records();
+        var textRecords = HotSpotTextRecords(records).Where(r => r.Signature == 0xFF85 && r.Data.Length >= 8 && r.Text.Length > 0).ToArray();
+        if (textRecords.Length == 0) throw new InvalidOperationException("The link has no visible HOTLINK text run.");
+        if (textRecords.Length > 1 && text.Length < textRecords.Length)
+            throw new ArgumentException("The replacement text is too short to preserve all formatted hotspot runs.", nameof(text));
+        var parts = new string[textRecords.Length];
+        var offset = 0;
+        for (var i = 0; i < textRecords.Length; i++)
+        {
+            var length = i == textRecords.Length - 1 ? text.Length - offset : Math.Max(1, (int)Math.Round((double)textRecords[i].Text.Length / textRecords.Sum(r => r.Text.Length) * text.Length));
+            if (i == textRecords.Length - 1) length = text.Length - offset;
+            if (length < 1) length = 1;
+            if (offset + length > text.Length) length = text.Length - offset;
+            parts[i] = text.Substring(offset, length);
+            offset += length;
+        }
+        var rewritten = NotesRichTextCdTransform.Transform(records, record =>
+        {
+            var index = Array.FindIndex(textRecords, r => r.SegmentIndex == record.SegmentIndex && r.RecordIndex == record.RecordIndex);
+            if (index < 0) return NotesRichTextRecordRewrite.Preserve(record);
+            var encoded = Session.Api.EncodeRichTextText(parts[index].Replace('\n', '\0'));
+            var data = new byte[8 + encoded.Length];
+            record.Data.AsSpan(0, 8).CopyTo(data);
+            encoded.CopyTo(data, 8);
+            if (data.Length > ushort.MaxValue) throw new ArgumentOutOfRangeException(nameof(text));
+            data[2] = (byte)data.Length; data[3] = (byte)(data.Length >> 8);
+            return new NotesRichTextRecordRewrite(record.SegmentIndex, record.RecordIndex, record.Signature, data);
+        });
+        RichTextItem.RewriteRichTextRecords(rewritten);
+        AcceptCurrentRevision();
+    }
+
+    /// <summary>Changes this link's metadata while preserving its signature, target and shared link index.</summary>
+    public void SetLinkMetadata(string displayComment, string serverHint, string anchor)
+    {
+        EnsureLinkedAlive();
+        var current = CurrentRecord();
+        if (current.Signature != LinkExport2Signature && current.Signature != Link2Signature)
+            throw new NotSupportedException("Unsupported link record signature.");
+        var sourceData = current.Data;
+        var fixedLength = current.Signature == LinkExport2Signature ? 44 : 6;
+        if (sourceData.Length < fixedLength)
+            throw new NotSupportedException("Changing link text requires a valid document-link record.");
+        var values = new[] { displayComment ?? string.Empty, serverHint ?? string.Empty, anchor ?? string.Empty };
+        if (values.Any(value => value.Contains('\0'))) throw new ArgumentException("Link metadata cannot contain null characters.");
+        var encoded = new List<byte>(fixedLength);
+        encoded.AddRange(sourceData.AsSpan(0, fixedLength).ToArray());
+        foreach (var value in values)
+        {
+            encoded.AddRange(Session.Api.EncodeRichTextText(value));
+            encoded.Add(0);
+        }
+        if (encoded.Count > ushort.MaxValue)
+            throw new ArgumentOutOfRangeException(nameof(displayComment), "The document link text exceeds the CD record limit.");
+        encoded[2] = (byte)encoded.Count;
+        encoded[3] = (byte)(encoded.Count >> 8);
+        var records = Records();
+        var rewritten = NotesRichTextCdTransform.Transform(records, record =>
+            record.SegmentIndex == current.SegmentIndex && record.RecordIndex == current.RecordIndex
+                ? new NotesRichTextRecordRewrite(record.SegmentIndex, record.RecordIndex, record.Signature, encoded.ToArray())
+                : NotesRichTextRecordRewrite.Preserve(record));
+        RichTextItem.RewriteRichTextRecords(rewritten);
+        AcceptCurrentRevision();
+    }
+    /// <summary>Returns the style of the first visible CDTEXT run in the link hotspot.</summary>
+    public NotesRichTextStyle HotSpotTextStyle
+    {
+        get
+        {
+            EnsureLinkedAlive();
+            var result = Session.CreateRichTextStyle();
+            var records = Records();
+            foreach (var record in HotSpotTextRecords(records))
+            {
+                if (record.Signature != 0xFF85 || record.Data.Length < 8 || record.Text.Length == 0) continue;
+                var data = record.Data;
+                result.NotesFont = data[4]; result.NotesColor = data[6];
+                result.FontSize = data[7] is >= 1 and <= 250 ? data[7] : NotesRichTextStyle.StyleNoChange;
+                result.Bold = (data[5] & 1) != 0 ? -1 : 0;
+                result.Italic = (data[5] & 2) != 0 ? -1 : 0;
+                result.Underline = (data[5] & 4) != 0 ? -1 : 0;
+                result.Strikethrough = (data[5] & 8) != 0 ? -1 : 0;
+                break;
+            }
+            return result;
+        }
+    }
+    /// <summary>Removes the link target while retaining the surrounding hotspot.</summary>
+    public void RemoveLinkage()
+    {
+        EnsureLinkedAlive();
+        var current = CurrentRecord();
+        byte[] data;
+        if (current.Signature == LinkExport2Signature && current.Data.Length >= 44)
+        {
+            data = (byte[])current.Data.Clone();
+        }
+        else if (current.Signature == Link2Signature && current.Data.Length >= 6)
+        {
+            // CDLINK2 stores only a $Links index. Resolve it while the note is
+            // open, then materialize the target into an EXPORT2 record before
+            // clearing it. This leaves the original $Links list untouched and
+            // avoids invalidating indexes used by other links in the note.
+            data = Session.Api.ConvertRichTextLink2ToExport2(RichTextItem.Parent.Handle, current.Data);
+        }
+        else
+        {
+            throw new NotSupportedException("Removing linkage requires a valid CDLINK2 or CDLINKEXPORT2 record.");
+        }
+        Array.Clear(data, 4, 40);
+        var records = Records();
+        var rewritten = NotesRichTextCdTransform.Transform(records, record =>
+            record.SegmentIndex == current.SegmentIndex && record.RecordIndex == current.RecordIndex
+                ? new NotesRichTextRecordRewrite(record.SegmentIndex, record.RecordIndex, record.Signature, data)
+                : NotesRichTextRecordRewrite.Preserve(record));
+        RichTextItem.RewriteRichTextRecords(rewritten);
+        AcceptCurrentRevision();
+    }
+    /// <summary>Applies a text style to the CDTEXT runs enclosed by this hotspot.</summary>
+    public void SetHotSpotTextStyle(NotesRichTextStyle style)
+    {
+        EnsureLinkedAlive();
+        ArgumentNullException.ThrowIfNull(style);
+        var state = style.ExportState();
+        var keys = HotSpotTextRecords(Records())
+            .Where(r => r.Signature == 0xFF85 && r.Data.Length >= 8 && r.Text.Length > 0)
+            .Select(r => (r.SegmentIndex, r.RecordIndex)).ToHashSet();
+        var rewritten = NotesRichTextCdTransform.Transform(Records(), record =>
+        {
+            if (!keys.Contains((record.SegmentIndex, record.RecordIndex)) || record.Signature != 0xFF85 || record.Data.Length < 8)
+                return NotesRichTextRecordRewrite.Preserve(record);
+            var data = (byte[])record.Data.Clone();
+            if (state.NotesFont != NotesRichTextStyle.StyleNoChange) data[4] = checked((byte)state.NotesFont);
+            var attributes = data[5];
+            if (state.Bold != NotesRichTextStyle.StyleNoChange) attributes = state.Bold != 0 ? (byte)(attributes | 1) : (byte)(attributes & ~1);
+            if (state.Italic != NotesRichTextStyle.StyleNoChange) attributes = state.Italic != 0 ? (byte)(attributes | 2) : (byte)(attributes & ~2);
+            if (state.Underline != NotesRichTextStyle.StyleNoChange) attributes = state.Underline != 0 ? (byte)(attributes | 4) : (byte)(attributes & ~4);
+            if (state.Strikethrough != NotesRichTextStyle.StyleNoChange) attributes = state.Strikethrough != 0 ? (byte)(attributes | 8) : (byte)(attributes & ~8);
+            data[5] = attributes;
+            if (state.NotesColor != NotesRichTextStyle.StyleNoChange) data[6] = checked((byte)state.NotesColor);
+            if (state.FontSize != NotesRichTextStyle.StyleNoChange) data[7] = checked((byte)state.FontSize);
+            return new NotesRichTextRecordRewrite(record.SegmentIndex, record.RecordIndex, record.Signature, data);
+        });
+        RichTextItem.RewriteRichTextRecords(rewritten);
+        AcceptCurrentRevision();
+    }
     public void Remove()
     {
         EnsureLinkedAlive();
@@ -853,15 +1296,68 @@ public sealed class NotesRichTextDocLink : NotesRichTextLinkedObject
         if (record.Signature == LinkExport2Signature && data.Length >= 44)
         {
             var strings = ReadStrings(data, 44, 3);
-            return (Session.Api.FormatRichTextTimeDate(data, 4), Session.Api.FormatRichTextUnid(data, 12), Session.Api.FormatRichTextUnid(data, 28), strings[0], strings[1], strings[2]);
+            return (Session.Api.FormatRichTextTimeDate(data, 4), NormalizeUnid(Session.Api.FormatRichTextUnid(data, 12)), NormalizeUnid(Session.Api.FormatRichTextUnid(data, 28)), strings[0], strings[1], strings[2]);
         }
         if (data.Length >= 6)
         {
             var strings = ReadStrings(data, 6, 3);
             var target = Session.Api.GetRichTextLinkTarget(RichTextItem.Parent.Handle, (ushort)(data[4] | (data[5] << 8)));
-            return (target.Replica, target.View, target.Document, strings[0], strings[1], strings[2]);
+            return (target.Replica, NormalizeUnid(target.View), NormalizeUnid(target.Document), strings[0], strings[1], strings[2]);
         }
         return (string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty);
+    }
+
+    private static string NormalizeUnid(string value) =>
+        string.IsNullOrWhiteSpace(value) || value.All(c => c == '0') ? string.Empty : value;
+
+    private string ReadHotSpotText()
+    {
+        var records = Records();
+        var linkIndex = CurrentFlatIndex(records);
+        var begin = -1;
+        for (var i = linkIndex - 1; i >= 0; i--)
+        {
+            var record = records[i];
+            if (record.Signature == 0xFFAE) break; // HOTSPOTEND
+            if (record.Signature != 0xFFAD || record.Data.Length < 12) continue; // V4HOTSPOTBEGIN
+            // HOTSPOTREC_TYPE_HOTLINK (11), little endian at the record's type field.
+            if (record.Data[4] == 11 && record.Data[5] == 0)
+            {
+                begin = i;
+                break;
+            }
+        }
+        if (begin < 0) return string.Empty;
+
+        var result = new StringBuilder();
+        for (var i = begin + 1; i < records.Count; i++)
+        {
+            var record = records[i];
+            if (record.Signature == 0xFFAE) break;
+            if (i > linkIndex && (record.Signature == Link2Signature || record.Signature == LinkExport2Signature)) return string.Empty;
+            if (i <= linkIndex || record.Signature != 0xFF85 || record.Data.Length < 8) continue;
+            if (record.Text.Length > 0) result.Append(record.Text);
+        }
+        return result.ToString();
+    }
+
+    private IReadOnlyList<NotesRichTextRecordData> HotSpotTextRecords(IReadOnlyList<NotesRichTextRecordData> records)
+    {
+        var linkIndex = CurrentFlatIndex(records);
+        var begin = -1;
+        for (var i = linkIndex - 1; i >= 0; i--)
+        {
+            if (records[i].Signature == 0xFFAE) break;
+            if (records[i].Signature == 0xFFAD && records[i].Data.Length >= 6 && records[i].Data[4] == 11 && records[i].Data[5] == 0) { begin = i; break; }
+        }
+        if (begin < 0) return Array.Empty<NotesRichTextRecordData>();
+        var result = new List<NotesRichTextRecordData>();
+        for (var i = linkIndex + 1; i < records.Count && records[i].Signature != 0xFFAE; i++)
+        {
+            if (records[i].Signature == Link2Signature || records[i].Signature == LinkExport2Signature) return Array.Empty<NotesRichTextRecordData>();
+            if (records[i].Signature == 0xFF85) result.Add(records[i]);
+        }
+        return result;
     }
 
     private string[] ReadStrings(byte[] data, int offset, int count)
@@ -877,4 +1373,5 @@ public sealed class NotesRichTextDocLink : NotesRichTextLinkedObject
         }
         return result;
     }
+
 }

@@ -1,4 +1,5 @@
 using System.Runtime.InteropServices;
+using System.Buffers.Binary;
 
 namespace DotNetToDomino.Interop;
 
@@ -85,6 +86,31 @@ internal sealed partial class NotesNativeApi
         finally { if (!closed) try { Resolve<RichText_CompoundTextDiscard>("CompoundTextDiscard")(compound); } catch { } }
     }
 
+    internal void AppendRichTextImage(nint note, string name, byte[] image, ushort imageType, ushort width, ushort height)
+    {
+        EnsureInitialized(); using var thread = EnterThread(); using var itemName = ToLmbcs(name);
+        CheckStatus(Resolve<RichText_CompoundTextCreate>("CompoundTextCreate")(unchecked((uint)note), itemName.Pointer, out var compound), "CompoundTextCreate(image)");
+        var closed = false;
+        try
+        {
+            var graphic = new byte[28]; WriteLsig(graphic, 153, 28);
+            BinaryPrimitives.WriteUInt16LittleEndian(graphic.AsSpan(6, 2), width); BinaryPrimitives.WriteUInt16LittleEndian(graphic.AsSpan(8, 2), height);
+            BinaryPrimitives.WriteUInt16LittleEndian(graphic.AsSpan(10, 2), width); BinaryPrimitives.WriteUInt16LittleEndian(graphic.AsSpan(12, 2), height);
+            BinaryPrimitives.WriteUInt16LittleEndian(graphic.AsSpan(22, 2), 0); graphic[24] = 2; graphic[25] = 1;
+            AppendRichTextCdRecords(compound, new[] { graphic });
+            const int max = 10240; var count = (image.Length + max - 1) / max; var header = new byte[28]; WriteLsig(header, 125, 28);
+            BinaryPrimitives.WriteUInt16LittleEndian(header.AsSpan(6, 2), imageType); BinaryPrimitives.WriteUInt16LittleEndian(header.AsSpan(8, 2), width); BinaryPrimitives.WriteUInt16LittleEndian(header.AsSpan(10, 2), height);
+            BinaryPrimitives.WriteUInt32LittleEndian(header.AsSpan(12, 4), imageType == 3 ? 0u : checked((uint)image.Length)); BinaryPrimitives.WriteUInt32LittleEndian(header.AsSpan(16, 4), imageType == 3 ? 0u : checked((uint)count)); AppendRichTextCdRecords(compound, new[] { header });
+            if (imageType == 4) { var header2 = new byte[20]; BinaryPrimitives.WriteUInt16LittleEndian(header2.AsSpan(0, 2), 82); BinaryPrimitives.WriteUInt16LittleEndian(header2.AsSpan(2, 2), 20); BinaryPrimitives.WriteUInt16LittleEndian(header2.AsSpan(4, 2), imageType); BinaryPrimitives.WriteUInt32LittleEndian(header2.AsSpan(6, 4), checked((uint)image.Length)); BinaryPrimitives.WriteUInt32LittleEndian(header2.AsSpan(10, 4), checked((uint)count)); AppendRichTextCdRecords(compound, new[] { header2 }); }
+            for (var offset = 0; offset < image.Length; offset += max) { var len = Math.Min(max, image.Length - offset); var padded = (len + 1) & ~1; var segment = new byte[10 + padded]; WriteLsig(segment, 124, segment.Length); BinaryPrimitives.WriteUInt16LittleEndian(segment.AsSpan(6, 2), checked((ushort)len)); BinaryPrimitives.WriteUInt16LittleEndian(segment.AsSpan(8, 2), checked((ushort)padded)); Buffer.BlockCopy(image, offset, segment, 10, len); AppendRichTextCdRecords(compound, new[] { segment }); }
+            CheckStatus(Resolve<RichText_CompoundTextClose>("CompoundTextClose")(compound, 0, 0, 0, 0), "CompoundTextClose(image)"); closed = true;
+        }
+        finally { if (!closed) try { Resolve<RichText_CompoundTextDiscard>("CompoundTextDiscard")(compound); } catch { } }
+    }
+
+    private static void WriteLsig(byte[] data, ushort signature, int length) { BinaryPrimitives.WriteUInt16LittleEndian(data.AsSpan(0, 2), signature); BinaryPrimitives.WriteUInt32LittleEndian(data.AsSpan(2, 4), checked((uint)length)); }
+
+
     internal void AppendRichTextTable(nint note, string name, int rows, int columns)
     {
         EnsureInitialized();
@@ -109,6 +135,25 @@ internal sealed partial class NotesNativeApi
             AppendRichTextCdRecords(compound, new[] { BuildTableEnd() });
             CheckStatus(Resolve<RichText_CompoundTextAddParagraphExt>("CompoundTextAddParagraphExt")(compound, 0xFFFFFFFFu, RichTextDefaultFontId, 0, 0, 0), "CompoundTextAddParagraphExt(table-after)");
             CheckStatus(Resolve<RichText_CompoundTextClose>("CompoundTextClose")(compound, 0, 0, 0, 0), "CompoundTextClose(table)");
+            closed = true;
+        }
+        finally { if (!closed) try { Resolve<RichText_CompoundTextDiscard>("CompoundTextDiscard")(compound); } catch { } }
+    }
+
+    internal void AppendRichTextHorizontalRule(nint note, string name)
+    {
+        EnsureInitialized();
+        using var thread = EnterThread();
+        using var itemName = ToLmbcs(name);
+        CheckStatus(Resolve<RichText_CompoundTextCreate>("CompoundTextCreate")(unchecked((uint)note), itemName.Pointer, out var compound), "CompoundTextCreate(horizontal rule)");
+        var closed = false;
+        try
+        {
+            // CDHRULE: WSIG + Flags + Width + Height + Color + GradientColor.
+            var data = new byte[16]; data[0] = 0xC9; data[1] = 0xFF; PutU16(data, 2, 16);
+            PutU32(data, 4, 0x04); PutU16(data, 8, 720); PutU16(data, 10, 7);
+            AppendRichTextCdRecords(compound, new[] { data });
+            CheckStatus(Resolve<RichText_CompoundTextClose>("CompoundTextClose")(compound, 0, 0, 0, 0), "CompoundTextClose(horizontal rule)");
             closed = true;
         }
         finally { if (!closed) try { Resolve<RichText_CompoundTextDiscard>("CompoundTextDiscard")(compound); } catch { } }

@@ -44,6 +44,7 @@ internal readonly record struct NotesCompoundStyleState(
     short RightMargin,
     short FirstLineLeftMargin,
     short Flags,
+    short Flags2,
     short[] Tabs);
 
 [StructLayout(LayoutKind.Sequential)]
@@ -60,6 +61,8 @@ internal struct NotesCompoundStyleNative
     [MarshalAs(UnmanagedType.ByValArray, SizeConst = 20)]
     public short[] Tab;
     public short Flags;
+    public int TabTypes;
+    public short Flags2;
 }
 
 internal sealed partial class NotesNativeApi
@@ -94,6 +97,7 @@ internal sealed partial class NotesNativeApi
             style.RightMargin,
             style.FirstLineLeftMargin,
             style.Flags,
+            style.Flags2,
             tabs);
     }
 
@@ -117,7 +121,9 @@ internal sealed partial class NotesNativeApi
                 FirstLineLeftMargin = state.FirstLineLeftMargin,
                 Tabs = checked((short)Math.Min(state.Tabs.Length, 20)),
                 Tab = new short[20],
-                Flags = state.Flags
+                Flags = state.Flags,
+                TabTypes = 0,
+                Flags2 = state.Flags2
             };
             Array.Copy(state.Tabs, native.Tab, Math.Min(state.Tabs.Length, native.Tab.Length));
             using var styleName = ToLmbcs(string.Empty);
@@ -153,6 +159,19 @@ internal sealed partial class NotesNativeApi
         if (linkId >= count || data.Length < 2 + count * 40) throw new InvalidOperationException("The rich text link references an invalid $Links entry.");
         var offset = 2 + linkId * 40;
         return data.AsSpan(offset, 40).ToArray();
+    }
+
+    internal byte[] ConvertRichTextLink2ToExport2(nint note, byte[] data)
+    {
+        if (data is null || data.Length < 6) throw new InvalidDataException("The CDLINK2 record is truncated.");
+        var target = GetRichTextLinkTargetData(note, (ushort)(data[4] | (data[5] << 8)));
+        var exported = new byte[checked(data.Length + 38)];
+        if (exported.Length > ushort.MaxValue) throw new InvalidOperationException("The exported rich text link exceeds the CD record size limit.");
+        exported[0] = 0x92; exported[1] = 0xff;
+        exported[2] = (byte)exported.Length; exported[3] = (byte)(exported.Length >> 8);
+        target.CopyTo(exported, 4);
+        Array.Copy(data, 6, exported, 44, data.Length - 6);
+        return exported;
     }
 
     internal IReadOnlyList<NotesRichTextRecordData> GetRichTextRecords(nint note, string itemName)
@@ -233,6 +252,7 @@ internal sealed partial class NotesNativeApi
         if (signature == RichTextSigTableBegin || signature == RichTextSigNestedTableBegin) return 1;
         if (signature == RichTextSigText) return 3;
         if (signature == RichTextSigParagraph) return 4;
+        if (signature is 125 or 149) return 11;
         if (signature == RichTextSigLink2 || signature == RichTextSigLinkExport2) return 5;
         if (signature == RichTextSigBar) return 6;
         if (signature == RichTextSigTableCell || signature == RichTextSigNestedTableCell) return 7;
@@ -241,6 +261,7 @@ internal sealed partial class NotesNativeApi
         {
             var hotspotType = unchecked((ushort)Marshal.ReadInt16(record, 4));
             if (hotspotType == HotspotTypeFile) return 8;
+            return 10;
         }
         return 0;
     }

@@ -1,7 +1,12 @@
 # RichText: tabellrecords och verifiering
 
 `NotesRichTextItem.AppendTable(rows, columns)` stöder 1–255 rader och
-1–64 kolumner. Följande exempel skapar en tabell och sparar dokumentet:
+1–255 kolumner. Dimensioner utanför intervallet avvisas innan något
+native-anrop görs. `NotesRichTextTable.RemoveRow(count, targetRow)` validerar
+hela radintervallet innan CD-records skrivs om; ett intervall som går förbi
+tabellens sista rad ger `ArgumentOutOfRangeException` utan att ändra tabellen.
+
+Följande exempel skapar en tabell och sparar dokumentet:
 
 ```csharp
 using var document = database.CreateDocument();
@@ -26,6 +31,15 @@ Tabellrecordsen använder BSIG:
 
 `CDTABLECELL_USE_BKGCOLOR` är `0x01` och
 `CDTABLECELL_USE_V42BORDERS` är `0x02`.
+
+## CDPRETABLEBEGIN-metadata
+
+`NotesRichTextTable` läser följande read-only-fält från `CDPRETABLEBEGIN`:
+`PreTableFlags`, `PreTableRowCount`, `PreTableColumnCount`,
+`PreTableColumnSizingBits1`, `PreTableColumnSizingBits2`,
+`PreTableViewerType`, `PreTableMinRowHeight`, färgfälten och payload-längderna.
+Row-label-payloaden exponeras inte som tolkade etiketter eftersom formatet är
+versionskänsligt.
 
 Den tidigare skrivaren använde fyra bytes för BSIG. Läsaren hade samma
 förskjutning, så interna round-trip-kontroller kunde missa felet.
@@ -276,3 +290,37 @@ En tom sektion kan skapas med den native-verifierade hjälpen:
 ```csharp
 body.AppendSection("Detaljer", expanded: false);
 ```
+
+## Tabbed tables och listor
+
+`NotesRichTextTable.IsTabbedTable` och `TabbedTableRecordCount` läser de
+`0xFFE3`-records som Notes använder för tabbed tables. De är read-only eftersom
+recorden inte har en säker generell skrivlayout i C API:t.
+
+`NotesRichTextTable.RowHeights` läser eventuella `CDTABLEROWHEIGHT`-records
+(ODS-signatur 582) i tabellens aktuella recordintervall och returnerar höjderna
+i twips, i samma ordning som raderna. Om Notes inte har sparat explicita
+radhöjder returneras en tom lista.
+
+Listor skapade av Notes 14.5.1 består av vanliga `CDTEXT`- och `CDPARAGRAPH`-
+records som refererar till tidigare `CDPABDEFINITION`-records. Listtyp läses
+via `NotesRichTextRange.ListType`; implementationen exporterar den aktuella
+noten till DXL för att tolka `pardef`-attributet (`bullet`, `number`, `check`,
+`uncheck`, `circle`, `square`, `alphaupper`, `alphalower`, `romanupper` eller
+`romanlower`). Listtypsskrivning för bullet/number stöds via
+`CompoundTextDefineStyle`. Övriga listmarkörer kräver rå `Flags2`-skrivning
+med `CDPABDEFINITION` och är därför uttryckligen inte rapporterade som
+skrivbara ännu.
+
+`NotesRichTextTableCell.Text` läser cellens text och `CreateRange()` returnerar
+en redigerbar range för cellinnehållet. Cellens strukturella `CDTABLECELL`
+behålls när range-innehållet ändras eller tas bort.
+
+`NotesRichTextTableCell.IsMerged` returnerar `true` när cellens `RowSpan` eller
+`ColumnSpan` är större än ett.
+
+Navigatorn kan positioneras direkt på tabellceller med `ElementTableCell`, på
+inline-bilder med `ElementInlineImage`, på fil-hotspots som
+`ElementEmbeddedObject` och på övriga hotspots med `ElementHotspot`. Dessa
+element kan därför behandlas i dokumentordning utan att först skapa separata
+kollektionsindex.

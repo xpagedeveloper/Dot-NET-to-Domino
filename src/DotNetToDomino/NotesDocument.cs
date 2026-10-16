@@ -29,6 +29,11 @@ public sealed class NotesDocument : NotesObject
     public NotesDatabase ParentDatabase { get; } public NotesDatabase Parent => ParentDatabase; public uint NoteId { get; private set; } public string NoteIdHex => NoteId.ToString("X8", CultureInfo.InvariantCulture); public string NoteID => NoteIdHex;
     public string UniversalId { get { EnsureAlive(); return _handle == 0 ? _knownUniversalId : Session.Api.GetUnid(_handle); } set { EnsureOpen(); ArgumentNullException.ThrowIfNull(value); Session.Api.SetUnid(_handle, value); _knownUniversalId = value; } } public string UniversalID { get => UniversalId; set => UniversalId = value; }
     public IReadOnlyList<NotesItem> Items { get { EnsureOpen(); return Session.Api.GetAllItemNames(_handle).Select(GetFirstItem).Where(x => x is not null).Cast<NotesItem>().ToArray(); } }
+    /// <summary>All embedded file attachments found in the document's rich-text items.</summary>
+    public IReadOnlyList<NotesEmbeddedObject> Attachments { get { EnsureOpen(); return Items.OfType<NotesRichTextItem>().SelectMany(item => item.EmbeddedObjects).ToArray(); } }
+    public int AttachmentCount => Attachments.Count;
+    public NotesEmbeddedObject? GetAttachment(string name) { EnsureOpen(); ArgumentException.ThrowIfNullOrWhiteSpace(name); return Attachments.FirstOrDefault(a => string.Equals(a.Name, name.Trim(), StringComparison.OrdinalIgnoreCase)); }
+    public byte[] GetAttachmentBytes(string name) { using var attachment = GetAttachment(name) ?? throw new FileNotFoundException("Document attachment was not found.", name); return attachment.Bytes; }
     /// <summary>Signs this document using the authenticated Notes ID. Call Save to persist the signature.</summary>
     public void Sign() { EnsureOpen(); Session.Api.SignNote(_handle); }
     /// <summary>Gets whether this document contains a document signature; this does not establish validity.</summary>

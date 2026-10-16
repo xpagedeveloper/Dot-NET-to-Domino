@@ -28,7 +28,7 @@ public sealed class NotesSession : IDisposable
             var ini = ResolveNotesIniPath(RuntimeDirectory, NotesIni);
             IniDir = ini.Length == 0 ? string.Empty : Path.GetDirectoryName(ini) ?? string.Empty; DataDir = ini.Length == 0 ? string.Empty : ReadNotesIniDataDirectory(ini, IniDir);
             Platform = ResolvePlatform(); NotesVersion = ResolveNotesVersion(_runtime.LibraryPath); NotesBuildVersion = ResolveBuildVersion(_runtime.LibraryPath);
-            try { _api.Initialize(NotesIni.Length == 0 ? null : NotesIni, idPassword); UserName = _api.GetUserName(); CommonUserName = ExtractCommonName(_api.CanonicalizeName(UserName)); _activeSession = this; }
+            try { _api.Initialize(NotesIni.Length == 0 ? null : NotesIni, idPassword); UserName = _api.GetUserName(); CommonUserName = ExtractCommonName(_api.CanonicalizeName(UserName)); International = new NotesInternational(this); _activeSession = this; }
             catch { try { _api.Terminate(); } catch { } _runtime.Dispose(); throw; }
         }
     }
@@ -48,6 +48,8 @@ public sealed class NotesSession : IDisposable
     public string NotesVersion { get; }
     public long NotesBuildVersion { get; }
     public string Platform { get; }
+    /// <summary>Gets the regional settings associated with this Notes session.</summary>
+    public NotesInternational International { get; }
     public bool ConvertMIME { get; set; } = true;
     public bool IsRecycled => _recycled;
     internal NotesNativeApi Api => _api;

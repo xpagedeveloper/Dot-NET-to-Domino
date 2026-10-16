@@ -25,12 +25,15 @@ public sealed class NotesDocumentCollection : NotesObject, IReadOnlyCollection<u
 
     public NotesDatabase Parent { get { EnsureAlive(); return _parent; } }
     public int Count { get { EnsureAlive(); return _noteIds.Length; } }
+    /// <summary>Gets all NoteIDs in this collection without opening the documents.</summary>
+    public IReadOnlyList<uint> NoteIds { get { EnsureAlive(); return _noteIds.ToArray(); } }
+    /// <summary>Gets all NoteIDs in this collection as eight-character hexadecimal strings.</summary>
+    public IReadOnlyList<string> NoteIdStrings { get { EnsureAlive(); return _noteIds.Select(id => id.ToString("X8", CultureInfo.InvariantCulture)).ToArray(); } }
     public NotesDocumentCollection Clone() { EnsureAlive(); return Parent.Own(new NotesDocumentCollection(Session, Parent, _noteIds)); }
     public string? FirstNoteId => Count == 0 ? null : _noteIds[0].ToString("X8", CultureInfo.InvariantCulture);
     public NotesDateTime? UntilTime { get { EnsureAlive(); return _hasModifiedMetadata ? NotesDateTime.FromNative(Session, _untilTime) : null; } }
     public NotesDocumentCollection Documents { get { EnsureAlive(); EnsureModifiedMetadata(); return CreateModifiedSubset(_documentNoteIds!, true); } }
     public NotesDocumentCollection DesignElements { get { EnsureAlive(); EnsureModifiedMetadata(); return CreateModifiedSubset(_designNoteIds!, false); } }
-    internal IReadOnlyList<uint> NoteIds { get { EnsureAlive(); return _noteIds; } }
 
     public bool Contains(NotesDocument document)
     {

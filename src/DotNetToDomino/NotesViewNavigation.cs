@@ -168,6 +168,10 @@ public sealed class NotesViewEntry : NotesObject
     }
     public object?[] ColumnValues => Row.GetColumnValues();
     public int IndentLevel => Row.IndentLevel;
+    /// <summary>Gets the zero-based view hierarchy level.</summary>
+    public int Level => Row.Level;
+    /// <summary>Gets the canonical position in the view index.</summary>
+    public string Position => Row.Position;
     public int ColumnIndentLevel => Row.IndentLevel;
     public int ChildCount => NotesViewNavigationExtensions.ReadRows(_view).Count(r => NotesViewNavigationExtensions.IsDirectChild(Row, r));
     public int DescendantCount => NotesViewNavigationExtensions.ReadRows(_view).Count(r => NotesViewNavigationExtensions.IsDescendant(Row, r));
@@ -184,6 +188,10 @@ public sealed class NotesViewEntry : NotesObject
     public bool IsDocument => Row.Kind == NotesViewEntryKind.Document;
     public bool IsCategory => Row.Kind == NotesViewEntryKind.Category;
     public bool IsTotal => Row.Kind == NotesViewEntryKind.Total;
+    /// <summary>Gets whether this document is unread for the current session user.</summary>
+    public bool IsUnread => Row.IsDocument && Session.Api.IsDocumentUnread(_database.Handle, Row.NoteId, Session.UserName);
+    /// <summary>Gets whether the current user can open this entry's document.</summary>
+    public bool HasReaderAccess => !Row.IsDocument || Document is not null;
     public bool IsValid => !IsRecycled && _row is not null;
     public string GetPosition(string separator = ".")
     {
@@ -220,12 +228,43 @@ public sealed class NotesViewEntryCollection : NotesObject, IReadOnlyCollection<
 
     public NotesView Parent { get { EnsureAlive(); return _view; } }
     public int Count { get { EnsureAlive(); return _rows.Length; } }
+    /// <summary>Gets the document NoteIDs represented by this view collection.</summary>
+    public IReadOnlyList<uint> NoteIds { get { EnsureAlive(); return _rows.Where(row => row.IsDocument).Select(row => row.NoteId).ToArray(); } }
+    /// <summary>Gets the document NoteIDs represented by this view collection as hexadecimal strings.</summary>
+    public IReadOnlyList<string> NoteIdStrings { get { EnsureAlive(); return NoteIds.Select(id => id.ToString("X8", System.Globalization.CultureInfo.InvariantCulture)).ToArray(); } }
+    /// <summary>Gets the number of pages for the supplied page size.</summary>
+    public int GetPageCount(int pageSize)
+    {
+        EnsureAlive();
+        if (pageSize < 1) throw new ArgumentOutOfRangeException(nameof(pageSize));
+        return (_rows.Length + pageSize - 1) / pageSize;
+    }
     public string Query { get { EnsureAlive(); return _query; } }
     public NotesViewEntry? GetFirstEntry() => OpenAt(_rows.Length == 0 ? -1 : 0);
     public NotesViewEntry? GetLastEntry() => OpenAt(_rows.Length == 0 ? -1 : _rows.Length - 1);
     public NotesViewEntry? GetNextEntry(NotesViewEntry entry) => MoveFromEntry(entry, 1);
     public NotesViewEntry? GetPrevEntry(NotesViewEntry entry) => MoveFromEntry(entry, -1);
     public NotesViewEntry? GetNthEntry(int oneBasedIndex) => OpenAt(oneBasedIndex <= 0 ? -1 : oneBasedIndex - 1);
+
+    /// <summary>Returns a one-based page of entries without opening the documents.</summary>
+    public IReadOnlyList<NotesViewEntry> GetPage(int oneBasedStart, int pageSize)
+    {
+        EnsureAlive();
+        if (oneBasedStart < 1) throw new ArgumentOutOfRangeException(nameof(oneBasedStart));
+        if (pageSize < 1) throw new ArgumentOutOfRangeException(nameof(pageSize));
+        var start = oneBasedStart - 1;
+        return _rows.Skip(start).Take(pageSize).Select(row => new NotesViewEntry(Session, _view, _database, row)).ToArray();
+    }
+
+    /// <summary>Refreshes the collection from the current view index and returns the new count.</summary>
+    public int Refresh()
+    {
+        EnsureAlive();
+        var selected = new HashSet<uint>(_rows.Select(row => row.NoteId));
+        _rows = NotesViewNavigationExtensions.ReadRows(_view).Where(row => row.IsDocument && selected.Contains(row.NoteId)).ToArray();
+        ResetCursor();
+        return _rows.Length;
+    }
 
     public NotesViewEntry? GetEntry(NotesDocument document)
     {

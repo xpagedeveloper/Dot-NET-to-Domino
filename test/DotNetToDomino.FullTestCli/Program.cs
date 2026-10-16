@@ -58,6 +58,10 @@ Check("NuGet assembly loaded", () =>
     if (typeof(NotesMail).GetProperty(nameof(NotesMail.IsMIME))?.PropertyType != typeof(bool) || typeof(NotesMail).GetProperty(nameof(NotesMail.AttachmentCount))?.PropertyType != typeof(int) || !typeof(NotesMail).GetMethods().Any(method => method.Name == "AddAttachment")) throw new InvalidOperationException("NotesMail MIME/attachment state surface is missing.");
     if (typeof(NotesRichTextItem).GetMethod("AttachFile") is null) throw new InvalidOperationException("NotesRichTextItem.AttachFile surface is missing.");
     if (typeof(NotesRichTextTable).GetMethod("Remove") is null || typeof(NotesRichTextDocLink).GetMethod("Remove") is null) throw new InvalidOperationException("Rich-text linked-object removal surface is missing.");
+    if (typeof(NotesRichTextDocLink).GetProperty(nameof(NotesRichTextDocLink.HotSpotTextStyle)) is null ||
+        typeof(NotesRichTextDocLink).GetMethod(nameof(NotesRichTextDocLink.RemoveLinkage)) is null ||
+        typeof(NotesRichTextDocLink).GetMethod(nameof(NotesRichTextDocLink.SetHotSpotTextStyle)) is null)
+        throw new InvalidOperationException("Rich-text doclink hotspot surface is missing.");
     if (typeof(NotesRichTextTable).GetMethod(nameof(NotesRichTextTable.RemoveRow), new[] { typeof(int) }) is null) throw new InvalidOperationException("NotesRichTextTable.RemoveRow is missing.");
     if (typeof(NotesRichTextTable).GetMethod(nameof(NotesRichTextTable.SetColor), new[] { typeof(uint) }) is null || typeof(NotesRichTextTable).GetMethod(nameof(NotesRichTextTable.SetAlternateColor), new[] { typeof(uint) }) is null) throw new InvalidOperationException("NotesRichTextTable color mutation surface is missing.");
     if (typeof(NotesDocumentCollection).GetMethod("StampAllMulti", new[] { typeof(NotesDocument) }) is null || typeof(NotesNoteCollection).GetMethod("StampAllMulti", new[] { typeof(NotesDocument) }) is null) throw new InvalidOperationException("Collection StampAllMulti source-document surface is missing.");
@@ -175,7 +179,7 @@ Check("NuGet assembly loaded", () =>
     if (typeof(NotesRichTextNavigator).GetMethod(nameof(NotesRichTextNavigator.SetPositionAtEnd), new[] { typeof(object) }) is null) throw new InvalidOperationException("NotesRichTextNavigator.SetPositionAtEnd is missing.");
     if (typeof(NotesRichTextRange).GetMethod(nameof(NotesRichTextRange.SetStyle), new[] { typeof(NotesRichTextStyle) }) is null) throw new InvalidOperationException("NotesRichTextRange.SetStyle is missing.");
     foreach (var property in new[] { "RowLabels", "Color", "AlternateColor" })
-        if (typeof(NotesRichTextTable).GetProperty(property) is not null) throw new InvalidOperationException($"Unsupported NotesRichTextTable.{property} leaked into the public API.");
+        if (typeof(NotesRichTextTable).GetProperty(property) is null) throw new InvalidOperationException($"NotesRichTextTable.{property} is missing from the public API.");
 });
 Check("public API surface", () =>
 {
@@ -241,8 +245,252 @@ else
         using var access = database.QueryAccess();
         if (access.NamesList.Length == 0 || access.Level < 0 || access.Level > 6) throw new InvalidOperationException("Invalid ACL result.");
     });
+    if (!string.IsNullOrWhiteSpace(databasePath) && (Environment.GetEnvironmentVariable("NOTES_TEST_FILTER")?.Contains("inline image formats native", StringComparison.OrdinalIgnoreCase) ?? false)) Check("inline image formats native", () =>
+    {
+        using var database = session.OpenDatabase(server, databasePath);
+        var cases = new[] {
+            ("png", "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=", new ushort[] { 153, 125, 124 }),
+            ("gif", "R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==", new ushort[] { 153, 125, 124 })
+        };
+        foreach (var test in cases)
+        {
+            using var document = database.CreateDocument();
+            var path = Path.Combine(Path.GetTempPath(), "dotnet-domino-inline." + test.Item1);
+            File.WriteAllBytes(path, Convert.FromBase64String(test.Item2));
+            try
+            {
+                Console.WriteLine($"  Creating {test.Item1} inline image");
+                using var body = document.CreateRichTextItem("Body"); body.EmbedImageInline(path); document.Save();
+                using var reopened = database.GetDocumentByID(document.NoteId)!; using var item = reopened.GetFirstItem("Body")!; using var rich = item.GetRichTextItem()!;
+                var records = ((System.Collections.IEnumerable)typeof(NotesRichTextItem).GetMethod("ReadRichTextRecords", BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(rich, null)!).Cast<object>();
+                var signatures = records.Select(r => (ushort)r.GetType().GetProperty("Signature", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)!.GetValue(r)!).ToArray();
+                Console.WriteLine($"  {test.Item1}: {string.Join(",", signatures.Select(s => $"0x{s:X4}"))}");
+                if (!test.Item3.All(signatures.Contains)) throw new InvalidOperationException($"Missing expected {test.Item1} inline image record.");
+            }
+            finally { try { if (!document.IsNewNote) document.Remove(true); } finally { File.Delete(path); } }
+        }
+    });
+    if (!string.IsNullOrWhiteSpace(databasePath) && (Environment.GetEnvironmentVariable("NOTES_TEST_FILTER")?.Contains("inline image extraction native", StringComparison.OrdinalIgnoreCase) ?? false)) Check("inline image extraction native", () =>
+    {
+        using var database = session.OpenDatabase(server, databasePath); var output = Path.Combine(Path.GetTempPath(), "dotnet-domino-inline-export"); Directory.CreateDirectory(output); var exported = 0;
+        try
+        {
+            var collection = database.AllDocuments;
+            for (var i = 1; i <= collection.Count; i++) using (var document = collection.GetNthDocument(i))
+            {
+                var subject = document?.GetFirstItem("Subject")?.Text?.Trim();
+                if (document is null || (subject?.Contains("InlineImage", StringComparison.OrdinalIgnoreCase) != true && subject?.Equals("RT-Image-Multiple", StringComparison.OrdinalIgnoreCase) != true)) continue;
+                using var body = document.GetFirstItem("Body") as NotesRichTextItem ?? throw new InvalidOperationException("Inline image document has no rich text Body.");
+                var paths = body.ExtractInlineImages(output); if (body.InlineImageCount != paths.Count) throw new InvalidOperationException($"InlineImageCount={body.InlineImageCount} but exported {paths.Count}."); exported += paths.Count; foreach (var path in paths) { if (new FileInfo(path).Length == 0) throw new InvalidOperationException("Extracted inline image was empty."); Console.WriteLine($"  Exported {document.GetFirstItem("Subject")?.Text}: {Path.GetExtension(path)}"); if (string.Equals(Path.GetExtension(path), ".bin", StringComparison.OrdinalIgnoreCase)) continue; using var roundTrip = database.CreateDocument(); using var rt = roundTrip.CreateRichTextItem("Body"); rt.EmbedImageInline(path); roundTrip.Save(); if (roundTrip.NoteId == 0) throw new InvalidOperationException("Round-trip inline image note was not saved."); roundTrip.Remove(true); }
+                if (subject.Equals("RT-Image-Multiple", StringComparison.OrdinalIgnoreCase) && body.InlineImageCount != 4) throw new InvalidOperationException($"RT-Image-Multiple expected 4 inline images, found {body.InlineImageCount}.");
+            }
+            Console.WriteLine($"  Exported {exported} inline images individually."); if (exported < 4) throw new InvalidOperationException("Expected PNG, JPG, BMP and GIF inline images.");
+        }
+        finally { if (Directory.Exists(output)) Directory.Delete(output, true); }
+    });
+    if (!string.IsNullOrWhiteSpace(databasePath) && (Environment.GetEnvironmentVariable("NOTES_TEST_FILTER")?.Contains("document attachments native", StringComparison.OrdinalIgnoreCase) ?? false)) Check("document attachments native", () =>
+    {
+        using var database = session.OpenDatabase(server, databasePath); var collection = database.AllDocuments;
+        var foundAttachment = false; var foundDuplicateNames = false;
+        for (var i = 1; i <= collection.Count; i++) using (var document = collection.GetNthDocument(i))
+        {
+            var subject = document?.GetFirstItem("Subject")?.Text?.Trim();
+            if (document is null || (subject != "RT-Attachment" && subject != "RT-Attachments-DuplicateNames")) continue;
+            foundAttachment = true;
+            var attachments = document.Attachments; if (attachments.Count == 0 || document.AttachmentCount != attachments.Count) throw new InvalidOperationException("Document attachment list was empty or inconsistent.");
+            if (subject == "RT-Attachments-DuplicateNames") { foundDuplicateNames = true; if (attachments.Count < 2) throw new InvalidOperationException("Duplicate-name attachment document did not expose both attachments."); }
+            foreach (var attachment in attachments) using (attachment) { var a = attachment.ToByteArray(); var b = attachment.Bytes; if (string.IsNullOrWhiteSpace(attachment.Name) || attachment.FileSize <= 0 || a.Length == 0 || !a.AsSpan().SequenceEqual(b)) throw new InvalidOperationException("Attachment metadata or byte-array access was invalid."); using var byName = document.GetAttachment(attachment.Name) ?? throw new InvalidOperationException("GetAttachment(name) returned null."); var c = document.GetAttachmentBytes(attachment.Name); if (!c.AsSpan().SequenceEqual(a)) throw new InvalidOperationException("GetAttachmentBytes(name) differed."); Console.WriteLine($"  Attachment {attachment.Name}: {attachment.FileSize} bytes, source={attachment.Source}"); }
+        }
+        if (!foundAttachment) throw new InvalidOperationException("RT-Attachment document was not found.");
+        if (!foundDuplicateNames) throw new InvalidOperationException("RT-Attachments-DuplicateNames document was not found.");
+    });
+    if (!string.IsNullOrWhiteSpace(databasePath) && (Environment.GetEnvironmentVariable("NOTES_TEST_FILTER")?.Contains("rich text collections native", StringComparison.OrdinalIgnoreCase) ?? false)) Check("rich text collections native", () =>
+    {
+        using var database = session.OpenDatabase(server, databasePath); var collection = database.AllDocuments;
+        var tables = 0; var links = 0; var images = 0; var attachments = 0; var hotspots = 0; var nonEmptyHotspotText = 0; var databaseLinks = 0; var viewLinks = 0; var documentLinks = 0;
+        for (var i = 1; i <= collection.Count; i++) using (var document = collection.GetNthDocument(i))
+        {
+            if (document is null) continue;
+            using var body = document.GetFirstItem("Body") as NotesRichTextItem;
+            if (body is null) continue;
+            tables += body.TableCount; links += body.LinkCount; images += body.InlineImageCount; attachments += body.AttachmentCount; hotspots += body.HotspotCount;
+            using (var hotspotNavigator = body.CreateNavigator())
+            {
+                var navigatedHotspots = 0;
+                for (var found = hotspotNavigator.FindFirstElement(NotesRichTextNavigator.ElementHotspot); found; found = hotspotNavigator.FindNextElement(NotesRichTextNavigator.ElementHotspot))
+                {
+                    if (hotspotNavigator.GetElement() is not NotesRichTextHotspot hotspot) throw new InvalidOperationException("Hotspot navigator did not return a hotspot object.");
+                    _ = hotspot.HotspotType; _ = hotspot.Flags; if (hotspot.Text.Length > 0) nonEmptyHotspotText++; navigatedHotspots++;
+                }
+                var nonFileHotspots = body.Hotspots.Count(hotspot => !hotspot.IsFileHotspot);
+                if (navigatedHotspots != nonFileHotspots) throw new InvalidOperationException("Hotspot navigator count did not match non-file hotspot collection.");
+            }
+            using (var imageNavigator = body.CreateNavigator())
+            {
+                var navigatedImages = 0;
+                for (var found = imageNavigator.FindFirstElement(NotesRichTextNavigator.ElementInlineImage); found; found = imageNavigator.FindNextElement(NotesRichTextNavigator.ElementInlineImage))
+                {
+                    var image = imageNavigator.GetInlineImage();
+                    if (image.Length == 0) throw new InvalidOperationException("Navigator returned an empty inline image.");
+                    navigatedImages++;
+                }
+                if (navigatedImages != body.InlineImageCount) throw new InvalidOperationException("Inline-image navigator count did not match collection.");
+            }
+            using (var attachmentNavigator = body.CreateNavigator())
+            {
+                var navigatedAttachments = 0;
+                for (var found = attachmentNavigator.FindFirstElement(NotesRichTextNavigator.ElementEmbeddedObject); found; found = attachmentNavigator.FindNextElement(NotesRichTextNavigator.ElementEmbeddedObject))
+                {
+                    if (attachmentNavigator.GetElement() is not NotesEmbeddedObject attachment) throw new InvalidOperationException("Embedded-object navigator did not return an attachment.");
+                    if (attachment.FileSize < 0 || attachment.Name.Length == 0) throw new InvalidOperationException("Embedded-object metadata was invalid.");
+                    if (attachment.ToByteArray().LongLength != attachment.FileSize) throw new InvalidOperationException("Embedded-object byte-array length did not match FileSize.");
+                    navigatedAttachments++;
+                }
+                if (navigatedAttachments != body.AttachmentCount) throw new InvalidOperationException("Embedded-object navigator count did not match collection.");
+            }
+            if (body.HotspotCount > 0 && body.GetHotspot(0).HotspotType < 0) throw new InvalidOperationException("Indexed hotspot access returned invalid metadata.");
+            if (body.AttachmentCount > 0 && body.GetEmbeddedObject(0).Name.Length == 0) throw new InvalidOperationException("Indexed embedded-object access returned no name.");
+            using (var cellNavigator = body.CreateNavigator())
+            {
+                var expectedCells = body.Tables.Sum(table => table.Cells.Count);
+                var navigatedCells = 0;
+                for (var found = cellNavigator.FindFirstElement(NotesRichTextNavigator.ElementTableCell); found; found = cellNavigator.FindNextElement(NotesRichTextNavigator.ElementTableCell))
+                {
+                    if (cellNavigator.GetElement() is not NotesRichTextTableCell cell) throw new InvalidOperationException("Table-cell navigator did not return a cell.");
+                    _ = cell.Row; _ = cell.Column; navigatedCells++;
+                }
+                if (navigatedCells != expectedCells) throw new InvalidOperationException("Table-cell navigator count did not match table collections.");
+            }
+            foreach (var link in body.Links) { if (link.IsDatabaseLink) databaseLinks++; else if (link.IsViewLink) viewLinks++; else if (link.IsDocumentLink) documentLinks++; }
+            if (body.Tables.Count != body.TableCount || body.Links.Count != body.LinkCount) throw new InvalidOperationException("Rich-text collection count did not match enumeration."); foreach (var table in body.Tables) { _ = table.RowHeights; foreach (var cell in table.Cells) { _ = cell.Text; using var cellRange = cell.CreateRange(); _ = cellRange.TextParagraph; } }
+            if (document.GetFirstItem("Subject")?.Text == "RT Lists" && body.ParagraphCount < 20) throw new InvalidOperationException("RT Lists paragraph enumeration was unexpectedly short."); if (document.GetFirstItem("Subject")?.Text == "RT Lists" && (body.Paragraphs.Count != body.ParagraphCount || !body.Paragraphs.Any(paragraph => paragraph.Text == "Bullet 1"))) throw new InvalidOperationException("Typed paragraph enumeration did not expose RT Lists content."); if (document.GetFirstItem("Subject")?.Text == "RT Lists") { using var listNavigator = body.CreateNavigator(); var foundParagraphRange = false; for (var hasParagraph = listNavigator.FindFirstElement(NotesRichTextNavigator.ElementTextParagraph); hasParagraph; hasParagraph = listNavigator.FindNextElement(NotesRichTextNavigator.ElementTextParagraph)) { using var listRange = listNavigator.GetElement() as NotesRichTextRange ?? throw new InvalidOperationException("Paragraph navigator did not return a range."); _ = listRange.ParagraphStyleId; if (listRange.TextParagraph.Contains("Bullet 1", StringComparison.Ordinal)) { foundParagraphRange = true; break; } } if (!foundParagraphRange) throw new InvalidOperationException("Paragraph range text was not readable."); }
+            if (document.GetFirstItem("Subject")?.Text == "RT-Tabbed Table" && (!body.HasTabbedTable || body.TabbedTableRecordCount == 0)) throw new InvalidOperationException("Tabbed-table records were not detected."); if (document.GetFirstItem("Subject")?.Text == "RT-Tabbed Table" && !body.Tables.Any(table => table.IsTabbedTable && table.TabbedTableRecordCount > 0)) throw new InvalidOperationException("Tabbed-table metadata was not exposed on the table."); if (document.GetFirstItem("Subject")?.Text == "RT-Table-RowHeights") { var rowHeights = body.Tables.SelectMany(table => table.RowHeights).ToArray(); Console.WriteLine($"  RowHeights={string.Join(',', rowHeights)}"); }
+        }
+        Console.WriteLine($"  Tables={tables}, Links={links} (database={databaseLinks}, view={viewLinks}, document={documentLinks}), Hotspots={hotspots} (text={nonEmptyHotspotText}), InlineImages={images}, Attachments={attachments}");
+        if (nonEmptyHotspotText == 0) throw new InvalidOperationException("Hotspot text extraction returned no visible text.");
+        if (tables == 0 || links == 0 || images == 0 || attachments == 0) throw new InvalidOperationException("Expected all rich-text element categories in regression database.");
+    });
+    if (!string.IsNullOrWhiteSpace(databasePath)) Check("rich text append page break and horizontal rule native", () =>
+    {
+        using var database = session.OpenDatabase(server, databasePath);
+        using var document = database.CreateDocument();
+        try
+        {
+            using var body = document.CreateRichTextItem("Body");
+            body.AppendText("before");
+            body.AppendNewLine();
+            body.AppendText("newline-after");
+            body.AppendPageBreak();
+            body.AppendText("after");
+            body.AppendHorizontalRule();
+            body.AppendText("end");
+            document.Save();
+            using var reopened = database.GetDocumentByID(document.NoteId)!;
+            using var item = reopened.GetFirstItem("Body")!;
+            using var rich = item.GetRichTextItem()!;
+            var records = (System.Collections.IEnumerable)typeof(NotesRichTextItem).GetMethod("ReadRichTextRecords", BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(rich, null)!;
+            var list = records.Cast<object>().ToArray();
+            var textValues = list.Select(r => (string?)r.GetType().GetProperty("Text", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)!.GetValue(r)).Where(value => value is not null).ToArray();
+            Console.WriteLine($"  Text records: {string.Join(" | ", textValues.Select(value => value!.Replace("\r", "<CR>").Replace("\n", "<LF>")))}");
+            if (!textValues.Any(value => value!.Contains("newline-after", StringComparison.Ordinal))) throw new InvalidOperationException("AppendNewLine text did not persist.");
+            var signatures = list.Select(r => (ushort)r.GetType().GetProperty("Signature", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)!.GetValue(r)!).ToArray();
+            Console.WriteLine($"  Append break/rule signatures: {string.Join(",", signatures.Select(s => $"0x{s:X4}"))}");
+            foreach (var record in list.Where(r => (ushort)r.GetType().GetProperty("Signature", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)!.GetValue(r)! == 0xFF82))
+            {
+                var bytes = (byte[])record.GetType().GetProperty("Data", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)!.GetValue(record)!;
+                Console.WriteLine($"  PABDEF: {Convert.ToHexString(bytes)}");
+            }
+            if (!signatures.Contains((ushort)0xFFC9)) throw new InvalidOperationException("AppendHorizontalRule did not create CDHRULE.");
+            if (!signatures.Contains((ushort)129)) throw new InvalidOperationException("AppendPageBreak did not create a paragraph record.");
+        }
+        finally { if (!document.IsNewNote) document.Remove(true); }
+    });
+    if (!string.IsNullOrWhiteSpace(databasePath)) Check("rich text list type via DXL", () =>
+    {
+        using var database = session.OpenDatabase(server, databasePath); var collection = database.AllDocuments;
+        for (var i = 1; i <= collection.Count; i++) using (var document = collection.GetNthDocument(i))
+        {
+            if (document?.GetFirstItem("Subject")?.Text?.Trim() != "RT Lists") continue;
+            using var body = document.GetFirstItem("Body")?.GetRichTextItem() ?? throw new InvalidOperationException("RT Lists Body missing.");
+            using var navigator = body.CreateNavigator();
+            while (navigator.FindNextElement(NotesRichTextNavigator.ElementTextParagraph))
+            {
+                using var range = navigator.GetElement() as NotesRichTextRange ?? throw new InvalidOperationException("List paragraph range missing.");
+                var expectedList = range.TextParagraph switch { var text when text.Contains("Bullet 1", StringComparison.Ordinal) => NotesRichTextListType.Bullet, var text when text.Contains("Number 1", StringComparison.Ordinal) => NotesRichTextListType.Number, var text when text.Contains("Check 1", StringComparison.Ordinal) => NotesRichTextListType.Uncheck, var text when text.Contains("Circle 1", StringComparison.Ordinal) => NotesRichTextListType.Circle, var text when text.Contains("Square 1", StringComparison.Ordinal) => NotesRichTextListType.Square, var text when text.Contains("Upper 1", StringComparison.Ordinal) => NotesRichTextListType.AlphaUpper, var text when text.Contains("Lower 1", StringComparison.Ordinal) => NotesRichTextListType.AlphaLower, _ => NotesRichTextListType.None }; if (expectedList != NotesRichTextListType.None && range.ListType != expectedList) throw new InvalidOperationException($"Expected {expectedList}, got {range.ListType}.");
+            }
+            return;
+        }
+        throw new InvalidOperationException("RT Lists document not found.");
+    });
+    if (!string.IsNullOrWhiteSpace(databasePath) && (Environment.GetEnvironmentVariable("NOTES_TEST_FILTER")?.Contains("rich text body dump", StringComparison.OrdinalIgnoreCase) ?? false)) Check("rich text body dump", () =>
+    {
+        using var database = session.OpenDatabase(server, databasePath);
+        var collection = database.AllDocuments;
+        var count = 0;
+        for (var i = 1; i <= collection.Count; i++)
+        {
+            using var document = collection.GetNthDocument(i);
+            if (document is null) continue;
+            var body = document.GetFirstItem("Body") as NotesRichTextItem;
+            if (body is null) continue;
+            count++;
+            using (body)
+            {
+                var records = ((System.Collections.IEnumerable)typeof(NotesRichTextItem).GetMethod("ReadRichTextRecords", BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(body, null)!).Cast<object>().ToArray();
+                var signatures = records.Select(r => (ushort)r.GetType().GetProperty("Signature", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)!.GetValue(r)!).ToArray();
+                var subject = document.GetFirstItem("Subject")?.Text ?? "(no subject)";
+                var imageRecords = signatures.Count(s => s is 166 or 705 or 706 or 32850);
+                Console.WriteLine($"  Body {document.NoteId:X8} [{subject}]: {string.Join(",", signatures.Select(s => $"0x{s:X4}"))}");
+                if (imageRecords > 0) Console.WriteLine($"    Image records detected: {imageRecords} (CDGRAPHIC/CDIMAGEHEADER/CDIMAGESEGMENT/CDIMAGEHEADER2)");
+                if (subject.Contains("Attachment", StringComparison.OrdinalIgnoreCase) || subject.Contains("InlineImage", StringComparison.OrdinalIgnoreCase))
+                {
+                    foreach (var record in records)
+                    {
+                        var sig = (ushort)record.GetType().GetProperty("Signature", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)!.GetValue(record)!;
+                        var data = (byte[])record.GetType().GetProperty("Data", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)!.GetValue(record)!;
+                        Console.WriteLine($"    0x{sig:X4}: {data.Length} bytes");
+                        if (subject.Contains("InlineImagePNG", StringComparison.OrdinalIgnoreCase) && sig is 125 or 82) Console.WriteLine($"      {Convert.ToHexString(data)}");
+                    }
+                }
+                if (subject.Equals("RT Lists", StringComparison.OrdinalIgnoreCase))
+                {
+                    using var dxlDumpExporter = session.CreateDXLExporter(); dxlDumpExporter.OutputDOCTYPE = false; using var dxlDump = dxlDumpExporter.Export(document); Console.WriteLine($"    DXL lists: {System.Text.Encoding.UTF8.GetString(dxlDump.ToArray()).Replace('\r',' ').Replace('\n',' ')}");
+                    foreach (var record in records)
+                    {
+                        var sig = (ushort)record.GetType().GetProperty("Signature", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)!.GetValue(record)!;
+                        if (sig is not (0x0081 or 0xFF85)) continue;
+                        var data = (byte[])record.GetType().GetProperty("Data", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)!.GetValue(record)!;
+                        Console.WriteLine($"    RT Lists 0x{sig:X4}: {Convert.ToHexString(data)}");
+                    }
+                    using var exporter = session.CreateDXLExporter();
+                    using var dxl = exporter.Export(document);
+                    foreach (var line in dxl.ReadText().Split('\n').Where(line => line.Contains("par", StringComparison.OrdinalIgnoreCase) || line.Contains("list", StringComparison.OrdinalIgnoreCase)))
+                        Console.WriteLine($"    DXL: {line.Trim()}");
+                }
+            }
+        }
+        Console.WriteLine($"  Inspected {count} Body rich-text documents.");
+    });
+    if (!string.IsNullOrWhiteSpace(databasePath) && (Environment.GetEnvironmentVariable("NOTES_TEST_FILTER")?.Contains("inline image native", StringComparison.OrdinalIgnoreCase) ?? false)) Check("inline image native", () =>
+    {
+        using var database = session.OpenDatabase(server, databasePath);
+        using var document = database.CreateDocument();
+        var path = Path.Combine(Path.GetTempPath(), "dotnet-domino-inline.bmp");
+        var bmp = new byte[58]; bmp[0] = (byte)'B'; bmp[1] = (byte)'M'; BitConverter.GetBytes(58).CopyTo(bmp, 2); BitConverter.GetBytes(54).CopyTo(bmp, 10); BitConverter.GetBytes(40).CopyTo(bmp, 14); BitConverter.GetBytes(1).CopyTo(bmp, 18); BitConverter.GetBytes(1).CopyTo(bmp, 22); BitConverter.GetBytes((short)1).CopyTo(bmp, 26); BitConverter.GetBytes((short)24).CopyTo(bmp, 28); BitConverter.GetBytes(4).CopyTo(bmp, 34); File.WriteAllBytes(path, bmp);
+        try
+        {
+            using var body = document.CreateRichTextItem("Body"); body.EmbedImageInline(path); document.Save();
+            using var reopened = database.GetDocumentByID(document.NoteId)!; using var item = reopened.GetFirstItem("Body")!; using var rich = item.GetRichTextItem()!;
+            var records = ((System.Collections.IEnumerable)typeof(NotesRichTextItem).GetMethod("ReadRichTextRecords", BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(rich, null)!).Cast<object>().ToArray();
+            var signatures = records.Select(r => (ushort)r.GetType().GetProperty("Signature", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)!.GetValue(r)!).ToArray();
+            Console.WriteLine($"  Generated inline image: {string.Join(",", signatures.Select(s => $"0x{s:X4}"))}");
+            if (!signatures.Contains((ushort)153) || !signatures.Contains((ushort)125) || !signatures.Contains((ushort)124)) throw new InvalidOperationException("Notes did not persist the expected inline image records.");
+        }
+        finally { try { if (!document.IsNewNote) document.Remove(true); } finally { File.Delete(path); } }
+    });
     ObjectPropertySmokeTests.RoundTrips(session, server, databasePath, Check);
     ObjectPropertySmokeTests.Run(session, server, databasePath, Check);
+    Check("rich text font mappings", () => { using var database = session.OpenDatabase(server, databasePath!); using var document = database.CreateDocument(); using var body = document.CreateRichTextItem("Body"); if (body.GetFont("Arial") != 0 || body.GetFont("Times New Roman") != 1 || body.GetFont("Courier New") != 2) throw new InvalidOperationException("Standard rich-text font mappings are incorrect."); if (body.GetFont("Unknown font") != 0) throw new InvalidOperationException("Unknown rich-text font did not fall back to the default font."); Console.WriteLine("PASS Unknown rich-text font fallback"); });
     Check("session properties", () => { _ = session.UserName; _ = session.CommonUserName; _ = session.Platform; _ = session.NotesVersion; _ = session.NotesBuildVersion; _ = session.DataDir; });
     Check("session factories", () => { using var name = session.CreateName(session.UserName); using var date = session.CreateDateTimeNow(); date.SetNow(); date.ConvertToZone(date.TimeZone); if (date.TimeDifferenceDouble(date) != 0) throw new InvalidOperationException("Date/time self difference was not zero."); using var stream = session.CreateStream(); using var importer = session.CreateDXLImporter(); using var exporter = session.CreateDXLExporter(); using var style = session.CreateRichTextStyle(); using var paragraph = session.CreateRichTextParagraphStyle(); using var mail = session.CreateMail(); ExpectException<ArgumentOutOfRangeException>("Negative stream read", () => stream.Read(-1)); ExpectException<ArgumentOutOfRangeException>("Invalid DXL importer option", () => importer.ACLImportOption = 3); ExpectException<ArgumentOutOfRangeException>("Invalid DXL exporter option", () => exporter.RichTextOption = 2); ExpectException<ArgumentOutOfRangeException>("Invalid rich text effects", () => style.Effects = 6); ExpectException<ArgumentOutOfRangeException>("Invalid rich text font size", () => style.FontSize = 251); ExpectException<ArgumentOutOfRangeException>("Invalid rich text color", () => style.NotesColor = 256); ExpectException<ArgumentOutOfRangeException>("Invalid rich text font", () => style.NotesFont = 256); ExpectException<ArgumentOutOfRangeException>("Invalid paragraph alignment", () => paragraph.Alignment = 5); ExpectException<ArgumentOutOfRangeException>("Invalid paragraph pagination", () => paragraph.Pagination = 3); ExpectException<ArgumentOutOfRangeException>("Negative paragraph margin", () => paragraph.LeftMargin = -1); ExpectException<NotesException>("Mail send without recipients", () => mail.Send()); try { mail.SendTo = null!; throw new InvalidOperationException("Null SendTo was accepted."); } catch (ArgumentNullException ex) when (ex.ParamName == "SendTo") { } try { mail.DeliveryPriority = "X"; throw new InvalidOperationException("Invalid DeliveryPriority was accepted."); } catch (ArgumentOutOfRangeException ex) when (ex.ParamName == "value") { } ExpectException<ArgumentNullException>("Null From", () => mail.From = null!); ExpectException<ArgumentNullException>("Null ReplyTo", () => mail.ReplyTo = null!); ExpectException<ArgumentNullException>("Null Principal", () => mail.Principal = null!); ExpectException<ArgumentNullException>("Null Subject", () => mail.Subject = null!); ExpectException<ArgumentNullException>("Null DeliveryPriority", () => mail.DeliveryPriority = null!); ExpectException<ArgumentNullException>("Null DeliveryReport", () => mail.DeliveryReport = null!); });
     var liveMailTo = Environment.GetEnvironmentVariable("NOTES_TEST_MAIL_TO");
@@ -345,6 +593,14 @@ else
     if (!string.IsNullOrWhiteSpace(databasePath)) Check("rich text table persistence and native DXL", () =>
     {
         using var database = session.OpenDatabase(server, databasePath);
+        using (var invalidDocument = database.CreateDocument())
+        using (var invalidBody = invalidDocument.CreateRichTextItem("Body"))
+        {
+            try { invalidBody.AppendTable(0, 1); throw new InvalidOperationException("AppendTable accepted zero rows."); }
+            catch (ArgumentOutOfRangeException) { }
+            try { invalidBody.AppendTable(1, 256); throw new InvalidOperationException("AppendTable accepted 256 columns."); }
+            catch (ArgumentOutOfRangeException) { }
+        }
         foreach (var (rows, columns) in new[] { (1, 1), (1, 2), (2, 2), (3, 4), (1, 64), (2, 64), (255, 1) })
         {
             using var document = database.CreateDocument();
@@ -367,6 +623,8 @@ else
                     throw new InvalidOperationException($"Saved table does not match {rows}x{columns}.");
                 if ((table.PreTableRowCount != 0 && table.PreTableRowCount != rows) || (table.PreTableColumnCount != 0 && table.PreTableColumnCount != columns))
                     throw new InvalidOperationException("CDPRETABLEBEGIN dimensions disagree with the table cells.");
+                if (table.PreTableColumnSizingBits1 < 0 || table.PreTableColumnSizingBits2 < 0 || table.PreTableViewerType < 0 || table.PreTableMinRowHeight < 0)
+                    throw new InvalidOperationException("CDPRETABLEBEGIN metadata returned an invalid negative value.");
                 using var lastCell = table.GetCell(rows - 1, columns - 1) ?? throw new InvalidOperationException("Last saved cell missing.");
                 if (lastCell.Row != rows - 1 || lastCell.Column != columns - 1 ||
                     lastCell.LeftMargin != 120 + (columns - 1) * 480 || lastCell.RightMargin != 420 + (columns - 1) * 480 ||
@@ -427,8 +685,16 @@ else
             using (var reopened = database.GetDocumentByID(document.NoteId)!) using (var item = reopened.GetFirstItem("Body")!) using (var body = item.GetRichTextItem()!) using (var navigator = body.CreateNavigator())
             { navigator.FindFirstElement(NotesRichTextNavigator.ElementTable); using var table = navigator.GetElement() as NotesRichTextTable ?? throw new InvalidOperationException(); table.AddRow(2, 1); reopened.Save(); }
             using (var expanded = database.GetDocumentByID(document.NoteId)!) using (var item = expanded.GetFirstItem("Body")!) using (var body = item.GetRichTextItem()!) using (var navigator = body.CreateNavigator())
-            { navigator.FindFirstElement(NotesRichTextNavigator.ElementTable); using var table = navigator.GetElement() as NotesRichTextTable ?? throw new InvalidOperationException(); if (table.RowCount != 6) throw new InvalidOperationException($"AddRow produced {table.RowCount} rows."); table.RemoveRow(2, 1); expanded.Save(); }
+            { navigator.FindFirstElement(NotesRichTextNavigator.ElementTable); using var table = navigator.GetElement() as NotesRichTextTable ?? throw new InvalidOperationException(); if (table.RowCount != 6) throw new InvalidOperationException($"AddRow produced {table.RowCount} rows."); try { table.RemoveRow(5, 2); throw new InvalidOperationException("RemoveRow accepted a range beyond the last row."); } catch (ArgumentOutOfRangeException) { } table.RemoveRow(2, 1); expanded.Save(); }
             using var final = database.GetDocumentByID(document.NoteId)!; using var finalItem = final.GetFirstItem("Body")!; using var finalBody = finalItem.GetRichTextItem()!; using var finalNavigator = finalBody.CreateNavigator(); finalNavigator.FindFirstElement(NotesRichTextNavigator.ElementTable); using var finalTable = finalNavigator.GetElement() as NotesRichTextTable ?? throw new InvalidOperationException(); if (finalTable.RowCount != 4) throw new InvalidOperationException($"RemoveRow produced {finalTable.RowCount} rows.");
+            using var spanDocument = database.CreateDocument();
+            using (var spanBody = spanDocument.CreateRichTextItem("Body")) spanBody.AppendTable(2, 1);
+            spanDocument.Save();
+            using (var spanItem = spanDocument.GetFirstItem("Body")!) using (var spanBody = spanItem.GetRichTextItem()!) using (var spanNavigator = spanBody.CreateNavigator())
+            { spanNavigator.FindFirstElement(NotesRichTextNavigator.ElementTable); using var spanTable = (NotesRichTextTable)spanNavigator.GetElement()!; using var origin = spanTable.GetCell(0, 0)!; origin.SetSpan(2, 1); }
+            using (var spanItem = spanDocument.GetFirstItem("Body")!) using (var spanBody = spanItem.GetRichTextItem()!) using (var spanNavigator = spanBody.CreateNavigator())
+            { spanNavigator.FindFirstElement(NotesRichTextNavigator.ElementTable); using var spanTable = (NotesRichTextTable)spanNavigator.GetElement()!; using var covered = spanTable.GetCell(1, 0) ?? throw new InvalidOperationException("A spanned table cell was not found."); if (covered.Row != 0 || covered.Column != 0) throw new InvalidOperationException("GetCell did not resolve a spanned cell."); spanDocument.Save(); }
+            spanDocument.Remove(true);
         }
         finally { if (!document.IsNewNote) document.Remove(true); }
     });
@@ -516,7 +782,7 @@ else
         {
             using (var sourceBody = document.CreateRichTextItem("Body"))
             {
-                sourceBody.AppendTable(2, 1);
+                sourceBody.AppendTable(2, 2);
                 using var paragraph = session.CreateRichTextParagraphStyle();
                 sourceBody.AppendParagraphStyle(paragraph);
                 sourceBody.AppendTable(3, 1);
@@ -529,7 +795,16 @@ else
             if (!nav.FindFirstElement(NotesRichTextNavigator.ElementTable)) throw new InvalidOperationException("First table missing.");
             using var first = nav.GetElement() as NotesRichTextTable ?? throw new InvalidOperationException("First table type mismatch.");
             if (first.RowCount != 2) throw new InvalidOperationException($"First table has {first.RowCount} rows.");
-            first.AddRow();
+            using (var firstCell = first.GetCell(0, 0) ?? throw new InvalidOperationException("First table cell missing.")) firstCell.AppendText("CELL-APPEND");
+            using var refreshedAfterCellAppend = body.CreateNavigator();
+            if (!refreshedAfterCellAppend.FindFirstElement(NotesRichTextNavigator.ElementTable)) throw new InvalidOperationException("First table missing after cell append.");
+            using var firstAfterCellAppend = refreshedAfterCellAppend.GetElement() as NotesRichTextTable ?? throw new InvalidOperationException("First table type mismatch after cell append.");
+            using var cellStyle = session.CreateRichTextStyle(); cellStyle.Bold = -1; cellStyle.FontSize = 15;
+            using (var styledCell = firstAfterCellAppend.GetCell(0, 1) ?? throw new InvalidOperationException("Second table cell missing.")) styledCell.AppendText("STYLE-CELL", cellStyle);
+            using var refreshedAfterStyledCell = body.CreateNavigator();
+            if (!refreshedAfterStyledCell.FindFirstElement(NotesRichTextNavigator.ElementTable)) throw new InvalidOperationException("First table missing after styled cell append.");
+            using var tableBeforeAdd = refreshedAfterStyledCell.GetElement() as NotesRichTextTable ?? throw new InvalidOperationException("First table type mismatch before AddRow."); using var replacementCell = tableBeforeAdd.GetCell(0, 1) ?? throw new InvalidOperationException("Second table cell missing after append."); if (replacementCell.FindAndReplace("STYLE-CELL", "STYLE-REPLACED") != 1) throw new InvalidOperationException("Cell-scoped FindAndReplace did not replace the cell text."); replacementCell.Dispose(); using var refreshedAfterReplace = body.CreateNavigator(); if (!refreshedAfterReplace.FindFirstElement(NotesRichTextNavigator.ElementTable)) throw new InvalidOperationException("First table missing after cell replacement."); using var tableBeforeAddRefreshed = refreshedAfterReplace.GetElement() as NotesRichTextTable ?? throw new InvalidOperationException("First table type mismatch after replacement.");
+            tableBeforeAddRefreshed.AddRow();
             using var afterAdd = body.CreateNavigator();
             if (!afterAdd.FindFirstElement(NotesRichTextNavigator.ElementTable)) throw new InvalidOperationException("First table missing after AddRow.");
             using var added = afterAdd.GetElement() as NotesRichTextTable ?? throw new InvalidOperationException("Added first table type mismatch.");
@@ -630,6 +905,7 @@ else
             using var navigator = body.CreateNavigator();
             if (!navigator.FindFirstElement(NotesRichTextNavigator.ElementTextRun)) throw new InvalidOperationException("Text run fixture missing.");
             body.BeginInsert(navigator);
+            body.AppendNewLine();
             body.AppendText("INSERT-X");
             body.AppendText("INSERT-Y");
             body.EndInsert();
@@ -712,6 +988,7 @@ else
         initial.FontSize = 18;
         initial.NotesColor = 2;
         body.AppendStyle(initial);
+        body.AppendText("DIRECT-STYLED", initial);
         using var unchanged = session.CreateRichTextStyle();
         body.AppendStyle(unchanged);
         body.AppendText("LARGE-RED");
@@ -735,7 +1012,7 @@ else
         using var dxl = exporter.Export(document);
         using var bytes = new MemoryStream(dxl.ToArray());
         var xml = System.Xml.Linq.XDocument.Load(bytes);
-        foreach (var (marker, expectedBold) in new[] { ("LARGE-RED", false), ("BOLD-LARGE-RED", true), ("UNCHANGED-BOLD-LARGE-RED", true), ("PLAIN-LARGE-RED", false), ("ALIAS-BOLD-LARGE-RED", true) })
+        foreach (var (marker, expectedBold) in new[] { ("LARGE-RED", false), ("DIRECT-STYLED", false), ("BOLD-LARGE-RED", true), ("UNCHANGED-BOLD-LARGE-RED", true), ("PLAIN-LARGE-RED", false), ("ALIAS-BOLD-LARGE-RED", true) })
         {
             var run = xml.Descendants().Single(e => e.Name.LocalName == "run" && e.Value == marker);
             var font = run.Elements().Single(e => e.Name.LocalName == "font");
@@ -927,8 +1204,8 @@ else
             using var navigator = savedBody.CreateNavigator();
             using var databaseLink = navigator.GetFirstElement(5) as NotesRichTextDocLink ?? throw new InvalidOperationException("Database link missing from navigator.");
             using var viewLink = navigator.GetNextElement(5) as NotesRichTextDocLink ?? throw new InvalidOperationException("View link missing from navigator.");
-            if (databaseLink.DbReplicaID != database.ReplicaID || databaseLink.DocUNID != new string('0', 32) || databaseLink.ViewUNID != new string('0', 32)) throw new InvalidOperationException("Navigator database link target mismatch.");
-            if (viewLink.DbReplicaID != database.ReplicaID || viewLink.ViewUNID != view.UniversalID || viewLink.DocUNID != new string('0', 32)) throw new InvalidOperationException("Navigator view link target mismatch.");
+            if (databaseLink.DbReplicaID != database.ReplicaID || !string.IsNullOrEmpty(databaseLink.DocUNID) || !string.IsNullOrEmpty(databaseLink.ViewUNID)) throw new InvalidOperationException("Navigator database link target mismatch.");
+            if (viewLink.DbReplicaID != database.ReplicaID || viewLink.ViewUNID != view.UniversalID || !string.IsNullOrEmpty(viewLink.DocUNID)) throw new InvalidOperationException("Navigator view link target mismatch.");
             viewLink.Remove();
             savedBody.Compact();
             reopened.Save();
@@ -1220,12 +1497,24 @@ else
             using var body = document.CreateRichTextItem("Body");
             body.AppendText("alpha beta alpha");
             using var range = body.CreateRange();
-            ExpectException<NotSupportedException>("Unsupported FindAndReplace options", () => range.FindAndReplace("alpha", "omega", 1));
-            if (range.FindAndReplace("alpha", "omega") != 2) throw new InvalidOperationException("FindAndReplace returned the wrong count.");
+            if (range.FindAndReplace("alpha", "omega", NotesConst.RT_FIND_CASEINSENSITIVE | NotesConst.RT_REPL_ALL) != 2) throw new InvalidOperationException("Case-insensitive FindAndReplace returned the wrong count.");
+            body.AppendText(" Café CAFE");
+            range.Reset();
+            if (range.FindAndReplace("cafe", "tea", NotesConst.RT_FIND_CASEINSENSITIVE | NotesConst.RT_FIND_ACCENTINSENSITIVE | NotesConst.RT_REPL_PRESERVECASE | NotesConst.RT_REPL_ALL) != 2) throw new InvalidOperationException("Accent-insensitive preserve-case FindAndReplace returned the wrong count.");
+            body.AppendText(" alpha ALPHA ＡＢＣ ABC");
+            range.Reset();
+            if (range.FindAndReplace("alpha", "z") != 1) throw new InvalidOperationException("Default FindAndReplace must replace only the next occurrence.");
+            range.Reset();
+            if (range.FindAndReplace("alpha", "q", NotesConst.RT_FIND_CASESENSITIVE | NotesConst.RT_REPL_ALL) != 0) throw new InvalidOperationException("Case-sensitive FindAndReplace matched an uppercase value.");
+            range.Reset();
+            if (range.FindAndReplace("ABC", "xyz", NotesConst.RT_FIND_PITCHINSENSITIVE | NotesConst.RT_REPL_ALL) != 2) throw new InvalidOperationException("Pitch-insensitive FindAndReplace did not match full-width text.");
+            range.Reset();
+            try { range.FindAndReplace("x", "y", 32); throw new InvalidOperationException("Unknown FindAndReplace options were accepted."); }
+            catch (ArgumentOutOfRangeException) { }
             document.Save();
             using var reopened = database.GetDocumentByID(document.NoteId)!;
             using var item = reopened.GetFirstItem("Body")!;
-            if (item.Text != "omega beta omega") throw new InvalidOperationException($"FindAndReplace persisted '{item.Text}'.");
+            if (item.Text != "omega beta omega Tea TEA z ALPHA xyz xyz") throw new InvalidOperationException($"FindAndReplace persisted '{item.Text}'.");
         }
         finally { if (!document.IsNewNote) document.Remove(true); }
     });
@@ -1613,6 +1902,225 @@ else
         var children = mime.GetChildren();
         if (children.Count != 2) throw new InvalidOperationException("Append test MIME children were not created.");
         mime.AppendChildEntity(children[0]);
+    });
+    if (!string.IsNullOrWhiteSpace(databasePath)) Check("user document hotspot links", () =>
+    {
+        using var database = session.GetDatabase(server, databasePath, false) ?? throw new InvalidOperationException("Database not found.");
+        using var view = database.GetView("testdocs") ?? throw new InvalidOperationException("View testdocs not found.");
+        using var document = view.GetFirstDocument() ?? throw new InvalidOperationException("View testdocs has no documents.");
+        NotesDocument? target = null;
+        for (var current = document; current is not null; current = view.GetNextDocument(current))
+        {
+            var requestedSubject = Environment.GetEnvironmentVariable("NOTES_TEST_DOCUMENT") ?? "testdoc 3";
+            if (current.GetString("Subject").Equals(requestedSubject, StringComparison.OrdinalIgnoreCase)) { target = current; break; }
+        }
+        using (target ?? throw new InvalidOperationException("Requested test document not found."))
+        using (var item = target.GetFirstItem("Body") ?? throw new InvalidOperationException("Body item not found."))
+        using (var body = item.GetRichTextItem() ?? throw new InvalidOperationException("Body is not rich text."))
+        using (var navigator = body.CreateNavigator())
+        {
+            var links = new List<NotesRichTextDocLink>();
+            for (var link = navigator.GetFirstElement(NotesRichTextNavigator.ElementDocLink) as NotesRichTextDocLink; link is not null; link = navigator.GetNextElement(NotesRichTextNavigator.ElementDocLink) as NotesRichTextDocLink)
+                links.Add(link);
+            if (links.Count < 1) throw new InvalidOperationException("No document links found.");
+            Console.WriteLine($"  Found {links.Count} links: {string.Join(" | ", links.Select(x => x.HotSpotText))}");
+            foreach (var (link, index) in links.Select((value, index) => (value, index + 1)))
+                Console.WriteLine($"  Link {index}: replica={link.DbReplicaID}, view={link.ViewUNID}, doc={link.DocUNID}, comment='{link.DisplayComment}', server='{link.ServerHint}', hotspot='{link.HotSpotText}'");
+            var databaseHotspot = links.FirstOrDefault(link => (string.IsNullOrWhiteSpace(link.DocUNID) || link.DocUNID.Trim('0').Length == 0) && !string.IsNullOrWhiteSpace(link.DbReplicaID));
+            var replacementHotspot = Environment.GetEnvironmentVariable("NOTES_TEST_HOTSPOT_TEXT") ?? "testad hotspot Åäö";
+            var expectedVisibleHotspot = Environment.GetEnvironmentVariable("NOTES_TEST_SET_HOTSPOT_TEXT") == "1" ? replacementHotspot : "hotspot länk";
+            if (databaseHotspot is not null && Environment.GetEnvironmentVariable("NOTES_TEST_SET_HOTSPOT_TEXT") != "1" && string.Equals(Environment.GetEnvironmentVariable("NOTES_TEST_DOCUMENT"), "testdoc 2", StringComparison.OrdinalIgnoreCase) && databaseHotspot.HotSpotText != expectedVisibleHotspot)
+                throw new InvalidOperationException($"Database hotspot visible text was not decoded from the HOTLINK span: '{databaseHotspot.HotSpotText}'.");
+            if (string.Equals(Environment.GetEnvironmentVariable("NOTES_TEST_DOCUMENT"), "testdoc 2", StringComparison.OrdinalIgnoreCase) && links.Count >= 3 && !string.IsNullOrEmpty(links[1].HotSpotText))
+                throw new InvalidOperationException($"A preceding doclink incorrectly inherited hotspot text: '{links[1].HotSpotText}'.");
+            if (databaseHotspot is not null)
+            {
+                using var hotspotStyle = databaseHotspot.HotSpotTextStyle;
+                if (hotspotStyle.Bold is < -1 or > 255 || hotspotStyle.FontSize is < 0 or > 255)
+                    throw new InvalidOperationException("Hotspot style returned an invalid native value.");
+                Console.WriteLine($"  Hotspot style: font={hotspotStyle.NotesFont}, size={hotspotStyle.FontSize}, bold={hotspotStyle.Bold}, color={hotspotStyle.NotesColor}");
+                if (Environment.GetEnvironmentVariable("NOTES_TEST_SET_HOTSPOT_STYLE") == "1")
+                {
+                    var originalBold = hotspotStyle.Bold;
+                    using var changedStyle = session.CreateRichTextStyle();
+                    changedStyle.Bold = int.TryParse(Environment.GetEnvironmentVariable("NOTES_TEST_HOTSPOT_BOLD"), out var requestedBold) ? requestedBold : -1;
+                    databaseHotspot.SetHotSpotTextStyle(changedStyle);
+                    body.Update(); target.Save();
+                    using var reopenedStyleDocument = database.GetDocumentByUNID(target.UniversalID) ?? throw new InvalidOperationException("Hotspot style test document could not be reopened.");
+                    using var reopenedStyleItem = reopenedStyleDocument.GetFirstItem("Body") ?? throw new InvalidOperationException("Hotspot style Body item missing after reopen.");
+                    using var reopenedStyleBody = reopenedStyleItem.GetRichTextItem() ?? throw new InvalidOperationException("Hotspot style Body is not rich text after reopen.");
+                    using var reopenedStyleNavigator = reopenedStyleBody.CreateNavigator();
+                    var reopenedStyleLink = reopenedStyleNavigator.GetFirstElement(NotesRichTextNavigator.ElementDocLink) as NotesRichTextDocLink;
+                    while (reopenedStyleLink is not null && !(string.IsNullOrWhiteSpace(reopenedStyleLink.DocUNID) || reopenedStyleLink.DocUNID.Trim('0').Length == 0))
+                    {
+                        var next = reopenedStyleNavigator.GetNextElement(NotesRichTextNavigator.ElementDocLink) as NotesRichTextDocLink;
+                        reopenedStyleLink.Dispose(); reopenedStyleLink = next;
+                    }
+                    if (reopenedStyleLink is null || reopenedStyleLink.HotSpotTextStyle.Bold != changedStyle.Bold) throw new InvalidOperationException("Hotspot bold style did not persist after native save/reopen.");
+                    reopenedStyleLink.Dispose();
+                    Console.WriteLine("  VERIFIED hotspot style mutation after native save/reopen.");
+                    return;
+                }
+            }
+            if (databaseHotspot is not null && Environment.GetEnvironmentVariable("NOTES_TEST_SET_HOTSPOT_TEXT") == "1")
+            {
+                databaseHotspot.SetHotSpotText(replacementHotspot);
+                body.Update(); target.Save();
+                using var reopenedHotspotDocument = database.GetDocumentByUNID(target.UniversalID) ?? throw new InvalidOperationException("Hotspot text test document could not be reopened.");
+                using var reopenedHotspotItem = reopenedHotspotDocument.GetFirstItem("Body") ?? throw new InvalidOperationException("Hotspot text Body item missing after reopen.");
+                using var reopenedHotspotBody = reopenedHotspotItem.GetRichTextItem() ?? throw new InvalidOperationException("Hotspot text Body is not rich text after reopen.");
+                using var reopenedHotspotNavigator = reopenedHotspotBody.CreateNavigator();
+                NotesRichTextDocLink? reopenedHotspotLink = reopenedHotspotNavigator.GetFirstElement(NotesRichTextNavigator.ElementDocLink) as NotesRichTextDocLink;
+                while (reopenedHotspotLink is not null && !(string.IsNullOrWhiteSpace(reopenedHotspotLink.DocUNID) || reopenedHotspotLink.DocUNID.Trim('0').Length == 0))
+                {
+                    var next = reopenedHotspotNavigator.GetNextElement(NotesRichTextNavigator.ElementDocLink) as NotesRichTextDocLink;
+                    reopenedHotspotLink.Dispose(); reopenedHotspotLink = next;
+                }
+                if (reopenedHotspotLink is null || reopenedHotspotLink.HotSpotText != replacementHotspot) throw new InvalidOperationException($"Visible hotspot text did not persist after native save/reopen: '{reopenedHotspotLink?.HotSpotText}'.");
+                reopenedHotspotLink.Dispose();
+                Console.WriteLine("  VERIFIED visible hotspot text mutation after native save/reopen.");
+                return;
+            }
+            var positionRecord = typeof(NotesRichTextDocLink).GetMethod("PositionRecord", BindingFlags.Instance | BindingFlags.NonPublic);
+            if (Environment.GetEnvironmentVariable("NOTES_TEST_DUMP_CD") == "1")
+            {
+                var read = typeof(NotesRichTextItem).GetMethod("ReadRichTextRecords", BindingFlags.Instance | BindingFlags.NonPublic)!;
+                foreach (var record in (System.Collections.IEnumerable)read.Invoke(body, null)!)
+                {
+                    var type = record.GetType();
+                    object? Field(string name) => type.GetProperty(name, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)?.GetValue(record);
+                    var bytes = (byte[])Field("Data")!;
+                    var textValue = Field("Text") as string;
+                    Console.WriteLine($"  CD {Field("SegmentIndex")}:{Field("RecordIndex")} sig={Field("Signature")} len={bytes.Length} textLen={textValue?.Length ?? 0} text='{textValue}' header={Convert.ToHexString(bytes.AsSpan(0, Math.Min(bytes.Length, 12)))}");
+                }
+            }
+            foreach (var (link, index) in links.Select((value, index) => (value, index + 1)))
+            {
+                var record = positionRecord?.Invoke(link, null);
+                var signature = record?.GetType().GetProperty("Signature", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)?.GetValue(record);
+                var data = record?.GetType().GetProperty("Data", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)?.GetValue(record) as byte[];
+                Console.WriteLine($"  Record {index}: signature={signature}, bytes={data?.Length}");
+            }
+            using var exporter = session.CreateDXLExporter();
+            exporter.OutputDOCTYPE = false;
+            using var exported = exporter.Export(target);
+            var xml = System.Xml.Linq.XDocument.Load(new MemoryStream(exported.ToArray()));
+            var dxlLinks = xml.Descendants().Where(e => e.Name.LocalName is "doclink" or "viewlink" or "databaselink").ToArray();
+            Console.WriteLine($"  DXL links: {string.Join(", ", dxlLinks.GroupBy(e => e.Name.LocalName).Select(g => g.Key + "=" + g.Count()))}");
+            foreach (var (element, index) in dxlLinks.Select((value, index) => (value, index + 1)))
+                Console.WriteLine($"  DXL link {index}: <{element.Name.LocalName}> {string.Join(" ", element.Attributes().Select(a => a.Name.LocalName + "='" + a.Value + "'"))} text='{element.Value.Trim()}'");
+            if (string.Equals(Environment.GetEnvironmentVariable("NOTES_TEST_MUTATE_LINK"), "1", StringComparison.Ordinal))
+            {
+                var linkKind = Environment.GetEnvironmentVariable("NOTES_TEST_LINK_KIND") ?? "document";
+                var targetLink = linkKind.Equals("database", StringComparison.OrdinalIgnoreCase)
+                    ? links.FirstOrDefault(link => (string.IsNullOrWhiteSpace(link.DocUNID) || link.DocUNID.Trim('0').Length == 0) && !string.IsNullOrWhiteSpace(link.DbReplicaID))
+                    : links.FirstOrDefault(link => !string.IsNullOrWhiteSpace(link.DocUNID));
+                if (targetLink is null) throw new InvalidOperationException($"No {linkKind} link available for mutation.");
+                var selectedIndex = links.IndexOf(targetLink);
+                var expected = new System.Xml.Linq.XElement(dxlLinks[selectedIndex]);
+                var readRecords = typeof(NotesRichTextItem).GetMethod("ReadRichTextRecords", BindingFlags.Instance | BindingFlags.NonPublic)!;
+                byte[][] Snapshot() => ((System.Collections.IEnumerable)readRecords.Invoke(body, null)!).Cast<object>()
+                    .Select(r => (byte[])r.GetType().GetProperty("Data", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)!.GetValue(r)!).Select(bytes => bytes.ToArray()).ToArray();
+                var beforeRecords = Snapshot();
+                var selectedRecord = positionRecord!.Invoke(targetLink, null)!;
+                var selectedBytes = (byte[])selectedRecord.GetType().GetProperty("Data", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)!.GetValue(selectedRecord)!;
+                var physicalIndex = Array.FindIndex(beforeRecords, bytes => bytes.SequenceEqual(selectedBytes));
+                if (physicalIndex < 0) throw new InvalidOperationException("Selected link record not found.");
+                targetLink.SetLinkMetadata("Verified Åäö", targetLink.ServerHint, "verified anchor");
+                var afterRecords = Snapshot();
+                if (beforeRecords.Length != afterRecords.Length || beforeRecords.Where((bytes, index) => index != physicalIndex && !bytes.SequenceEqual(afterRecords[index])).Any())
+                    throw new InvalidOperationException("Metadata mutation changed an unrelated CD record.");
+                if (!beforeRecords[physicalIndex].AsSpan(0, 2).SequenceEqual(afterRecords[physicalIndex].AsSpan(0, 2)) ||
+                    !beforeRecords[physicalIndex].AsSpan(4, 2).SequenceEqual(afterRecords[physicalIndex].AsSpan(4, 2)))
+                    throw new InvalidOperationException("Metadata mutation changed signature or LinkID.");
+                body.Update();
+                target.Save();
+                using var reopened = database.GetDocumentByUNID(target.UniversalID) ?? throw new InvalidOperationException("Mutated document could not be reopened.");
+                using var reopenedItem = reopened.GetFirstItem("Body") ?? throw new InvalidOperationException("Mutated Body item missing.");
+                using var reopenedBody = reopenedItem.GetRichTextItem() ?? throw new InvalidOperationException("Mutated Body is not rich text.");
+                using var reopenedNavigator = reopenedBody.CreateNavigator();
+                using var finalExport = exporter.Export(reopened);
+                var finalXml = System.Xml.Linq.XDocument.Load(new MemoryStream(finalExport.ToArray()));
+                var finalLinks = finalXml.Descendants().Where(e => e.Name.LocalName is "doclink" or "viewlink" or "databaselink").ToArray();
+                NotesRichTextDocLink? finalMetadata = reopenedNavigator.GetFirstElement(NotesRichTextNavigator.ElementDocLink) as NotesRichTextDocLink;
+                for (var i = 0; i < selectedIndex; i++)
+                {
+                    finalMetadata?.Dispose();
+                    finalMetadata = reopenedNavigator.GetNextElement(NotesRichTextNavigator.ElementDocLink) as NotesRichTextDocLink;
+                }
+                using (finalMetadata)
+                    if (finalMetadata is null || finalMetadata.DisplayComment != "Verified Åäö" || finalMetadata.Anchor != "verified anchor")
+                        throw new InvalidOperationException("Link metadata did not persist after reopen.");
+                if (finalLinks.Length != dxlLinks.Length) throw new InvalidOperationException("Mutation changed link count.");
+                expected.Attribute("description")?.Remove(); expected.Attribute("anchor")?.Remove();
+                finalLinks[selectedIndex].Attribute("description")?.Remove(); finalLinks[selectedIndex].Attribute("anchor")?.Remove();
+                for (var i = 0; i < dxlLinks.Length; i++)
+                    if (!System.Xml.Linq.XNode.DeepEquals(i == selectedIndex ? expected : dxlLinks[i], finalLinks[i]))
+                        throw new InvalidOperationException($"Unexpected DXL change in link {i}: {finalLinks[i]}");
+                Console.WriteLine("  VERIFIED metadata after native save/reopen; visible text, link targets and unrelated records preserved.");
+            }
+            foreach (var link in links) link.Dispose();
+        }
+    });
+    if (!string.IsNullOrWhiteSpace(databasePath)) Check("rich text NotesURL UNID", () =>
+    {
+        using var database = session.GetDatabase(server, databasePath, false) ?? throw new InvalidOperationException("Database not found.");
+        using var source = database.CreateDocument();
+        source.SetString("Subject", "NotesURL target");
+        source.Save();
+        using var document = database.CreateDocument();
+        using var body = document.CreateRichTextItem("Body");
+        var localPath = databasePath.Replace('\\', '/').TrimStart('/');
+        body.AppendNotesURL($"notes:///{localPath}/0/{source.UniversalID}", "UNID URL");
+        body.Update();
+        document.Save();
+        using var reopened = database.GetDocumentByUNID(document.UniversalID) ?? throw new InvalidOperationException("NotesURL document did not reopen.");
+        using var item = reopened.GetFirstItem("Body") ?? throw new InvalidOperationException("NotesURL Body missing.");
+        using var richText = item.GetRichTextItem() ?? throw new InvalidOperationException("NotesURL Body is not rich text.");
+        using var navigator = richText.CreateNavigator();
+        using var link = navigator.GetFirstElement(NotesRichTextNavigator.ElementDocLink) as NotesRichTextDocLink ?? throw new InvalidOperationException("NotesURL did not create a document link.");
+        if (!link.DocUNID.Equals(source.UniversalID, StringComparison.OrdinalIgnoreCase)) throw new InvalidOperationException($"NotesURL resolved {link.DocUNID}, expected {source.UniversalID}.");
+        document.Remove(true);
+        source.Remove(true);
+    });
+    if (!string.IsNullOrWhiteSpace(databasePath)) Check("rich text NotesURL database and view", () =>
+    {
+        using var database = session.GetDatabase(server, databasePath, false) ?? throw new InvalidOperationException("Database not found.");
+        using var document = database.CreateDocument();
+        using var body = document.CreateRichTextItem("Body");
+        var localPath = databasePath.Replace('\\', '/').TrimStart('/');
+        body.AppendNotesURL($"notes:///{localPath}", "database URL");
+        body.AppendNotesURL($"notes:///{localPath}/testdocs", "view URL");
+        body.Update();
+        document.Save();
+        using var reopened = database.GetDocumentByUNID(document.UniversalID) ?? throw new InvalidOperationException("NotesURL database/view document did not reopen.");
+        using var item = reopened.GetFirstItem("Body") ?? throw new InvalidOperationException("NotesURL database/view Body missing.");
+        using var richText = item.GetRichTextItem() ?? throw new InvalidOperationException("NotesURL database/view Body is not rich text.");
+        using var navigator = richText.CreateNavigator();
+        using var first = navigator.GetFirstElement(NotesRichTextNavigator.ElementDocLink) as NotesRichTextDocLink ?? throw new InvalidOperationException("Database URL did not create a link.");
+        using var second = navigator.GetNextElement(NotesRichTextNavigator.ElementDocLink) as NotesRichTextDocLink ?? throw new InvalidOperationException("View URL did not create a link.");
+        if (first.DocUNID.Trim('0').Length != 0 || second.DocUNID.Trim('0').Length != 0) throw new InvalidOperationException("Database/view URL unexpectedly resolved a document.");
+        document.Remove(true);
+    });
+    if (!string.IsNullOrWhiteSpace(databasePath)) Check("rich text doclink RemoveLinkage", () =>
+    {
+        using var database = session.GetDatabase(server, databasePath, false) ?? throw new InvalidOperationException("Database not found.");
+        using var source = database.CreateDocument(); source.SetString("Subject", "RemoveLinkage target"); source.Save();
+        using var document = database.CreateDocument();
+        using var body = document.CreateRichTextItem("Body"); body.AppendDocLink(source, "remove target"); body.Update(); document.Save();
+        using var reopened = database.GetDocumentByUNID(document.UniversalID) ?? throw new InvalidOperationException("RemoveLinkage document did not reopen.");
+        using var item = reopened.GetFirstItem("Body") ?? throw new InvalidOperationException("RemoveLinkage Body missing.");
+        using var richText = item.GetRichTextItem() ?? throw new InvalidOperationException("RemoveLinkage Body is not rich text.");
+        using var navigator = richText.CreateNavigator();
+        using var link = navigator.GetFirstElement(NotesRichTextNavigator.ElementDocLink) as NotesRichTextDocLink ?? throw new InvalidOperationException("RemoveLinkage link missing.");
+        link.RemoveLinkage(); richText.Update(); reopened.Save();
+        using var final = database.GetDocumentByUNID(document.UniversalID) ?? throw new InvalidOperationException("RemoveLinkage result missing.");
+        using var finalItem = final.GetFirstItem("Body") ?? throw new InvalidOperationException("RemoveLinkage result Body missing.");
+        using var finalBody = finalItem.GetRichTextItem() ?? throw new InvalidOperationException("RemoveLinkage result is not rich text.");
+        using var finalNavigator = finalBody.CreateNavigator();
+        using var finalLink = finalNavigator.GetFirstElement(NotesRichTextNavigator.ElementDocLink) as NotesRichTextDocLink ?? throw new InvalidOperationException("RemoveLinkage removed the hotspot record.");
+        if (finalLink.DocUNID.Trim('0').Length != 0 || finalLink.DisplayComment != "remove target") throw new InvalidOperationException("RemoveLinkage did not retain hotspot text while clearing the target.");
+        document.Remove(true); source.Remove(true);
     });
 }
 

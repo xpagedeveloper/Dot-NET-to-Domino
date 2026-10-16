@@ -23,8 +23,11 @@ public static class NotesConst
 
     public const int RTELEM_TYPE_TABLE = 1; public const int RTELEM_TYPE_TEXTRUN = 3; public const int RTELEM_TYPE_TEXTPARAGRAPH = 4; public const int RTELEM_TYPE_DOCLINK = 5; public const int RTELEM_TYPE_SECTION = 6; public const int RTELEM_TYPE_TABLECELL = 7; public const int RTELEM_TYPE_FILEATTACHMENT = 8; public const int RTELEM_TYPE_OLE = 9;
     public const int Table = RTELEM_TYPE_TABLE; public const int TextRun = RTELEM_TYPE_TEXTRUN; public const int TextParagraph = RTELEM_TYPE_TEXTPARAGRAPH; public const int DocLink = RTELEM_TYPE_DOCLINK; public const int Section = RTELEM_TYPE_SECTION; public const int TableCell = RTELEM_TYPE_TABLECELL; public const int FileAttachment = RTELEM_TYPE_FILEATTACHMENT; public const int Ole = RTELEM_TYPE_OLE;
-    public const int RT_FIND_CASEINSENSITIVE = 0; public const int RT_FIND_CASESENSITIVE = 1; public const int RT_FIND_ACCENTINSENSITIVE = 2; public const int RT_FIND_PITCHINSENSITIVE = 4;
+    public const int RT_FIND_CASEINSENSITIVE = 1; public const int RT_FIND_CASESENSITIVE = 0; public const int RT_FIND_PITCHINSENSITIVE = 2; public const int RT_FIND_ACCENTINSENSITIVE = 4;
     public const int FindCaseInsensitive = RT_FIND_CASEINSENSITIVE; public const int FindCaseSensitive = RT_FIND_CASESENSITIVE; public const int FindAccentInsensitive = RT_FIND_ACCENTINSENSITIVE; public const int FindPitchInsensitive = RT_FIND_PITCHINSENSITIVE;
+    public const int RT_REPL_PRESERVECASE = 8; public const int RT_REPL_ALL = 16;
+    public const int ReplPreserveCase = RT_REPL_PRESERVECASE; public const int ReplAll = RT_REPL_ALL;
+    public const int EMBED_OBJECTLINK = 1452; public const int EMBED_OBJECT = 1453; public const int EMBED_ATTACHMENT = 1454;
 
     public const int SEARCH_BREADTH = 1723;
     public const int SEARCH_DEPTH = 1724;
