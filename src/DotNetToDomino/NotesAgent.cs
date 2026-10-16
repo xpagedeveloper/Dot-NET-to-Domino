@@ -34,7 +34,7 @@ public sealed class NotesAgent : NotesObject
     public string ServerName
     {
         get { EnsureAlive(); return _pendingServerName ?? ReadText("$MachineName"); }
-        set { EnsureAlive(); _pendingServerName = value?.Trim() ?? string.Empty; }
+        set { EnsureAlive(); ArgumentNullException.ThrowIfNull(value); _pendingServerName = value.Trim(); }
     }
     public string ParameterDocID { get { EnsureAlive(); return _parameterDocId; } }
     public bool IsNotesAgent { get { EnsureAlive(); return true; } }
@@ -83,6 +83,7 @@ public sealed class NotesAgent : NotesObject
     {
         EnsureAlive();
         ArgumentNullException.ThrowIfNull(document);
+        EnsureSameDatabase(document);
         _parameterDocId = string.Empty;
         return Execute(document.Handle, 0);
     }
@@ -91,6 +92,7 @@ public sealed class NotesAgent : NotesObject
     {
         EnsureAlive();
         ArgumentNullException.ThrowIfNull(document);
+        EnsureSameDatabase(document);
         ValidateParameterNoteId(noteId);
         _parameterDocId = noteId.ToString("X", System.Globalization.CultureInfo.InvariantCulture);
         return Execute(document.Handle, noteId);
@@ -98,6 +100,12 @@ public sealed class NotesAgent : NotesObject
 
     public NotesAgentResult RunWithDocumentContext(NotesDocument document, string noteId) =>
         RunWithDocumentContext(document, ParseParameterNoteId(noteId));
+
+    private void EnsureSameDatabase(NotesDocument document)
+    {
+        if (!string.Equals(Parent.ReplicaID, document.ParentDatabase.ReplicaID, StringComparison.OrdinalIgnoreCase))
+            throw new ArgumentException("The parameter document must belong to the same database replica as the agent.", nameof(document));
+    }
 
     public NotesAgentResult RunOnServer() => Run();
     public NotesAgentResult RunOnServer(uint noteId) => Run(noteId);
@@ -161,6 +169,8 @@ public sealed class NotesAgentResult : NotesObject
         Output = NotesAgentOutput.Normalize(output);
     }
     public NotesDatabase Database { get; }
+    public bool Success { get { EnsureAlive(); return true; } }
+    public int Status { get { EnsureAlive(); return 0; } }
     public string Output { get; }
     protected override void ReleaseNative() => Database.UnregisterChild(this);
 }

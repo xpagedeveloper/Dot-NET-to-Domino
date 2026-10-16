@@ -8,11 +8,11 @@ Reference sources are under `XPscript/src/XPScript.Compiler` and the related Not
 
 | Area | XPScript evidence | Dot-NET-to-Domino status | Next work |
 | --- | --- | --- | --- |
-| `NotesMail` | `NotesMailPostProcessor.cs`, `NotesMailSenderSemanticsPostProcessor.cs`, `samples/notes-mail-surface.xps` | No public `NotesMail` type or `NotesSession.CreateMail()` factory found | Port recipient, subject, body, delivery options, rich-text body, and send validation through the native mail path |
-| MIME headers | `NotesMimeChildHeaderReadPostProcessor.cs`, `NotesMimeEntityDataHeaderPostProcessor.cs` | `NotesMIMEHeader` exists only as a placeholder; `GetNthHeader` and `CreateHeader` remain unsupported | Verify native header lookup, header lifetime, duplicate/continuation semantics, and mutation ABI |
-| MIME child mutation | `NotesMimeChildMutationPostProcessor.cs`, `NotesMimeEmptyChildBootstrapPostProcessor.cs` | Child traversal exists, but child creation/removal and content mutation remain unsupported | Port child creation/removal and ownership invalidation |
-| MIME root mutation | `NotesMimeRootMutationPostProcessor.cs` | Root reads are present; `SetContentFromText`, `SetContentFromBytes`, `EncodeContent`, `DecodeContent`, and `Preamble` remain unsupported | Verify native MIME stream/entity mutation and encoding behavior |
-| Notes rich-text structural writes | `NotesRichTextStructuralWriteSurfacePostProcessor.cs` | Structural objects expose `Remove()` as unsupported in the current implementation | Verify native CD-record rewrite/delete semantics before implementing |
+| `NotesMail` | `NotesMailPostProcessor.cs`, `NotesMailSenderSemanticsPostProcessor.cs`, `samples/notes-mail-surface.xps` | Text, rich-text, root MIME, rich-text attachment, and MIME attachment composition are present; child MIME composition remains open | Verify delivery semantics and implement child-entity composition when its native ABI is verified |
+| MIME headers | `NotesMimeChildHeaderReadPostProcessor.cs`, `NotesMimeEntityDataHeaderPostProcessor.cs` | Root `NotesMIMEHeader` lookup, reads, parameter mutation, removal, and duplicate enumeration are implemented | Child-header creation/mutation still requires a verified native child-handle ABI |
+| MIME child mutation | `NotesMimeChildMutationPostProcessor.cs`, `NotesMimeEmptyChildBootstrapPostProcessor.cs` | Root and child traversal are implemented; child creation/removal and child content mutation remain unsupported | Port child creation/removal and ownership invalidation when native support is verified |
+| MIME root mutation | `NotesMimeRootMutationPostProcessor.cs` | Root content reads/writes, encoding/decoding, and preamble behavior are implemented | Verify the remaining multipart/child behavior against a live Domino runtime |
+| Notes rich-text structural writes | `NotesRichTextStructuralWriteSurfacePostProcessor.cs` | Range, item, section, table, doclink, and embedded-object removal use native-backed CD-record/item mutation | Verify remaining attachment edge cases and live runtime behavior |
 
 ## Areas requiring member-by-member comparison
 
@@ -20,7 +20,7 @@ These areas have public C# coverage, but XPScript contains additional postproces
 
 - `NotesDocument` LotusScript aliases, `ComputeWithForm`, send overloads, and collection operations.
 - `NotesDatabase` LotusScript aliases and full-text/design metadata.
-- `NotesView`/`NotesViewNavigator` cache, history, and navigation limits.
+- `NotesView`/`NotesViewNavigator` history semantics and remaining navigation edge cases; cache, max-level, reverse navigation, and factory surfaces are present.
 - `NotesRichTextItem`, navigator/range mutation, attachments, HTML, MIME, and linked objects.
 - `NotesDxlImporter`/`NotesDxlExporter` result properties and overloads.
 - `NotesNoteCollection` provenance and `StampAllMulti` behavior.
@@ -29,25 +29,25 @@ These areas have public C# coverage, but XPScript contains additional postproces
 
 | XPScript object | C# object | Assessment |
 | --- | --- | --- |
-| `NotesSession` | `NotesSession` | Present; environment, password, database-open, address-book, DB-directory, MIME-open, and factory behavior have been audited in part. `CreateMail()` is missing. |
+| `NotesSession` | `NotesSession` | Present; environment, password, database-open, address-book, DB-directory, MIME-open, and `CreateMail()` factory behavior are implemented. Live runtime verification remains. |
 | `NotesDatabase` | `NotesDatabase` | Present; core open/create/copy, metadata, access, full-text, design, profile, document, agent, and alias surfaces are present. A complete member sweep remains. |
 | `NotesDatabaseAccess` | `NotesDatabaseAccess` | Present; native ACL snapshot path was corrected. Live Domino ACL verification remains. |
 | `NotesDbDirectory` | `NotesDBDirectory` | Present with a .NET naming difference; enumeration/open behavior needs full parity verification. |
 | `NotesDocument` | `NotesDocument` | Present; metadata, item, MIME, response, send/save/remove and ComputeWithForm surfaces exist. Overload and runtime-error parity still needs a complete sweep. |
-| `NotesDocumentCollection` | `NotesDocumentCollection` | Present; search/modified/provenance and collection operations exist. Stamp/provenance edge cases remain. |
-| `NotesNoteCollection` | `NotesNoteCollection` | Present; selection and set operations exist. XPScript provenance and `StampAllMulti` require focused review. |
-| `NotesItem` / `NotesRichTextItem` | Same | Present; item and rich-text entrypoints exist, but native mutation/attachment/HTML coverage is incomplete. |
-| `NotesMIMEEntity` / `NotesMIMEHeader` | Same | Entity is partial; header is a placeholder and child/header/mutation APIs are not implemented. |
-| `NotesMail` | **Missing** | XPScript has a complete mail object and `NotesSession.CreateMail()` factory; no equivalent C# type/factory exists. |
-| `NotesView` / `NotesViewColumn` | Same | Present; navigation and column surfaces exist. Cache/history/max-level and column edge semantics need comparison. |
-| `NotesViewEntry` / collections / navigator | Same | Present; broad surface exists. XPScript-specific navigation/cache behavior needs validation. |
+| `NotesDocumentCollection` | `NotesDocumentCollection` | Present; search/modified/provenance, collection operations, and source-document `StampAllMulti` exist. Exact provenance edge cases remain. |
+| `NotesNoteCollection` | `NotesNoteCollection` | Present; selection, `SinceTime`, set operations, and source-document `StampAllMulti` exist. XPScript provenance edge cases remain. |
+| `NotesItem` / `NotesRichTextItem` | Same | Present; native mutation, attachment byte-array/extraction, HTML and navigator coverage are verified; unsupported OLE and undocumented CD payloads remain outside the safe surface. |
+| `NotesMIMEEntity` / `NotesMIMEHeader` | Same | Entity and root header behavior are implemented; child mutation and live multipart validation remain open. |
+| `NotesMail` | `NotesMail` | Text mail, composable rich-text bodies, rich-text file attachments, root MIME composition, and MIME file attachments are implemented, including `NotesSession.CreateMail()`, recipients, headers, delivery options, and native document send. Child MIME entities remain open. |
+| `NotesView` / `NotesViewColumn` | Same | Present; navigation, reverse navigation, refresh, cache/max-level factories, and column surfaces exist. History and column edge semantics need live comparison. |
+| `NotesViewEntry` / collections / navigator | Same | Present; broad navigation, cache, max-level, sibling/parent/child, and bulk-operation surfaces exist. XPScript-specific history behavior needs validation. |
 | `NotesAgent` / result | Same | Present; runtime parity branch was merged. Live native verification remains. |
 | `NotesForm` | Same | Present as a design-note wrapper; full property/method parity needs review. |
 | `NotesStream` | Same | Present; stream ABI and boundary behavior need comparison against `NotesStreamPostProcessor`. |
 | `NotesName` / `NotesDateTime` | Same | Present; conversion and formatting edge cases need comparison. |
 | `NotesDXLImporter` / `NotesDXLExporter` | Same | Present; result-property and overload parity needs review. |
-| Rich-text linked objects | Same family | Section, table, doclink, color, navigator, range and style types are present; structural mutation remains incomplete. |
-| `NotesEmbeddedObject` | Same | Present; binary-array and attachment semantics need comparison. |
+| Rich-text linked objects | Same family | Section, table, doclink, color, hotspot, navigator, range and style types are present; supported structural mutation is covered by native regression tests. |
+| `NotesEmbeddedObject` | Same | Present; file attachment metadata, extraction and byte-array semantics are verified against live Notes. |
 
 ## Scope rule
 

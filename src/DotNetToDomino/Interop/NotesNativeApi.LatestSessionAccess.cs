@@ -86,7 +86,7 @@ internal sealed partial class NotesNativeApi
     {
         EnsureInitialized(); using var thread = EnterThread(); userName = userName.Trim();
         if (userName.Length == 0) throw new NotesException(5, "NotesDatabase.QueryAccess user name cannot be empty.");
-        using var name = ToLmbcs(userName); nint namesHandle = 0, aclHandle = 0, rolesHandle = 0, namesPointer = 0;
+        using var name = ToLmbcs(userName); uint namesHandle = 0, aclHandle = 0, rolesHandle = 0; nint namesPointer = 0;
         var privileges = Marshal.AllocHGlobal(10);
         try
         {
@@ -116,11 +116,11 @@ internal sealed partial class NotesNativeApi
         }
     }
 
-    private string[] ReadNamesList(nint handle, nint pointer)
+    private string[] ReadNamesList(uint handle, nint pointer)
     {
         // NAMES_LIST is packed: WORD NumNames + 8-byte obsolete LICENSEID + DWORD Authenticated.
         const int headerSize = 14;
-        var size = Resolve<OSMemGetSizeDelegate>("OSMemGetSize")(handle);
+        CheckStatus(Resolve<OSMemGetSizeDelegate>("OSMemGetSize")(handle, out var size), "OSMemGetSize(names list)");
         if (size < headerSize) throw new NotesException(5, "Domino returned a truncated NAMES_LIST.");
         var count = unchecked((ushort)Marshal.ReadInt16(pointer));
         var result = new List<string>(count);
@@ -138,7 +138,7 @@ internal sealed partial class NotesNativeApi
         return result.ToArray();
     }
 
-    private string[] ReadTextList(nint handle)
+    private string[] ReadTextList(uint handle)
     {
         if (handle == 0) return [];
         var pointer = Resolve<OSLockObjectAccessDelegate>("OSLockObject")(handle);
@@ -162,14 +162,14 @@ internal sealed partial class NotesNativeApi
     [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate ushort SECHashPasswordDelegate(ushort passwordLength, nint password, ushort maximumDigestLength, out ushort digestLength, nint digest, uint flags, nint reserved);
     [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate ushort SECVerifyPasswordDelegate(ushort passwordLength, nint password, ushort digestLength, nint digest, uint flags, nint reserved);
     [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate void OSSetEnvironmentVariableDelegate(nint name, nint value);
-    [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate ushort NAMEGetAddressBooksDelegate(nint server, ushort options, out ushort count, out ushort length, out nint handle);
-    [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate nint OSLockObjectAccessDelegate(nint handle);
-    [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate void OSUnlockObjectAccessDelegate(nint handle);
-    [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate ushort OSMemFreeAccessDelegate(nint handle);
+    [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate ushort NAMEGetAddressBooksDelegate(nint server, ushort options, out ushort count, out ushort length, out uint handle);
+    [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate nint OSLockObjectAccessDelegate(uint handle);
+    [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate void OSUnlockObjectAccessDelegate(uint handle);
+    [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate ushort OSMemFreeAccessDelegate(uint handle);
     [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate ushort OSPathNetParseAccessDelegate(nint path, nint port, nint server, nint file);
-    [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate ushort NSFBuildNamesListDelegate(nint userName, uint flags, out nint namesList);
-    [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate ushort NSFDbReadACLDelegate(nint db, out nint acl);
-    [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate ushort ACLLookupAccessDelegate(nint acl, nint namesList, out ushort level, nint privileges, out ushort flags, out nint roles);
-    [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate uint OSMemGetSizeDelegate(nint handle);
+    [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate ushort NSFBuildNamesListDelegate(nint userName, uint flags, out uint namesList);
+    [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate ushort NSFDbReadACLDelegate(nint db, out uint acl);
+    [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate ushort ACLLookupAccessDelegate(uint acl, nint namesList, out ushort level, nint privileges, out ushort flags, out uint roles);
+    [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate ushort OSMemGetSizeDelegate(uint handle, out uint size);
     [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate ushort ListGetTextDelegate(nint list, int prefixDataType, ushort entry, out nint text, out ushort length);
 }

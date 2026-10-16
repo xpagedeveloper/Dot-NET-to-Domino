@@ -14,9 +14,10 @@ internal sealed partial class NotesNativeApi
     private static int _threadScopeDepth;
 
     private readonly NotesRuntimeLibrary _runtime;
-    private readonly Dictionary<string, Delegate> _delegates = new(StringComparer.Ordinal);
+    private readonly Dictionary<(string ExportName, Type DelegateType), Delegate> _delegates = new();
     private bool _initialized;
     private int _initializationThreadId;
+    private string _notesIni = string.Empty;
 
     internal NotesNativeApi(NotesRuntimeLibrary runtime)
     {
@@ -29,6 +30,8 @@ internal sealed partial class NotesNativeApi
     {
         if (_initialized)
             return;
+
+        _notesIni = notesIni is null ? string.Empty : Path.GetFullPath(notesIni);
 
         var args = new List<string> { Path.Combine(_runtime.RuntimeDirectory, "dotnet-to-domino") };
         if (!string.IsNullOrWhiteSpace(notesIni))
@@ -164,12 +167,13 @@ internal sealed partial class NotesNativeApi
 
     internal TDelegate Resolve<TDelegate>(string exportName) where TDelegate : Delegate
     {
-        if (_delegates.TryGetValue(exportName, out var existing))
+        var key = (exportName, typeof(TDelegate));
+        if (_delegates.TryGetValue(key, out var existing))
             return (TDelegate)existing;
 
         var address = _runtime.GetExport(exportName);
         var resolved = Marshal.GetDelegateForFunctionPointer<TDelegate>(address);
-        _delegates.Add(exportName, resolved);
+        _delegates.Add(key, resolved);
         return resolved;
     }
 
@@ -188,8 +192,20 @@ internal sealed partial class NotesNativeApi
         var idFile = GetEnvironmentString("KeyFileName");
         if (idFile.Length == 0)
             idFile = GetEnvironmentString("ServerKeyFileName");
+        if (idFile.Length == 0 && _notesIni.Length > 0)
+            idFile = ReadIniValue("KeyFileName");
+        if (idFile.Length == 0 && _notesIni.Length > 0)
+            idFile = ReadIniValue("ServerKeyFileName");
         if (idFile.Length == 0)
             throw new NotesException("Unable to determine the Notes/Domino ID file from KeyFileName or ServerKeyFileName.");
+
+        if (!Path.IsPathRooted(idFile))
+        {
+            var dataDirectory = GetEnvironmentString("Directory");
+            if (dataDirectory.Length == 0) dataDirectory = ReadIniValue("Directory");
+            if (!Path.IsPathRooted(dataDirectory)) dataDirectory = Path.Combine(Path.GetDirectoryName(_notesIni) ?? _runtime.RuntimeDirectory, dataDirectory);
+            idFile = Path.GetFullPath(Path.Combine(dataDirectory, idFile));
+        }
 
         using var idFileText = ToLmbcs(idFile);
         using var passwordText = ToLmbcs(password);
@@ -213,6 +229,20 @@ internal sealed partial class NotesNativeApi
             Zero(passwordText.Pointer, passwordText.Length + 1);
             Marshal.FreeHGlobal(userName);
         }
+    }
+
+    private string ReadIniValue(string key)
+    {
+        try
+        {
+            foreach (var raw in File.ReadLines(_notesIni))
+            {
+                var line = raw.Trim();
+                if (line.StartsWith(key + "=", StringComparison.OrdinalIgnoreCase)) return line[(key.Length + 1)..].Trim().Trim('"');
+            }
+        }
+        catch { }
+        return string.Empty;
     }
 
     private string GetEnvironmentString(string name)
@@ -251,8 +281,8 @@ internal sealed partial class NotesNativeApi
                 TranslateUtf8ToLmbcs,
                 input,
                 checked((uint)bytes.Length),
-                checked((uint)(capacity - 1)),
-                output);
+                output,
+                checked((uint)(capacity - 1)));
             if (length >= capacity)
                 throw new NotesException("LMBCS conversion exceeded the output buffer.");
             Marshal.WriteByte(output, checked((int)length), 0);
@@ -283,8 +313,8 @@ internal sealed partial class NotesNativeApi
                 TranslateLmbcsToUtf8,
                 input,
                 checked((uint)length),
-                checked((uint)(capacity - 1)),
-                output);
+                output,
+                checked((uint)(capacity - 1)));
             var bytes = new byte[checked((int)count)];
             if (count > 0)
                 Marshal.Copy(output, bytes, 0, bytes.Length);
@@ -427,7 +457,10 @@ internal sealed partial class NotesNativeApi
     [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate void NotesTermDelegate();
     [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate ushort NotesInitThreadDelegate();
     [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate void NotesTermThreadDelegate();
-    [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate uint OSTranslate32Delegate(ushort mode, nint input, uint inputLength, uint outputSize, nint output);
+    // Domino C API signature: (mode, input, inputLength, output, outputLength).
+    // Reversing the final two arguments makes nnotes.dll write through the size
+    // value and causes an 0xC0000005 access violation during FromLmbcs.
+    [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate uint OSTranslate32Delegate(ushort mode, nint input, uint inputLength, nint output, uint outputSize);
     [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate ushort OSLoadStringDelegate(nint module, ushort code, nint output, ushort outputLength);
     [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate ushort SECKFMGetUserNameDelegate(nint output);
     [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate ushort OSPathNetConstructDelegate(nint portName, nint serverName, nint fileName, nint pathName);

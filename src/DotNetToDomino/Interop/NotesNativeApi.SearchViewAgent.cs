@@ -56,7 +56,7 @@ internal sealed partial class NotesNativeApi
     private const ushort AgentRedirectMemory = 2;
     private const ushort AgentUnsignedStatus = 0x0259;
 
-    internal nint OpenView(nint db, string name)
+    internal ushort OpenView(nint db, string name)
     {
         EnsureInitialized();
         using var thread = EnterThread();
@@ -66,21 +66,21 @@ internal sealed partial class NotesNativeApi
         return collection;
     }
 
-    internal void CloseView(nint collection)
+    internal void CloseView(ushort collection)
     {
         if (collection == 0 || !IsInitialized) return;
         using var thread = EnterThread();
         CheckStatus(Resolve<Search_NIFCloseCollection>("NIFCloseCollection")(collection), "NIFCloseCollection");
     }
 
-    internal void UpdateCollection(nint collection)
+    internal void UpdateCollection(ushort collection)
     {
         EnsureInitialized();
         using var thread = EnterThread();
         CheckStatus(Resolve<Search_NIFUpdateCollection>("NIFUpdateCollection")(collection), "NIFUpdateCollection");
     }
 
-    internal IReadOnlyList<uint> ReadViewNoteIds(nint collection, int maximum = 0)
+    internal IReadOnlyList<uint> ReadViewNoteIds(ushort collection, int maximum = 0)
     {
         EnsureInitialized();
         using var thread = EnterThread();
@@ -89,7 +89,7 @@ internal sealed partial class NotesNativeApi
         return ReadNoteIds(collection, ref position, maximum <= 0 ? uint.MaxValue : checked((uint)maximum));
     }
 
-    internal IReadOnlyList<uint> FindViewByTextKey(nint collection, string key, int maximum, bool exactMatch)
+    internal IReadOnlyList<uint> FindViewByTextKey(ushort collection, string key, int maximum, bool exactMatch)
     {
         EnsureInitialized();
         using var thread = EnterThread();
@@ -103,7 +103,7 @@ internal sealed partial class NotesNativeApi
         return ReadNoteIds(collection, ref position, requested);
     }
 
-    private IReadOnlyList<uint> ReadNoteIds(nint collection, ref NotesCollectionPosition position, uint requested)
+    private IReadOnlyList<uint> ReadNoteIds(ushort collection, ref NotesCollectionPosition position, uint requested)
     {
         var ids = new List<uint>();
         var remaining = requested;
@@ -180,7 +180,7 @@ internal sealed partial class NotesNativeApi
         }
     }
 
-    internal IReadOnlyList<uint> FullTextSearch(nint db, nint collection, string query, int maximum)
+    internal IReadOnlyList<uint> FullTextSearch(nint db, ushort collection, string query, int maximum)
     {
         EnsureInitialized();
         using var thread = EnterThread();
@@ -259,11 +259,11 @@ internal sealed partial class NotesNativeApi
     }
 
     [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate ushort Search_NIFFindDesignNote(nint db, nint name, ushort noteClass, out uint noteId);
-    [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate ushort Search_NIFOpenCollection(nint viewDb, nint dataDb, uint viewNoteId, ushort openFlags, nint unreadList, out nint collection, nint viewNote, nint viewUnid, nint collapsedList, nint selectedList);
-    [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate ushort Search_NIFUpdateCollection(nint collection);
-    [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate ushort Search_NIFCloseCollection(nint collection);
-    [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate ushort Search_NIFFindByName(nint collection, nint name, ushort flags, ref NotesCollectionPosition position, out uint matches);
-    [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate ushort Search_NIFReadEntries(nint collection, ref NotesCollectionPosition position, ushort skipNavigator, uint skipCount, ushort returnNavigator, uint returnCount, uint readMask, out nint buffer, out ushort bufferLength, out uint entriesSkipped, out uint entriesReturned, out ushort signalFlags);
+    [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate ushort Search_NIFOpenCollection(nint viewDb, nint dataDb, uint viewNoteId, ushort openFlags, nint unreadList, out ushort collection, nint viewNote, nint viewUnid, nint collapsedList, nint selectedList);
+    [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate ushort Search_NIFUpdateCollection(ushort collection);
+    [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate ushort Search_NIFCloseCollection(ushort collection);
+    [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate ushort Search_NIFFindByName(ushort collection, nint name, ushort flags, ref NotesCollectionPosition position, out uint matches);
+    [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate ushort Search_NIFReadEntries(ushort collection, ref NotesCollectionPosition position, ushort skipNavigator, uint skipCount, ushort returnNavigator, uint returnCount, uint readMask, out nint buffer, out ushort bufferLength, out uint entriesSkipped, out uint entriesReturned, out ushort signalFlags);
     [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate nint Search_OSLockObject(nint handle);
     [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate void Search_OSUnlockObject(nint handle);
     [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate ushort Search_OSMemFree(nint handle);
@@ -271,7 +271,7 @@ internal sealed partial class NotesNativeApi
     [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate ushort Search_NSFSearchProc(nint parameter, nint match, nint summary);
     [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate ushort Search_NSFSearch(nint db, nint formula, nint viewTitle, ushort searchFlags, ushort noteClassMask, nint since, Search_NSFSearchProc callback, nint callbackParameter, nint until);
     [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate ushort Search_FTOpenSearch(out nint search);
-    [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate ushort Search_FTSearch(nint db, ref nint search, nint collection, nint query, uint options, ushort limit, nint idTable, out uint numDocs, nint reserved, out nint results);
+    [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate ushort Search_FTSearch(nint db, ref nint search, ushort collection, nint query, uint options, ushort limit, nint idTable, out uint numDocs, nint reserved, out nint results);
     [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate ushort Search_FTCloseSearch(nint search);
     [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate int Search_IDScan(nint table, int first, ref uint noteId);
     [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate ushort Search_AgentOpen(nint db, uint noteId, out nint agent);

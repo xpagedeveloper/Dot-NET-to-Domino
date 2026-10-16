@@ -2,6 +2,10 @@
 
 Native .NET wrappers for the HCL Notes/Domino C API.
 
+[Databasoperationer med C#-exempel: titel, replica-ID och kopiering](docs/database-operations.sv.md).
+[Signera dokument och hantera objektens livslängd](docs/document-signatures.sv.md).
+[Felsökning av lokal databas och DXL-import](docs/database-create-troubleshooting.sv.md).
+
 Dot-NET-to-Domino provides a managed object model inspired by the HCL Notes object model while calling the native Notes/Domino C API directly.
 
 ## Goals
@@ -43,6 +47,19 @@ Console.WriteLine(db.IsOpen);
 
 The HCL Notes or Domino native runtime must already be installed and licensed on the machine running the application.
 
+## Null safety
+
+The NuGet assembly enables C# nullable reference annotations and treats compiler warnings as errors when building this repository. APIs that may not find a Notes object return nullable types, for example `NotesDocument?`:
+
+```csharp
+var document = db.GetDocumentByUNID(unid)
+    ?? throw new InvalidOperationException("The document could not be opened.");
+
+Console.WriteLine(document.ParentDatabase.ReplicaID);
+```
+
+Required arguments are validated before native calls and produce clear `ArgumentNullException`, `ArgumentException`, or `ArgumentOutOfRangeException` errors. A member access on a variable that is already null happens in the caller before the library can run; use nullable warnings and an explicit null check as shown above.
+
 ## Repository layout
 
 ```text
@@ -74,6 +91,9 @@ Runtime parity notes:
 - [NotesAgent runtime parity](docs/agent-runtime-parity.md)
 - [XPScript Notes surface gap audit](docs/xpscript-missing-notes-surface.md)
 - [Machine-readable IntelliSense API reference](docs/intellisense-api-reference.md)
+- [Third-party reference notices and licenses](THIRD-PARTY-NOTICES.md)
+- [Project NOTICE](NOTICE)
+- [Licensing](docs/licensing.md)
 - `NotesStream`
 - `NotesDXLImporter`
 - `NotesDXLExporter`

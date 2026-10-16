@@ -24,14 +24,15 @@ public static class NotesViewNavigationExtensions
     public static NotesViewNavigator CreateViewNavMaxLevel(this NotesView view, int maxLevel)
     {
         ArgumentNullException.ThrowIfNull(view);
-        maxLevel = Math.Max(0, maxLevel);
+        if (maxLevel < 0) throw new ArgumentOutOfRangeException(nameof(maxLevel), maxLevel, "'maxLevel' cannot be negative.");
         return new NotesViewNavigator(view.Parent.Parent, view, view.Parent, ReadRows(view).Where(r => r.Level <= maxLevel));
     }
 
     public static NotesViewNavigator CreateViewNavFromCategory(this NotesView view, string category)
     {
         ArgumentNullException.ThrowIfNull(view);
-        category ??= string.Empty;
+        ArgumentException.ThrowIfNullOrWhiteSpace(category);
+        category = category.Trim();
         var rows = ReadRows(view);
         var root = rows.FirstOrDefault(r => r.Kind == NotesViewEntryKind.Category && r.GetColumnValues().Any(v => string.Equals(Convert.ToString(v), category, StringComparison.OrdinalIgnoreCase)));
         return root is null
@@ -66,7 +67,8 @@ public static class NotesViewNavigationExtensions
     public static NotesViewEntry? GetEntryByKey(this NotesView view, string key)
     {
         ArgumentNullException.ThrowIfNull(view);
-        var ids = view.Parent.Parent.Api.FindViewByTextKey(view.Handle, key ?? string.Empty, 1, true);
+        ArgumentException.ThrowIfNullOrWhiteSpace(key);
+        var ids = view.Parent.Parent.Api.FindViewByTextKey(view.Handle, key.Trim(), 1, true);
         if (ids.Count == 0) return null;
         var row = ReadRows(view).FirstOrDefault(r => r.IsDocument && r.NoteId == ids[0]);
         return row is null ? null : new NotesViewEntry(view.Parent.Parent, view, view.Parent, row);
@@ -75,7 +77,8 @@ public static class NotesViewNavigationExtensions
     public static NotesViewEntryCollection GetAllEntriesByKey(this NotesView view, string key)
     {
         ArgumentNullException.ThrowIfNull(view);
-        var ids = new HashSet<uint>(view.Parent.Parent.Api.FindViewByTextKey(view.Handle, key ?? string.Empty, 0, true));
+        ArgumentException.ThrowIfNullOrWhiteSpace(key);
+        var ids = new HashSet<uint>(view.Parent.Parent.Api.FindViewByTextKey(view.Handle, key.Trim(), 0, true));
         return new NotesViewEntryCollection(view.Parent.Parent, view, view.Parent, ReadRows(view).Where(r => r.IsDocument && ids.Contains(r.NoteId)));
     }
 
@@ -83,7 +86,7 @@ public static class NotesViewNavigationExtensions
     {
         ArgumentNullException.ThrowIfNull(view);
         var session = view.Parent.Parent;
-        var user = string.IsNullOrWhiteSpace(userName) ? session.Username : userName;
+        var user = string.IsNullOrWhiteSpace(userName) ? session.UserName : userName;
         return new NotesViewEntryCollection(session, view, view.Parent, ReadRows(view).Where(r => r.IsDocument && !session.Api.IsDocumentUnread(view.Parent.Handle, r.NoteId, user)));
     }
 
@@ -91,7 +94,7 @@ public static class NotesViewNavigationExtensions
     {
         ArgumentNullException.ThrowIfNull(view);
         var session = view.Parent.Parent;
-        var user = string.IsNullOrWhiteSpace(userName) ? session.Username : userName;
+        var user = string.IsNullOrWhiteSpace(userName) ? session.UserName : userName;
         return new NotesViewEntryCollection(session, view, view.Parent, ReadRows(view).Where(r => r.IsDocument && session.Api.IsDocumentUnread(view.Parent.Handle, r.NoteId, user)));
     }
 
@@ -99,7 +102,7 @@ public static class NotesViewNavigationExtensions
     {
         ArgumentNullException.ThrowIfNull(view);
         var session = view.Parent.Parent;
-        var user = string.IsNullOrWhiteSpace(userName) ? session.Username : userName;
+        var user = string.IsNullOrWhiteSpace(userName) ? session.UserName : userName;
         return new NotesViewNavigator(session, view, view.Parent, ReadRows(view).Where(r => r.IsDocument && session.Api.IsDocumentUnread(view.Parent.Handle, r.NoteId, user)));
     }
 
@@ -110,7 +113,7 @@ public static class NotesViewNavigationExtensions
     {
         ArgumentNullException.ThrowIfNull(view);
         var session = view.Parent.Parent;
-        var user = string.IsNullOrWhiteSpace(userName) ? session.Username : userName;
+        var user = string.IsNullOrWhiteSpace(userName) ? session.UserName : userName;
         foreach (var row in ReadRows(view))
             if (row.IsDocument) session.Api.SetDocumentUnread(view.Parent.Handle, row.NoteId, user, unread);
     }
@@ -165,6 +168,10 @@ public sealed class NotesViewEntry : NotesObject
     }
     public object?[] ColumnValues => Row.GetColumnValues();
     public int IndentLevel => Row.IndentLevel;
+    /// <summary>Gets the zero-based view hierarchy level.</summary>
+    public int Level => Row.Level;
+    /// <summary>Gets the canonical position in the view index.</summary>
+    public string Position => Row.Position;
     public int ColumnIndentLevel => Row.IndentLevel;
     public int ChildCount => NotesViewNavigationExtensions.ReadRows(_view).Count(r => NotesViewNavigationExtensions.IsDirectChild(Row, r));
     public int DescendantCount => NotesViewNavigationExtensions.ReadRows(_view).Count(r => NotesViewNavigationExtensions.IsDescendant(Row, r));
@@ -181,13 +188,21 @@ public sealed class NotesViewEntry : NotesObject
     public bool IsDocument => Row.Kind == NotesViewEntryKind.Document;
     public bool IsCategory => Row.Kind == NotesViewEntryKind.Category;
     public bool IsTotal => Row.Kind == NotesViewEntryKind.Total;
+    /// <summary>Gets whether this document is unread for the current session user.</summary>
+    public bool IsUnread => Row.IsDocument && Session.Api.IsDocumentUnread(_database.Handle, Row.NoteId, Session.UserName);
+    /// <summary>Gets whether the current user can open this entry's document.</summary>
+    public bool HasReaderAccess => !Row.IsDocument || Document is not null;
     public bool IsValid => !IsRecycled && _row is not null;
-    public string GetPosition(string separator = ".") => separator == "." ? Row.Position : Row.Position.Replace(".", separator ?? string.Empty, StringComparison.Ordinal);
+    public string GetPosition(string separator = ".")
+    {
+        ArgumentNullException.ThrowIfNull(separator);
+        return separator == "." ? Row.Position : Row.Position.Replace(".", separator, StringComparison.Ordinal);
+    }
     public bool GetRead(string? userName = null)
     {
         EnsureAlive();
         if (!Row.IsDocument) return true;
-        var user = string.IsNullOrWhiteSpace(userName) ? Session.Username : userName;
+        var user = string.IsNullOrWhiteSpace(userName) ? Session.UserName : userName;
         return !Session.Api.IsDocumentUnread(_database.Handle, Row.NoteId, user);
     }
     protected override void ReleaseNative() => _row = null;
@@ -211,14 +226,45 @@ public sealed class NotesViewEntryCollection : NotesObject, IReadOnlyCollection<
         _replicaId = session.Api.GetDatabaseReplicaId(database.Handle);
     }
 
-    public NotesView Parent => _view;
+    public NotesView Parent { get { EnsureAlive(); return _view; } }
     public int Count { get { EnsureAlive(); return _rows.Length; } }
+    /// <summary>Gets the document NoteIDs represented by this view collection.</summary>
+    public IReadOnlyList<uint> NoteIds { get { EnsureAlive(); return _rows.Where(row => row.IsDocument).Select(row => row.NoteId).ToArray(); } }
+    /// <summary>Gets the document NoteIDs represented by this view collection as hexadecimal strings.</summary>
+    public IReadOnlyList<string> NoteIdStrings { get { EnsureAlive(); return NoteIds.Select(id => id.ToString("X8", System.Globalization.CultureInfo.InvariantCulture)).ToArray(); } }
+    /// <summary>Gets the number of pages for the supplied page size.</summary>
+    public int GetPageCount(int pageSize)
+    {
+        EnsureAlive();
+        if (pageSize < 1) throw new ArgumentOutOfRangeException(nameof(pageSize));
+        return (_rows.Length + pageSize - 1) / pageSize;
+    }
     public string Query { get { EnsureAlive(); return _query; } }
     public NotesViewEntry? GetFirstEntry() => OpenAt(_rows.Length == 0 ? -1 : 0);
     public NotesViewEntry? GetLastEntry() => OpenAt(_rows.Length == 0 ? -1 : _rows.Length - 1);
     public NotesViewEntry? GetNextEntry(NotesViewEntry entry) => MoveFromEntry(entry, 1);
     public NotesViewEntry? GetPrevEntry(NotesViewEntry entry) => MoveFromEntry(entry, -1);
     public NotesViewEntry? GetNthEntry(int oneBasedIndex) => OpenAt(oneBasedIndex <= 0 ? -1 : oneBasedIndex - 1);
+
+    /// <summary>Returns a one-based page of entries without opening the documents.</summary>
+    public IReadOnlyList<NotesViewEntry> GetPage(int oneBasedStart, int pageSize)
+    {
+        EnsureAlive();
+        if (oneBasedStart < 1) throw new ArgumentOutOfRangeException(nameof(oneBasedStart));
+        if (pageSize < 1) throw new ArgumentOutOfRangeException(nameof(pageSize));
+        var start = oneBasedStart - 1;
+        return _rows.Skip(start).Take(pageSize).Select(row => new NotesViewEntry(Session, _view, _database, row)).ToArray();
+    }
+
+    /// <summary>Refreshes the collection from the current view index and returns the new count.</summary>
+    public int Refresh()
+    {
+        EnsureAlive();
+        var selected = new HashSet<uint>(_rows.Select(row => row.NoteId));
+        _rows = NotesViewNavigationExtensions.ReadRows(_view).Where(row => row.IsDocument && selected.Contains(row.NoteId)).ToArray();
+        ResetCursor();
+        return _rows.Length;
+    }
 
     public NotesViewEntry? GetEntry(NotesDocument document)
     {
@@ -269,7 +315,9 @@ public sealed class NotesViewEntryCollection : NotesObject, IReadOnlyCollection<
     public void FTSearch(string query, int maxDocs = 0)
     {
         EnsureAlive();
-        _query = query ?? string.Empty;
+        ArgumentException.ThrowIfNullOrWhiteSpace(query);
+        if (maxDocs < 0) throw new ArgumentOutOfRangeException(nameof(maxDocs), maxDocs, "'maxDocs' cannot be negative.");
+        _query = query.Trim();
         var ids = new HashSet<uint>(Session.Api.FullTextSearch(_database.Handle, _view.Handle, _query, maxDocs));
         _rows = _rows.Where(r => ids.Contains(r.NoteId)).ToArray();
         ResetCursor();
@@ -281,14 +329,16 @@ public sealed class NotesViewEntryCollection : NotesObject, IReadOnlyCollection<
     public void PutAllInFolder(string folderName, bool createOnFail = false)
     {
         EnsureAlive();
-        foreach (var row in _rows) Session.Api.PutDocumentInFolder(_database.Handle, row.NoteId, folderName, createOnFail);
+        ArgumentException.ThrowIfNullOrWhiteSpace(folderName);
+        foreach (var row in _rows) Session.Api.PutDocumentInFolder(_database.Handle, row.NoteId, folderName.Trim(), createOnFail);
         ResetCursor();
     }
 
     public void RemoveAllFromFolder(string folderName)
     {
         EnsureAlive();
-        foreach (var row in _rows) Session.Api.RemoveDocumentFromFolder(_database.Handle, row.NoteId, folderName);
+        ArgumentException.ThrowIfNullOrWhiteSpace(folderName);
+        foreach (var row in _rows) Session.Api.RemoveDocumentFromFolder(_database.Handle, row.NoteId, folderName.Trim());
         ResetCursor();
     }
 
@@ -384,7 +434,7 @@ public sealed class NotesViewEntryCollection : NotesObject, IReadOnlyCollection<
     private void MarkAll(string? userName, bool unread)
     {
         EnsureAlive();
-        var user = string.IsNullOrWhiteSpace(userName) ? Session.Username : userName;
+        var user = string.IsNullOrWhiteSpace(userName) ? Session.UserName : userName;
         foreach (var row in _rows) Session.Api.SetDocumentUnread(_database.Handle, row.NoteId, user, unread);
         ResetCursor();
     }
@@ -410,6 +460,7 @@ public sealed class NotesViewNavigator : NotesObject
         _database = database;
         _rows = rows.ToArray();
         _replicaId = session.Api.GetDatabaseReplicaId(database.Handle);
+        if (cacheSize < 0 || cacheSize > 512) throw new ArgumentOutOfRangeException(nameof(cacheSize), cacheSize, "'cacheSize' must be between 0 and 512.");
         _bufferMaxEntries = cacheSize;
         _cacheSize = Math.Clamp(cacheSize, 0, 512);
     }
@@ -419,7 +470,7 @@ public sealed class NotesViewNavigator : NotesObject
     public int BufferMaxEntries
     {
         get { EnsureAlive(); _bufferMaxEntries = Math.Clamp(_bufferMaxEntries, 0, 512); return _bufferMaxEntries; }
-        set { EnsureAlive(); _bufferMaxEntries = value; _cacheSize = Math.Clamp(value, 0, 512); }
+        set { EnsureAlive(); if (value < 0 || value > 512) throw new ArgumentOutOfRangeException(nameof(value), value, "'BufferMaxEntries' must be between 0 and 512."); _bufferMaxEntries = value; _cacheSize = value; }
     }
     public int CacheSize { get => BufferMaxEntries; set => BufferMaxEntries = value; }
     public int MaxLevel { get { EnsureAlive(); return _maxLevel == int.MaxValue ? 30 : _maxLevel; } set { EnsureAlive(); _maxLevel = Math.Max(0, value); NormalizeCurrent(); } }
@@ -484,7 +535,8 @@ public sealed class NotesViewNavigator : NotesObject
     public NotesViewEntry? GetPos(string position, string separator = ".")
     {
         EnsureAlive();
-        position ??= string.Empty;
+        ArgumentException.ThrowIfNullOrWhiteSpace(position);
+        ArgumentNullException.ThrowIfNull(separator);
         if (!string.IsNullOrEmpty(separator) && separator != ".") position = position.Replace(separator, ".", StringComparison.Ordinal);
         var index = Array.FindIndex(_rows, r => IsVisible(r) && string.Equals(r.Position, position, StringComparison.Ordinal));
         return OpenAt(index, index >= 0);
@@ -584,7 +636,7 @@ public sealed class NotesViewNavigator : NotesObject
     private void MarkAll(string? userName, bool unread)
     {
         EnsureAlive();
-        var user = string.IsNullOrWhiteSpace(userName) ? Session.Username : userName;
+        var user = string.IsNullOrWhiteSpace(userName) ? Session.UserName : userName;
         foreach (var row in _rows) if (row.IsDocument) Session.Api.SetDocumentUnread(_database.Handle, row.NoteId, user, unread);
     }
 }

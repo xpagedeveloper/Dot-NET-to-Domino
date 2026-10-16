@@ -10,6 +10,38 @@ internal readonly record struct NotesRichTextRecordRewrite(int SegmentIndex, int
 
 internal static class NotesRichTextCdTransform
 {
+    internal static IReadOnlyList<NotesRichTextRecordRewrite> Compact(IReadOnlyList<NotesRichTextRecordData> records)
+    {
+        var result = new List<NotesRichTextRecordRewrite>();
+        foreach (var record in records)
+        {
+            var next = NotesRichTextRecordRewrite.Preserve(record);
+            // Join only immediately adjacent, identical-font CDTEXT records.
+            // Keep paragraph, HTML, hotspot and unknown-record boundaries.
+            // Physical item boundaries are storage details and may be coalesced.
+            if (result.Count > 0 && next.Signature == 0xFF85 && next.Data.Length >= 8)
+            {
+                var previous = result[^1];
+                var length = previous.Data.Length + next.Data.Length - 8;
+                if (previous.Signature == next.Signature &&
+                    previous.Data.Length >= 8 && length <= 16000 &&
+                    previous.Data.AsSpan(4, 4).SequenceEqual(next.Data.AsSpan(4, 4)))
+                {
+                    var merged = new byte[length];
+                    previous.Data.CopyTo(merged, 0);
+                    next.Data.AsSpan(8).CopyTo(merged.AsSpan(previous.Data.Length));
+                    merged[2] = (byte)length;
+                    merged[3] = (byte)(length >> 8);
+                    result[^1] = previous with { Data = merged };
+                    continue;
+                }
+            }
+            result.Add(next);
+        }
+        ValidateForPersistence(result);
+        return result;
+    }
+
     internal static IReadOnlyList<NotesRichTextRecordRewrite> Preserve(IReadOnlyList<NotesRichTextRecordData> records) =>
         Transform(records, static record => NotesRichTextRecordRewrite.Preserve(record));
 
@@ -101,9 +133,14 @@ internal sealed partial class NotesNativeApi
         using var thread = EnterThread();
         NotesRichTextCdTransform.ValidateForPersistence(replacement);
         var backup = NotesRichTextCdTransform.Preserve(original);
+        var flags = HasItem(note, itemName) ? GetItemMetadata(note, itemName).Flags : (ushort)0;
         var segmentCount = original.Count == 0 ? 0 : original.Max(r => r.SegmentIndex) + 1;
         DeleteCompositeItemsForRewrite(note, itemName, segmentCount);
-        try { WriteCompositeRecordsForRewrite(note, itemName, replacement); }
+        try
+        {
+            WriteCompositeRecordsForRewrite(note, itemName, replacement);
+            RestoreCompositeFlags(note, itemName, flags);
+        }
         catch
         {
             try
@@ -111,9 +148,48 @@ internal sealed partial class NotesNativeApi
                 var replacementSegments = replacement.Count == 0 ? 0 : replacement.Max(r => r.SegmentIndex) + 1;
                 DeleteCompositeItemsForRewrite(note, itemName, replacementSegments);
                 WriteCompositeRecordsForRewrite(note, itemName, backup);
+                RestoreCompositeFlags(note, itemName, flags);
             }
             catch { }
             throw;
+        }
+    }
+
+    private void RestoreCompositeFlags(nint note, string itemName, ushort flags)
+    {
+        EnsureInitialized();
+        using var thread = EnterThread();
+        using var name = ToLmbcs(itemName);
+        var status = Resolve<Attachment_NSFItemInfo>("NSFItemInfo")(note, name.Pointer, checked((ushort)name.Length),
+            out var block, out var type, out var valueBlock, out var valueLength);
+        var segments = new List<(NotesBlockId Block, ushort Flags, byte[] Data)>();
+        while (status == 0)
+        {
+            if (type == NotesTypeComposite)
+            {
+                Resolve<ItemEx_NSFItemQuery>("NSFItemQuery")(note, block, 0, 0, out _, out var segmentFlags,
+                    out _, out _, out _);
+                var info = new NotesItemMetadata(itemName, block, valueBlock, segmentFlags, type, valueLength);
+                segments.Add((block, segmentFlags, CopyItemValueWithoutType(info)));
+            }
+            status = Resolve<Attachment_NSFItemInfoNext>("NSFItemInfoNext")(note, block, name.Pointer, checked((ushort)name.Length),
+                out var next, out type, out valueBlock, out valueLength);
+            block = next;
+        }
+        if (segments.All(segment => segment.Flags == flags)) return;
+        // Append/remove every segment in order: changing just the first one would
+        // move it behind the continuation items and reorder the rich text.
+        foreach (var segment in segments)
+        {
+            var data = Marshal.AllocHGlobal(Math.Max(1, segment.Data.Length));
+            try
+            {
+                Marshal.Copy(segment.Data, 0, data, segment.Data.Length);
+                CheckStatus(Resolve<Ops_NSFItemAppend>("NSFItemAppend")(note, flags, name.Pointer, checked((ushort)name.Length),
+                    NotesTypeComposite, data, checked((uint)segment.Data.Length)), "NSFItemAppend(rich text flags)");
+                RemoveItemByBlock(note, segment.Block);
+            }
+            finally { Marshal.FreeHGlobal(data); }
         }
     }
 
@@ -122,7 +198,12 @@ internal sealed partial class NotesNativeApi
         if (count <= 0) return;
         using var name = ToLmbcs(itemName);
         for (var i = 0; i < count; i++)
-            CheckStatus(Resolve<Mutation_NSFItemDelete>("NSFItemDelete")(note, name.Pointer, checked((ushort)name.Length)), "NSFItemDelete(rich text rewrite)");
+        {
+            var status = Resolve<Mutation_NSFItemDelete>("NSFItemDelete")(note, name.Pointer, checked((ushort)name.Length));
+            // Notes may remove all same-name segments in the first deletion.
+            if ((status & ErrMask) == ErrItemNotFound) break;
+            CheckStatus(status, "NSFItemDelete(rich text rewrite)");
+        }
     }
 
     private void WriteCompositeRecordsForRewrite(nint note, string itemName, IReadOnlyList<NotesRichTextRecordRewrite> records)

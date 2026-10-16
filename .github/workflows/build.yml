@@ -25,11 +25,17 @@ jobs:
         run: dotnet restore test/DotNetToDomino.Integration/DotNetToDomino.Integration.csproj
       - name: Build integration test
         run: dotnet build test/DotNetToDomino.Integration/DotNetToDomino.Integration.csproj -c Release --no-restore
+      - name: Run offline unit tests
+        run: dotnet run --project test/DotNetToDomino.OfflineTests/DotNetToDomino.OfflineTests.csproj -c Release
       - name: Validate IntelliSense API documentation
         shell: pwsh
         run: ./scripts/validate-intellisense-api-docs.ps1
       - name: Pack
         run: dotnet pack src/DotNetToDomino/DotNetToDomino.csproj -c Release --no-build -o artifacts
+      - name: Restore package consumer
+        run: dotnet restore test/DotNetToDomino.PackageConsumer/DotNetToDomino.PackageConsumer.csproj --force --no-cache
+      - name: Build and run package consumer
+        run: dotnet run --project test/DotNetToDomino.PackageConsumer/DotNetToDomino.PackageConsumer.csproj -c Release --no-restore
       - uses: actions/upload-artifact@v4
         with:
           name: DotNetToDomino-nuget

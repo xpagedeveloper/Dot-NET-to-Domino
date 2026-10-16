@@ -45,5 +45,18 @@ public abstract class NotesObject : IDisposable
         Session.EnsureAlive();
     }
 
+    protected static T Require<T>(T? value, string parameterName) where T : class =>
+        value ?? throw new ArgumentNullException(parameterName, $"'{parameterName}' cannot be null.");
+
+    protected static string RequireText(string? value, string parameterName) =>
+        string.IsNullOrWhiteSpace(value)
+            ? throw new ArgumentException($"'{parameterName}' cannot be null, empty, or whitespace.", parameterName)
+            : value.Trim();
+
+    protected static int RequireRange(int value, int minimum, int maximum, string parameterName) =>
+        value < minimum || value > maximum
+            ? throw new ArgumentOutOfRangeException(parameterName, value, $"'{parameterName}' must be between {minimum} and {maximum}.")
+            : value;
+
     protected abstract void ReleaseNative();
 }

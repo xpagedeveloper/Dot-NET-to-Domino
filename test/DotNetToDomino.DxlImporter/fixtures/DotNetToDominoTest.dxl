@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE database SYSTEM "xmlschemas/domino_12_0.dtd">
+<database xmlns="http://www.lotus.com/dxl" version="12.0" maintenanceversion="0.0" replicaid="0000000000000000">
+  <databaseinfo dbid="DotNetToDominoTest" odsversion="52"/>
+  <note class="form" default="true">
+    <noteinfo noteid="00000001" unid="00000000000000000000000000000001" sequence="1"/>
+    <item name="$TITLE"><text>DotNetToDominoTestForm</text></item>
+    <item name="$Flags"><text>g</text></item>
+    <item name="$Body"><richtext><pardef id="1"/><par def="1"><run>DotNetToDomino test form</run></par></richtext></item>
+  </note>
+  <note class="document">
+    <noteinfo noteid="00000002" unid="00000000000000000000000000000002" sequence="1"/>
+    <item name="Form"><text>DotNetToDominoTestForm</text></item>
+    <item name="Subject"><text>DotNetToDomino test document</text></item>
+    <item name="Status"><text>STATUS OK</text></item>
+    <item name="Body"><richtext>
+      <pardef id="1"/>
+      <par def="1">Rich text fixture</par>
+      <table><tablerow>
+        <tablecell><par def="1">First cell</par></tablecell>
+        <tablecell><par def="1">Second cell</par></tablecell>
+      </tablerow></table>
+      <section expanded="true">
+        <sectiontitle color="blue"><text>Test section</text></sectiontitle>
+        <par def="1">Section contents</par>
+      </section>
+      <par def="1"><doclink document="00000000000000000000000000000002" description="Test document">Test link</doclink></par>
+    </richtext></item>
+  </note>
+  <view name="DotNetToDominoTestView" publicaccess="false" designerversion="12.0">
+    <code event="selection"><formula>Form = "DotNetToDominoTestForm"</formula></code>
+    <column itemname="Subject" width="24" sort="ascending" resizable="true">
+      <columnheader title="Subject"/>
+      <code event="value"><formula>Subject</formula></code>
+    </column>
+  </view>
+  <agent name="DotNetToDominoTestAgent" publicaccess="false" designerversion="12.0">
+    <trigger type="agentlist"/>
+    <documentset type="all"/>
+    <code event="options"><lotusscript>Option Public
+Option Declare
+</lotusscript></code>
+    <code event="initialize"><lotusscript><![CDATA[Sub Initialize
+    Print "STATUS OK"
+End Sub]]></lotusscript></code>
+  </agent>
+</database>

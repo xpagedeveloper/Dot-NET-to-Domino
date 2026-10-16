@@ -14,27 +14,44 @@ public sealed class NotesDocumentCollection : NotesObject, IReadOnlyCollection<u
     private NotesTimeDate _untilTime;
     private uint[]? _documentNoteIds;
     private uint[]? _designNoteIds;
+    private readonly NotesDatabase _parent;
 
     internal NotesDocumentCollection(NotesSession session, NotesDatabase parent, IEnumerable<uint> noteIds) : base(session)
     {
-        Parent = parent;
-        _noteIds = noteIds.Distinct().ToArray();
+        _parent = parent;
+        _noteIds = noteIds.Select(NormalizeNoteId).Distinct().ToArray();
         _replicaId = parent.IsOpen ? session.Api.GetDatabaseReplicaId(parent.Handle) : string.Empty;
     }
 
-    public NotesDatabase Parent { get; }
+    public NotesDatabase Parent { get { EnsureAlive(); return _parent; } }
     public int Count { get { EnsureAlive(); return _noteIds.Length; } }
+    /// <summary>Gets all NoteIDs in this collection without opening the documents.</summary>
+    public IReadOnlyList<uint> NoteIds { get { EnsureAlive(); return _noteIds.ToArray(); } }
+    /// <summary>Gets all NoteIDs in this collection as eight-character hexadecimal strings.</summary>
+    public IReadOnlyList<string> NoteIdStrings { get { EnsureAlive(); return _noteIds.Select(id => id.ToString("X8", CultureInfo.InvariantCulture)).ToArray(); } }
+    public NotesDocumentCollection Clone() { EnsureAlive(); return Parent.Own(new NotesDocumentCollection(Session, Parent, _noteIds)); }
     public string? FirstNoteId => Count == 0 ? null : _noteIds[0].ToString("X8", CultureInfo.InvariantCulture);
     public NotesDateTime? UntilTime { get { EnsureAlive(); return _hasModifiedMetadata ? NotesDateTime.FromNative(Session, _untilTime) : null; } }
     public NotesDocumentCollection Documents { get { EnsureAlive(); EnsureModifiedMetadata(); return CreateModifiedSubset(_documentNoteIds!, true); } }
     public NotesDocumentCollection DesignElements { get { EnsureAlive(); EnsureModifiedMetadata(); return CreateModifiedSubset(_designNoteIds!, false); } }
-    internal IReadOnlyList<uint> NoteIds { get { EnsureAlive(); return _noteIds; } }
+
+    public bool Contains(NotesDocument document)
+    {
+        ArgumentNullException.ThrowIfNull(document); EnsureAlive(); EnsureSameReplica(document.ParentDatabase);
+        return Array.IndexOf(_noteIds, document.NoteId) >= 0;
+    }
+
+    public bool Contains(NotesDocumentCollection collection)
+    {
+        ArgumentNullException.ThrowIfNull(collection); EnsureAlive(); EnsureSameReplica(collection.Parent);
+        var current = _noteIds.ToHashSet(); return collection._noteIds.All(current.Contains);
+    }
 
     internal void InitializeModifiedMetadata(NotesTimeDate untilTime, IEnumerable<uint> documentNoteIds, IEnumerable<uint> designNoteIds)
     {
         _untilTime = untilTime;
-        _documentNoteIds = documentNoteIds.Distinct().ToArray();
-        _designNoteIds = designNoteIds.Distinct().ToArray();
+        _documentNoteIds = documentNoteIds.Select(NormalizeNoteId).Distinct().ToArray();
+        _designNoteIds = designNoteIds.Select(NormalizeNoteId).Distinct().ToArray();
         _hasModifiedMetadata = true;
     }
 
@@ -42,6 +59,15 @@ public sealed class NotesDocumentCollection : NotesObject, IReadOnlyCollection<u
     {
         EnsureAlive();
         return _noteIds.Length == 0 ? ResetAndNull() : OpenAt(0);
+    }
+
+    public NotesDocument? GetLastDocument() => EnsureAndOpen(_noteIds.Length - 1);
+    public NotesDocument? GetNthDocument(int index) => EnsureAndOpen(index - 1);
+    public NotesDocument? GetPrevDocument(NotesDocument document)
+    {
+        ArgumentNullException.ThrowIfNull(document); EnsureAlive(); EnsureSameReplica(document.ParentDatabase);
+        var index = Array.IndexOf(_noteIds, document.NoteId);
+        return EnsureAndOpen(index - 1);
     }
 
     public NotesDocument? GetNextDocument(NotesDocument document)
@@ -93,6 +119,22 @@ public sealed class NotesDocumentCollection : NotesObject, IReadOnlyCollection<u
         _noteIds = ids.ToArray();
     }
 
+    public void Merge(NotesDocument document) { AddDocument(document); }
+    public void Merge(NotesDocumentCollection collection) { AddDocument(collection); }
+    public void Intersect(NotesDocument document)
+    {
+        ArgumentNullException.ThrowIfNull(document); EnsureAlive(); EnsureSameReplica(document.ParentDatabase);
+        if (Array.IndexOf(_noteIds, document.NoteId) < 0) _noteIds = [];
+        ResetCursor();
+    }
+    public void Intersect(NotesDocumentCollection collection)
+    {
+        ArgumentNullException.ThrowIfNull(collection); EnsureAlive(); EnsureSameReplica(collection.Parent);
+        var keep = collection._noteIds.ToHashSet(); _noteIds = _noteIds.Where(keep.Contains).ToArray(); ResetCursor();
+    }
+    public void Subtract(NotesDocument document) { RemoveDocument(document); }
+    public void Subtract(NotesDocumentCollection collection) { RemoveDocument(collection); }
+
     public void RemoveDocument(NotesDocument document)
     {
         ArgumentNullException.ThrowIfNull(document);
@@ -107,6 +149,33 @@ public sealed class NotesDocumentCollection : NotesObject, IReadOnlyCollection<u
         RemoveIds(collection._noteIds);
     }
 
+    public void StampAll(string itemName, object? value)
+    {
+        EnsureAlive(); ArgumentException.ThrowIfNullOrWhiteSpace(itemName);
+        foreach (var noteId in _noteIds.ToArray()) using (var document = Parent.GetDocumentByID(noteId) ?? throw new NotesException(4091, $"NotesDocument {noteId:X8} could not be opened while stamping.")) { document.SetValue(itemName.Trim(), value); document.Save(); }
+    }
+
+    public void MarkAllRead(string? userName = null) { EnsureAlive(); foreach (var id in _noteIds) Session.Api.SetDocumentUnread(Parent.Handle, id, string.IsNullOrWhiteSpace(userName) ? Session.UserName : userName, false); }
+    public void MarkAllUnread(string? userName = null) { EnsureAlive(); foreach (var id in _noteIds) Session.Api.SetDocumentUnread(Parent.Handle, id, string.IsNullOrWhiteSpace(userName) ? Session.UserName : userName, true); }
+    public void PutAllInFolder(string folderName, bool createOnFail = false) { EnsureAlive(); ArgumentException.ThrowIfNullOrWhiteSpace(folderName); foreach (var id in _noteIds) Session.Api.PutDocumentInFolder(Parent.Handle, id, folderName.Trim(), createOnFail); ResetCursor(); }
+    public void RemoveAllFromFolder(string folderName) { EnsureAlive(); ArgumentException.ThrowIfNullOrWhiteSpace(folderName); foreach (var id in _noteIds) Session.Api.RemoveDocumentFromFolder(Parent.Handle, id, folderName.Trim()); ResetCursor(); }
+    public void RemoveAll(bool force = false) { EnsureAlive(); _noteIds = _noteIds.Where(id => !Session.Api.DeleteNote(Parent.Handle, id, force)).ToArray(); ResetCursor(); }
+
+    /// <summary>Copies all items from a source document to every document in the collection and saves them.</summary>
+    public void StampAllMulti(NotesDocument sourceDocument)
+    {
+        EnsureAlive();
+        ArgumentNullException.ThrowIfNull(sourceDocument);
+        EnsureSameReplica(sourceDocument.ParentDatabase);
+        foreach (var noteId in _noteIds.ToArray())
+        {
+            if (sourceDocument.NoteId != 0 && (sourceDocument.NoteId & 0x7fffffffu) == noteId) continue;
+            using var document = Parent.GetDocumentByID(noteId) ?? throw new NotesException(4091, $"NotesDocument {noteId:X8} could not be opened while stamping.");
+            sourceDocument.CopyAllItems(document, true);
+            document.Save();
+        }
+    }
+
     public IEnumerator<uint> GetEnumerator() { EnsureAlive(); return ((IEnumerable<uint>)_noteIds).GetEnumerator(); }
     System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => GetEnumerator();
 
@@ -117,7 +186,7 @@ public sealed class NotesDocumentCollection : NotesObject, IReadOnlyCollection<u
         _designNoteIds = null;
         _hasModifiedMetadata = false;
         ResetCursor();
-        Parent.UnregisterChild(this);
+        _parent.UnregisterChild(this);
     }
 
     private NotesDocumentCollection CreateModifiedSubset(uint[] noteIds, bool documents)
@@ -142,6 +211,13 @@ public sealed class NotesDocumentCollection : NotesObject, IReadOnlyCollection<u
         return document;
     }
 
+    private NotesDocument? EnsureAndOpen(int index)
+    {
+        EnsureAlive();
+        if (index < 0 || index >= _noteIds.Length) return ResetAndNull();
+        return OpenAt(index);
+    }
+
     private NotesDocument? ResetAndNull() { ResetCursor(); return null; }
     private void ResetCursor() { _lastFetchedIndex = -1; _lastFetchedNoteId = 0; }
     private void RemoveIds(IEnumerable<uint> ids)
@@ -156,6 +232,7 @@ public sealed class NotesDocumentCollection : NotesObject, IReadOnlyCollection<u
         var replicaId = database.IsOpen ? Session.Api.GetDatabaseReplicaId(database.Handle) : database.ReplicaID;
         if (!string.Equals(_replicaId, replicaId, StringComparison.OrdinalIgnoreCase)) throw new ArgumentException("Notes object belongs to a different database replica.", nameof(database));
     }
+    private static uint NormalizeNoteId(uint noteId) => noteId & 0x7fffffffu;
 }
 
 /// <summary>Selection-driven collection of Notes data and design notes.</summary>
@@ -164,10 +241,11 @@ public sealed class NotesNoteCollection : NotesObject, IReadOnlyCollection<uint>
     private uint[] _noteIds = [];
     private bool _built;
     private DateTimeOffset _lastBuildUtc;
+    private readonly NotesDatabase _parent;
 
-    internal NotesNoteCollection(NotesSession session, NotesDatabase parent) : base(session) => Parent = parent;
+    internal NotesNoteCollection(NotesSession session, NotesDatabase parent) : base(session) { _parent = parent; }
 
-    public NotesDatabase Parent { get; }
+    public NotesDatabase Parent { get { EnsureAlive(); return _parent; } }
     public int Count { get { EnsureAlive(); RequireBuilt(); return _noteIds.Length; } }
     public string SelectionFormula { get; set; } = "@All";
     public NotesDateTime? SinceTime { get; set; }
@@ -206,7 +284,7 @@ public sealed class NotesNoteCollection : NotesObject, IReadOnlyCollection<uint>
     public void BuildCollection()
     {
         EnsureAlive();
-        _noteIds = Session.Api.BuildNoteCollection(Parent.Handle, SelectionFormula, BuildSelectionMask()).Distinct().OrderBy(id => id).ToArray();
+        _noteIds = Session.Api.BuildNoteCollection(Parent.Handle, SelectionFormula, BuildSelectionMask(), SinceTime?.NativeValue).Distinct().OrderBy(id => id).ToArray();
         _built = true;
         _lastBuildUtc = DateTimeOffset.UtcNow;
     }
@@ -229,6 +307,22 @@ public sealed class NotesNoteCollection : NotesObject, IReadOnlyCollection<uint>
     public void Intersect(NotesDocumentCollection collection) { ArgumentNullException.ThrowIfNull(collection); EnsureSameReplica(collection.Parent); Mutate(collection.NoteIds, 2); }
     public void Intersect(NotesNoteCollection collection) { ArgumentNullException.ThrowIfNull(collection); EnsureSameReplica(collection.Parent); Mutate(collection.NoteIds, 2); }
 
+    /// <summary>Copies all items from a source document to every selected note and saves them.</summary>
+    public void StampAllMulti(NotesDocument sourceDocument)
+    {
+        EnsureAlive();
+        RequireBuilt();
+        ArgumentNullException.ThrowIfNull(sourceDocument);
+        EnsureSameReplica(sourceDocument.ParentDatabase);
+        foreach (var noteId in _noteIds.ToArray())
+        {
+            if (sourceDocument.NoteId != 0 && (sourceDocument.NoteId & 0x7fffffffu) == noteId) continue;
+            using var document = Parent.GetDocumentByID(noteId) ?? throw new NotesException(4091, $"NotesDocument {noteId:X8} could not be opened while stamping.");
+            sourceDocument.CopyAllItems(document, true);
+            document.Save();
+        }
+    }
+
     public void SelectAllAdminNotes(bool value) { SelectACL = value; SelectReplicationFormulas = value; }
     public void SelectAllCodeElements(bool value) { SelectAgents = value; SelectDatabaseScript = value; SelectDataConnections = value; SelectMiscCodeElements = value; SelectOutlines = value; SelectScriptLibraries = value; }
     public void SelectAllDataNotes(bool value) { SelectDocuments = value; SelectProfiles = value; }
@@ -244,7 +338,7 @@ public sealed class NotesNoteCollection : NotesObject, IReadOnlyCollection<uint>
     {
         _noteIds = [];
         _built = false;
-        Parent.UnregisterChild(this);
+        _parent.UnregisterChild(this);
     }
 
     private uint BuildSelectionMask()

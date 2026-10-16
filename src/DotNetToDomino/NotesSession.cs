@@ -23,11 +23,12 @@ public sealed class NotesSession : IDisposable
         lock (SessionGate)
         {
             if (_activeSession is { IsRecycled: false }) throw new InvalidOperationException("Only one NotesSession may be active in a process at a time.");
+            NotesIni = string.IsNullOrWhiteSpace(notesIni) ? string.Empty : Path.GetFullPath(notesIni);
             _runtime = NotesRuntimeLibrary.Load(runtimeDirectory); _api = new NotesNativeApi(_runtime); RuntimeDirectory = _runtime.RuntimeDirectory;
-            NotesIni = string.IsNullOrWhiteSpace(notesIni) ? string.Empty : Path.GetFullPath(notesIni); var ini = ResolveNotesIniPath(RuntimeDirectory, NotesIni);
+            var ini = ResolveNotesIniPath(RuntimeDirectory, NotesIni);
             IniDir = ini.Length == 0 ? string.Empty : Path.GetDirectoryName(ini) ?? string.Empty; DataDir = ini.Length == 0 ? string.Empty : ReadNotesIniDataDirectory(ini, IniDir);
             Platform = ResolvePlatform(); NotesVersion = ResolveNotesVersion(_runtime.LibraryPath); NotesBuildVersion = ResolveBuildVersion(_runtime.LibraryPath);
-            try { _api.Initialize(NotesIni.Length == 0 ? null : NotesIni, idPassword); Username = _api.GetUserName(); CommonUsername = ExtractCommonName(_api.CanonicalizeName(Username)); _activeSession = this; }
+            try { _api.Initialize(NotesIni.Length == 0 ? null : NotesIni, idPassword); UserName = _api.GetUserName(); CommonUserName = ExtractCommonName(_api.CanonicalizeName(UserName)); International = new NotesInternational(this); _activeSession = this; }
             catch { try { _api.Terminate(); } catch { } _runtime.Dispose(); throw; }
         }
     }
@@ -37,42 +38,58 @@ public sealed class NotesSession : IDisposable
     public string NotesIni { get; }
     public string IniDir { get; }
     public string DataDir { get; }
-    public string Username { get; }
-    public string UserName => Username;
-    public string CommonUsername { get; }
-    public string CommonUserName => CommonUsername;
+    public string UserName { get; }
+    /// <summary>
+    /// The effective identity for this standalone native session. A fristående C API-session har ingen agent- eller
+    /// signerad körkontext, så den effektiva identiteten är den identitet som laddades från ID-filen.
+    /// </summary>
+    public string EffectiveUserName => UserName;
+    public string CommonUserName { get; }
     public string NotesVersion { get; }
     public long NotesBuildVersion { get; }
     public string Platform { get; }
+    /// <summary>Gets the regional settings associated with this Notes session.</summary>
+    public NotesInternational International { get; }
     public bool ConvertMIME { get; set; } = true;
     public bool IsRecycled => _recycled;
     internal NotesNativeApi Api => _api;
 
     public IReadOnlyList<NotesDatabase> AddressBooks { get { EnsureAlive(); return _api.GetAddressBooks().Select(book => new NotesDatabase(this, 0, book.Server, book.FilePath)).ToArray(); } }
-    public string HashPassword(string password) { EnsureAlive(); return _api.HashPassword(password); }
-    public bool VerifyPassword(string password, string hashedPassword) { EnsureAlive(); return _api.VerifyPassword(password, hashedPassword); }
+    public string HashPassword(string password) { EnsureAlive(); ArgumentException.ThrowIfNullOrWhiteSpace(password); return _api.HashPassword(password); }
+    public bool VerifyPassword(string password, string hashedPassword) { EnsureAlive(); ArgumentException.ThrowIfNullOrWhiteSpace(password); ArgumentException.ThrowIfNullOrWhiteSpace(hashedPassword); return _api.VerifyPassword(password, hashedPassword); }
     public string GetEnvironmentString(string name, bool system = false) { EnsureAlive(); return _api.GetEnvironmentString(ResolveEnvironmentVariableName(name, system)); }
     public int? GetEnvironmentValue(string name, bool system = false) { EnsureAlive(); var text = _api.GetEnvironmentString(ResolveEnvironmentVariableName(name, system)); if (text.Length == 0) return null; return int.TryParse(text, System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out var value) ? value : null; }
     public void SetEnvironmentVar(string name, object? value, bool system = false) { EnsureAlive(); var resolved = ResolveEnvironmentVariableName(name, system); _api.SetEnvironmentVariable(resolved, ResolveEnvironmentVariableValue(value)); }
+    /// <summary>Sends a command to a Domino server console and returns its LMBCS response.</summary>
+    /// <param name="server">Server name, or empty string (also <c>local</c>) for the local server.</param>
+    /// <param name="command">The Domino console command.</param>
+    public string SendConsoleCommand(string server, string command) { EnsureAlive(); return _api.SendConsoleCommand(NormalizeServerName(server), command); }
 
     public NotesDatabase? GetDatabase(string server, string filePath, bool createOnFail = true) { EnsureAlive(); var database = OpenDatabase(server, filePath); if (database.IsOpen || createOnFail) return database; database.Recycle(); return null; }
-    public NotesDatabase OpenDatabase(string server, string filePath) { EnsureAlive(); server = server?.Trim() ?? string.Empty; filePath = filePath?.Trim() ?? string.Empty; if (filePath.Length == 0) return new NotesDatabase(this, 0, server, filePath); try { return new NotesDatabase(this, _api.OpenDatabase(server, filePath), server, filePath); } catch (NotesException ex) { return new NotesDatabase(this, 0, server, filePath, openError: ex.Message); } }
-    public NotesDatabase OpenByReplicaID(string server, string replicaId) { EnsureAlive(); server = server?.Trim() ?? string.Empty; replicaId = (replicaId ?? string.Empty).Trim(); try { var filePath = _api.LocateDatabaseByReplicaId(server, replicaId); if (filePath.Length == 0) return new NotesDatabase(this, 0, server, filePath, replicaId); return new NotesDatabase(this, _api.OpenDatabase(server, filePath), server, filePath, replicaId); } catch (NotesException ex) { return new NotesDatabase(this, 0, server, string.Empty, replicaId, ex.Message); } }
-    public NotesDBDirectory GetDbDirectory(string? server = null) { EnsureAlive(); return new NotesDBDirectory(this, server?.Trim() ?? string.Empty); }
-    public NotesName CreateName(string value) { EnsureAlive(); return new NotesName(this, value ?? string.Empty); }
-    public NotesDateTime CreateDateTime(string value) { EnsureAlive(); return new NotesDateTime(this, value ?? string.Empty); }
+    public NotesDatabase OpenDatabase(string server, string filePath) { EnsureAlive(); ArgumentException.ThrowIfNullOrWhiteSpace(filePath); server = NotesSession.NormalizeServerName(server); filePath = filePath.Trim(); if (server.Length > 0 && Path.IsPathRooted(filePath)) throw new ArgumentException("An absolute database path is valid only when server is empty.", nameof(filePath)); try { return new NotesDatabase(this, _api.OpenDatabase(server, filePath), server, filePath); } catch (NotesException ex) { return new NotesDatabase(this, 0, server, filePath, openError: ex.Message); } }
+    public NotesDatabase OpenByReplicaID(string server, string replicaId) { EnsureAlive(); ArgumentException.ThrowIfNullOrWhiteSpace(replicaId); server = NotesSession.NormalizeServerName(server); replicaId = replicaId.Trim(); try { var filePath = _api.LocateDatabaseByReplicaId(server, replicaId); if (filePath.Length == 0) return new NotesDatabase(this, 0, server, filePath, replicaId); return new NotesDatabase(this, _api.OpenDatabase(server, filePath), server, filePath, replicaId); } catch (NotesException ex) { return new NotesDatabase(this, 0, server, string.Empty, replicaId, ex.Message); } }
+    public NotesDBDirectory GetDbDirectory(string? server = null) { EnsureAlive(); return new NotesDBDirectory(this, NotesSession.NormalizeServerName(server)); }
+    public NotesName CreateName(string value) { EnsureAlive(); ArgumentException.ThrowIfNullOrWhiteSpace(value); return new NotesName(this, value.Trim()); }
+    public NotesDateTime CreateDateTime(string? value) { EnsureAlive(); return string.IsNullOrWhiteSpace(value) ? CreateDateTimeNow() : new NotesDateTime(this, value.Trim()); }
     public NotesDateTime CreateDateTimeNow() { EnsureAlive(); return NotesDateTime.FromNative(this, _api.CurrentTimeDate()); }
     public NotesStream CreateStream() { EnsureAlive(); return new NotesStream(this); }
+    public NotesMail CreateMail() { EnsureAlive(); return new NotesMail(this); }
     public NotesDXLImporter CreateDXLImporter() { EnsureAlive(); return new NotesDXLImporter(this); }
     public NotesDXLExporter CreateDXLExporter() { EnsureAlive(); return new NotesDXLExporter(this); }
     public NotesRichTextStyle CreateRichTextStyle() { EnsureAlive(); return new NotesRichTextStyle(this); }
     public NotesRichTextParagraphStyle CreateRichTextParagraphStyle() { EnsureAlive(); return new NotesRichTextParagraphStyle(this, _api.GetDefaultRichTextParagraphStyle()); }
 
-    public void Recycle() { lock (SessionGate) { if (_recycled || _recycling) return; _recycling = true; try { while (true) { NotesObject? child; lock (_childrenGate) child = _children.Count == 0 ? null : _children[^1]; if (child is null) break; try { child.Recycle(); } catch { Unregister(child); } } _api.Terminate(); _recycled = true; } finally { _runtime.Dispose(); _recycling = false; if (ReferenceEquals(_activeSession, this)) _activeSession = null; } GC.SuppressFinalize(this); } }
+    public void Recycle() { lock (SessionGate) { if (_recycled || _recycling) return; _recycling = true; try { while (true) { NotesObject? child; lock (_childrenGate) { child = _children.Count == 0 ? null : _children[^1]; if (child is not null) _children.RemoveAt(_children.Count - 1); } if (child is null) break; try { child.Recycle(); } catch { Unregister(child); } } _api.Terminate(); _recycled = true; } finally { _runtime.Dispose(); _recycling = false; if (ReferenceEquals(_activeSession, this)) _activeSession = null; } GC.SuppressFinalize(this); } }
     public void Dispose() => Recycle();
     internal void Register(NotesObject value) { EnsureAlive(); lock (_childrenGate) _children.Add(value); }
     internal void Unregister(NotesObject value) { lock (_childrenGate) _children.Remove(value); }
     internal void EnsureAlive() { if (_recycled) throw new ObjectDisposedException(nameof(NotesSession), "NotesSession has been recycled."); }
+
+    internal static string NormalizeServerName(string? server)
+    {
+        var name = server?.Trim() ?? string.Empty;
+        return name.Equals("local", StringComparison.OrdinalIgnoreCase) ? string.Empty : name;
+    }
 
     private static string ResolveEnvironmentVariableName(string name, bool system) { if (string.IsNullOrWhiteSpace(name)) throw new NotesException(5, "NotesSession environment variable name cannot be empty."); name = name.Trim(); if (system || name.StartsWith('$')) return name; return "$" + name; }
     private static string ResolveEnvironmentVariableValue(object? value) => value switch

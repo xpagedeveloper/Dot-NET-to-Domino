@@ -32,7 +32,8 @@ public sealed class NotesDXLImporter : NotesObject
 
     public void Import(string filePath, NotesDatabase database)
     {
-        EnsureAlive(); ArgumentException.ThrowIfNullOrWhiteSpace(filePath); ArgumentNullException.ThrowIfNull(database);
+        EnsureAlive(); ArgumentException.ThrowIfNullOrWhiteSpace(filePath); ArgumentNullException.ThrowIfNull(database); filePath = filePath.Trim();
+        if (!File.Exists(filePath)) throw new FileNotFoundException("DXL import file was not found.", filePath);
         Session.Api.ImportDxlFile(_handle, filePath, database.Handle);
     }
 
@@ -85,15 +86,17 @@ public sealed class NotesDXLExporter : NotesObject
     public NotesStream Export(NotesDocumentCollection documents) { ArgumentNullException.ThrowIfNull(documents); return ToStream(Prepare(Session.Api.ExportDxlCollection(_handle, documents.Parent.Handle, documents.NoteIds))); }
     public NotesStream Export(NotesNoteCollection notes) { ArgumentNullException.ThrowIfNull(notes); return ToStream(Prepare(Session.Api.ExportDxlCollection(_handle, notes.Parent.Handle, notes.NoteIds))); }
     public NotesStream ExportDatabaseDesign(NotesDatabase database) { ArgumentNullException.ThrowIfNull(database); return ToStream(Prepare(Session.Api.ExportDxlDesign(_handle, database.Handle))); }
-    public NotesStream ExportDesignElement(NotesDatabase database, string name, string designType) { ArgumentNullException.ThrowIfNull(database); return ToStream(Prepare(Session.Api.ExportDxlDesignElement(_handle, database.Handle, name, designType))); }
+    public NotesStream ExportDesignElement(NotesDatabase database, string name, string designType) { ArgumentNullException.ThrowIfNull(database); ArgumentException.ThrowIfNullOrWhiteSpace(name); ArgumentException.ThrowIfNullOrWhiteSpace(designType); return ToStream(Prepare(Session.Api.ExportDxlDesignElement(_handle, database.Handle, name.Trim(), designType.Trim()))); }
 
     public void ExportDocument(NotesDocument document, string filePath) => Write(filePath, Session.Api.ExportDxlDocument(_handle, document?.Handle ?? throw new ArgumentNullException(nameof(document))));
     public void ExportDocumentCollection(NotesDocumentCollection documents, string filePath) { ArgumentNullException.ThrowIfNull(documents); Write(filePath, Session.Api.ExportDxlCollection(_handle, documents.Parent.Handle, documents.NoteIds)); }
     public void Export(NotesNoteCollection notes, string filePath) { ArgumentNullException.ThrowIfNull(notes); Write(filePath, Session.Api.ExportDxlCollection(_handle, notes.Parent.Handle, notes.NoteIds)); }
-    public void ExportDesignElement(NotesDatabase database, string name, string designType, string filePath) { ArgumentNullException.ThrowIfNull(database); Write(filePath, Session.Api.ExportDxlDesignElement(_handle, database.Handle, name, designType)); }
+    public void ExportDesignElement(NotesDatabase database, string name, string designType, string filePath) { ArgumentNullException.ThrowIfNull(database); ArgumentException.ThrowIfNullOrWhiteSpace(name); ArgumentException.ThrowIfNullOrWhiteSpace(designType); Write(filePath, Session.Api.ExportDxlDesignElement(_handle, database.Handle, name.Trim(), designType.Trim())); }
     public void ExportDatabaseDesign(NotesDatabase database, string filePath)
     {
         ArgumentNullException.ThrowIfNull(database);
+        ArgumentException.ThrowIfNullOrWhiteSpace(filePath);
+        filePath = filePath.Trim();
         var bytes = Session.Api.ExportDxlDesign(_handle, database.Handle);
         if (!ExportDesignToFolders) { Write(filePath, bytes); return; }
         WriteDesignFolders(filePath, bytes);
@@ -102,7 +105,7 @@ public sealed class NotesDXLExporter : NotesObject
     protected override void ReleaseNative() { var handle = _handle; _handle = 0; if (handle != 0 && Session.Api.IsInitialized) Session.Api.DeleteDxlExporter(handle); }
 
     private NotesStream ToStream(byte[] bytes) { EnsureAlive(); var stream = new NotesStream(Session); stream.Replace(bytes); return stream; }
-    private void Write(string filePath, byte[] bytes) { EnsureAlive(); Session.Api.WriteDxlBytes(filePath, Prepare(bytes)); }
+    private void Write(string filePath, byte[] bytes) { EnsureAlive(); ArgumentException.ThrowIfNullOrWhiteSpace(filePath); Session.Api.WriteDxlBytes(filePath.Trim(), Prepare(bytes)); }
     private byte[] Prepare(byte[] bytes) => CleanedDXL ? Clean(bytes) : bytes;
 
     private static int ValidateOption(int value, string name, params int[] allowed)

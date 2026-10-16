@@ -10,7 +10,7 @@ internal sealed partial class NotesNativeApi
     [StructLayout(LayoutKind.Sequential)]
     internal struct NotesBlockId
     {
-        public nint Pool;
+        public uint Pool;
         public ushort Block;
     }
 

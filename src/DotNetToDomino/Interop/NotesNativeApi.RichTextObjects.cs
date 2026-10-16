@@ -44,6 +44,7 @@ internal readonly record struct NotesCompoundStyleState(
     short RightMargin,
     short FirstLineLeftMargin,
     short Flags,
+    short Flags2,
     short[] Tabs);
 
 [StructLayout(LayoutKind.Sequential)]
@@ -60,6 +61,8 @@ internal struct NotesCompoundStyleNative
     [MarshalAs(UnmanagedType.ByValArray, SizeConst = 20)]
     public short[] Tab;
     public short Flags;
+    public int TabTypes;
+    public short Flags2;
 }
 
 internal sealed partial class NotesNativeApi
@@ -70,6 +73,10 @@ internal sealed partial class NotesNativeApi
     private const ushort RichTextSigLinkExport2 = unchecked((ushort)-110);
     private const ushort RichTextSigTableBegin = 163;
     private const ushort RichTextSigTableCell = 164;
+    private const ushort RichTextSigTableEnd = 165;
+    private const ushort RichTextSigNestedTableBegin = 207;
+    private const ushort RichTextSigNestedTableCell = 208;
+    private const ushort RichTextSigNestedTableEnd = 209;
     private const ushort RichTextSigBar = unchecked((ushort)-84);
 
     internal NotesCompoundStyleState GetDefaultRichTextParagraphStyle()
@@ -90,7 +97,81 @@ internal sealed partial class NotesNativeApi
             style.RightMargin,
             style.FirstLineLeftMargin,
             style.Flags,
+            style.Flags2,
             tabs);
+    }
+
+    internal void AppendRichTextParagraphStyle(nint note, string name, NotesCompoundStyleState state)
+    {
+        EnsureInitialized();
+        using var thread = EnterThread();
+        using var itemName = ToLmbcs(name);
+        CheckStatus(Resolve<RichText_CompoundTextCreate>("CompoundTextCreate")(unchecked((uint)note), itemName.Pointer, out var compound), "CompoundTextCreate(paragraph style)");
+        var closed = false;
+        try
+        {
+            var native = new NotesCompoundStyleNative
+            {
+                JustifyMode = state.JustifyMode,
+                LineSpacing = state.LineSpacing,
+                ParagraphSpacingBefore = state.ParagraphSpacingBefore,
+                ParagraphSpacingAfter = state.ParagraphSpacingAfter,
+                LeftMargin = state.LeftMargin,
+                RightMargin = state.RightMargin,
+                FirstLineLeftMargin = state.FirstLineLeftMargin,
+                Tabs = checked((short)Math.Min(state.Tabs.Length, 20)),
+                Tab = new short[20],
+                Flags = state.Flags,
+                TabTypes = 0,
+                Flags2 = state.Flags2
+            };
+            Array.Copy(state.Tabs, native.Tab, Math.Min(state.Tabs.Length, native.Tab.Length));
+            using var styleName = ToLmbcs(string.Empty);
+            CheckStatus(Resolve<RichText_CompoundTextDefineStyle>("CompoundTextDefineStyle")(
+                compound, styleName.Pointer, ref native, out var styleId), "CompoundTextDefineStyle");
+            CheckStatus(Resolve<RichText_CompoundTextAddParagraphExt>("CompoundTextAddParagraphExt")(
+                compound, styleId, RichTextDefaultFontId, 0, 0, 0), "CompoundTextAddParagraphExt(paragraph style)");
+            CheckStatus(Resolve<RichText_CompoundTextClose>("CompoundTextClose")(compound, 0, 0, 0, 0), "CompoundTextClose(paragraph style)");
+            closed = true;
+        }
+        finally
+        {
+            if (!closed) try { Resolve<RichText_CompoundTextDiscard>("CompoundTextDiscard")(compound); } catch { }
+        }
+    }
+
+    internal (string Replica, string View, string Document) GetRichTextLinkTarget(nint note, ushort linkId)
+    {
+        var data = GetRichTextLinkTargetData(note, linkId);
+        return (FormatRichTextTimeDate(data, 0), FormatRichTextUnid(data, 8), FormatRichTextUnid(data, 24));
+    }
+
+    private byte[] GetRichTextLinkTargetData(nint note, ushort linkId)
+    {
+        EnsureInitialized();
+        using var thread = EnterThread();
+        if (!HasItem(note, "$Links")) throw new InvalidOperationException("The rich text link has no $Links reference list.");
+        var info = GetItemMetadata(note, "$Links");
+        if (info.DataType != 7) throw new InvalidOperationException("The $Links item is not a NOTELINK_LIST.");
+        var data = CopyItemValueWithoutType(info);
+        if (data.Length < 2) throw new InvalidOperationException("The $Links reference list is truncated.");
+        var count = data[0] | (data[1] << 8);
+        if (linkId >= count || data.Length < 2 + count * 40) throw new InvalidOperationException("The rich text link references an invalid $Links entry.");
+        var offset = 2 + linkId * 40;
+        return data.AsSpan(offset, 40).ToArray();
+    }
+
+    internal byte[] ConvertRichTextLink2ToExport2(nint note, byte[] data)
+    {
+        if (data is null || data.Length < 6) throw new InvalidDataException("The CDLINK2 record is truncated.");
+        var target = GetRichTextLinkTargetData(note, (ushort)(data[4] | (data[5] << 8)));
+        var exported = new byte[checked(data.Length + 38)];
+        if (exported.Length > ushort.MaxValue) throw new InvalidOperationException("The exported rich text link exceeds the CD record size limit.");
+        exported[0] = 0x92; exported[1] = 0xff;
+        exported[2] = (byte)exported.Length; exported[3] = (byte)(exported.Length >> 8);
+        target.CopyTo(exported, 4);
+        Array.Copy(data, 6, exported, 44, data.Length - 6);
+        return exported;
     }
 
     internal IReadOnlyList<NotesRichTextRecordData> GetRichTextRecords(nint note, string itemName)
@@ -148,6 +229,14 @@ internal sealed partial class NotesNativeApi
         return FromLmbcs(nint.Add(record, 8), recordLength - 8).Replace('\0', '\n');
     }
 
+    internal byte[] EncodeRichTextText(string value)
+    {
+        using var encoded = ToLmbcs(value ?? string.Empty);
+        var bytes = new byte[encoded.Length];
+        if (bytes.Length > 0) Marshal.Copy(encoded.Pointer, bytes, 0, bytes.Length);
+        return bytes;
+    }
+
     private string ReadRichTextLinkedObjectName(nint record, int elementType, int recordLength)
     {
         if (elementType != 8 || record == 0 || recordLength < 12) return string.Empty;
@@ -160,20 +249,26 @@ internal sealed partial class NotesNativeApi
 
     private int MapRichTextElementType(nint record, ushort signature, int recordLength)
     {
-        if (signature == RichTextSigTableBegin) return 1;
+        if (signature == RichTextSigTableBegin || signature == RichTextSigNestedTableBegin) return 1;
         if (signature == RichTextSigText) return 3;
         if (signature == RichTextSigParagraph) return 4;
+        if (signature is 125 or 149) return 11;
         if (signature == RichTextSigLink2 || signature == RichTextSigLinkExport2) return 5;
         if (signature == RichTextSigBar) return 6;
-        if (signature == RichTextSigTableCell) return 7;
+        if (signature == RichTextSigTableCell || signature == RichTextSigNestedTableCell) return 7;
+        if (signature == RichTextSigTableEnd || signature == RichTextSigNestedTableEnd) return 9;
         if (recordLength >= 12 && IsHotspotBeginSignature(signature))
         {
             var hotspotType = unchecked((ushort)Marshal.ReadInt16(record, 4));
             if (hotspotType == HotspotTypeFile) return 8;
+            return 10;
         }
         return 0;
     }
 
     [UnmanagedFunctionPointer(CallingConvention.Winapi)]
     private delegate void RichText_CompoundTextInitStyle(ref NotesCompoundStyleNative style);
+
+    [UnmanagedFunctionPointer(CallingConvention.Winapi)]
+    private delegate ushort RichText_CompoundTextDefineStyle(uint compound, nint name, ref NotesCompoundStyleNative style, out uint styleId);
 }

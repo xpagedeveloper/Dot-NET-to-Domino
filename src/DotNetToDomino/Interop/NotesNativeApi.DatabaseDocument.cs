@@ -47,6 +47,20 @@ internal sealed partial class NotesNativeApi
         finally { Marshal.FreeHGlobal(buffer); }
     }
 
+    internal NotesTimeDate GetDatabaseReplicaTimeDate(nint db)
+    {
+        EnsureInitialized();
+        using var thread = EnterThread();
+        var buffer = Marshal.AllocHGlobal(32);
+        try
+        {
+            Zero(buffer, 32);
+            CheckStatus(Resolve<NSFDbReplicaInfoGetDelegate>("NSFDbReplicaInfoGet")(db, buffer), "NSFDbReplicaInfoGet");
+            return new NotesTimeDate { Innards0 = unchecked((uint)Marshal.ReadInt32(buffer, 0)), Innards1 = unchecked((uint)Marshal.ReadInt32(buffer, 4)) };
+        }
+        finally { Marshal.FreeHGlobal(buffer); }
+    }
+
     internal string LocateDatabaseByReplicaId(string server, string replicaId)
     {
         EnsureInitialized();

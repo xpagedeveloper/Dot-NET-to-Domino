@@ -11,9 +11,9 @@ public sealed class NotesDatabaseAccess : NotesObject
     public int Level { get { EnsureAlive(); return _data.Level; } }
     public string LevelName { get { EnsureAlive(); return _data.LevelName; } }
     public int AccessFlags { get { EnsureAlive(); return _data.AccessFlags; } }
-    public IReadOnlyList<string> NamesList { get { EnsureAlive(); return _data.NamesList; } }
-    public IReadOnlyList<string> Groups { get { EnsureAlive(); return _data.Groups; } }
-    public IReadOnlyList<string> Roles { get { EnsureAlive(); return _data.Roles; } }
+    public string[] NamesList { get { EnsureAlive(); return _data.NamesList.ToArray(); } }
+    public string[] Groups { get { EnsureAlive(); return _data.Groups.ToArray(); } }
+    public string[] Roles { get { EnsureAlive(); return _data.Roles.ToArray(); } }
     public bool CannotCreateDocuments => HasFlag(0x0001);
     public bool IsServerEntry => HasFlag(0x0002);
     public bool CannotDeleteDocuments => HasFlag(0x0004);
@@ -27,5 +27,5 @@ public sealed class NotesDatabaseAccess : NotesObject
     public bool IsPublicWriter => HasFlag(0x0400);
     public bool CannotReplicateOrCopy => HasFlag(0x1000);
     private bool HasFlag(int flag) { EnsureAlive(); return (_data.AccessFlags & flag) != 0; }
-    protected override void ReleaseNative() { }
+    protected override void ReleaseNative() => _database.UnregisterChild(this);
 }

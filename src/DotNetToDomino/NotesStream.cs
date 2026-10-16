@@ -17,13 +17,20 @@ public sealed class NotesStream : NotesObject
     public string Charset { get { EnsureAlive(); return _charset; } set { EnsureAlive(); _charset = string.IsNullOrWhiteSpace(value) ? "Unicode" : value; } }
     public bool IsEOS { get { EnsureAlive(); return Stream.Position >= Stream.Length; } }
     public bool IsReadOnly { get { EnsureAlive(); return _readOnly; } }
-    public long Position { get { EnsureAlive(); return Stream.Position; } set { EnsureAlive(); if (value < 0) throw new ArgumentOutOfRangeException(nameof(value)); Stream.Position = Math.Min(value, Stream.Length); } }
+    public int Position
+    {
+        get { EnsureAlive(); return checked((int)Math.Min(Stream.Position, int.MaxValue)); }
+        set { EnsureAlive(); if (value < 0) throw new ArgumentOutOfRangeException(nameof(value), "NotesStream.Position cannot be negative."); Stream.Position = Math.Min((long)value, Stream.Length); }
+    }
 
     public bool Open(string filePath, string mode = "binary")
     {
         EnsureAlive();
         Close();
-        if (string.IsNullOrWhiteSpace(filePath)) return false;
+        ArgumentException.ThrowIfNullOrWhiteSpace(filePath);
+        ArgumentException.ThrowIfNullOrWhiteSpace(mode);
+        filePath = filePath.Trim();
+        mode = mode.Trim();
         _readOnly = mode.Equals("readonly", StringComparison.OrdinalIgnoreCase) || mode.Equals("read", StringComparison.OrdinalIgnoreCase);
         try
         {
@@ -55,7 +62,8 @@ public sealed class NotesStream : NotesObject
     public string ReadText(int length) => Encoding.GetString(Read(length));
     public void Write(ReadOnlySpan<byte> data) { EnsureAlive(); if (_readOnly) throw new InvalidOperationException("NotesStream is read-only."); Stream.Write(data); Stream.Flush(); }
     public void Write(byte[] data) { ArgumentNullException.ThrowIfNull(data); Write(data.AsSpan()); }
-    public void WriteText(string text) => Write(Encoding.GetBytes(text ?? string.Empty));
+    public void Write(string text) { ArgumentNullException.ThrowIfNull(text); Write(Encoding.GetBytes(text)); }
+    public void WriteText(string text) { ArgumentNullException.ThrowIfNull(text); Write(Encoding.GetBytes(text)); }
     public byte[] ToArray()
     {
         EnsureAlive();

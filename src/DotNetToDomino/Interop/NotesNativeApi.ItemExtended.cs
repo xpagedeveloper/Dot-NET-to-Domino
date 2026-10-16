@@ -157,13 +157,25 @@ internal sealed partial class NotesNativeApi
     internal void SetItemFlags(nint note, string name, ushort newFlags)
     {
         var info = GetItemMetadata(note, name);
+        if (info.DataType == NotesTypeComposite)
+        {
+            // A logical rich text item can span several physical items. Moving
+            // only its first segment would reorder content and lose its flags.
+            RestoreCompositeFlags(note, name, newFlags);
+            return;
+        }
         var raw = CopyItemValueWithoutType(info);
         var pointer = Marshal.AllocHGlobal(Math.Max(1, raw.Length));
         try
         {
             if (raw.Length > 0) Marshal.Copy(raw, 0, pointer, raw.Length);
-            CheckStatus(Resolve<ItemEx_NSFItemModifyValue>("NSFItemModifyValue")(
-                note, info.ItemBlock, newFlags, info.DataType, pointer, checked((uint)raw.Length)), "NSFItemModifyValue(flags)");
+            // Notes 12.0.2 can retain the old flags when ModifyValue receives
+            // unchanged value bytes. Append first so a failed write preserves data.
+            using var itemName = ToLmbcs(info.Name);
+            CheckStatus(Resolve<Ops_NSFItemAppend>("NSFItemAppend")(
+                note, newFlags, itemName.Pointer, checked((ushort)itemName.Length),
+                info.DataType, pointer, checked((uint)raw.Length)), "NSFItemAppend(flags)");
+            RemoveItemByBlock(note, info.ItemBlock);
         }
         finally { Marshal.FreeHGlobal(pointer); }
     }
@@ -230,18 +242,35 @@ internal sealed partial class NotesNativeApi
 
     private void SetTextListValue(nint note, NotesItemMetadata info, string[] values)
     {
-        DeleteItem(note, info.Name);
-        using var itemName = ToLmbcs(info.Name);
-        using var first = ToLmbcs(values.Length == 0 ? string.Empty : values[0]);
-        CheckStatus(Resolve<ItemEx_NSFItemCreateTextList>("NSFItemCreateTextList")(
-            note, itemName.Pointer, first.Pointer, checked((ushort)first.Length)), "NSFItemCreateTextList");
-        for (var i = 1; i < values.Length; i++)
+        var entries = new List<byte[]>(values.Length);
+        foreach (var value in values)
         {
-            using var entry = ToLmbcs(values[i]);
-            CheckStatus(Resolve<ItemEx_NSFItemAppendTextList>("NSFItemAppendTextList")(
-                note, itemName.Pointer, entry.Pointer, checked((ushort)entry.Length), 1), "NSFItemAppendTextList");
+            using var encoded = ToLmbcs(value);
+            if (encoded.Length > ushort.MaxValue) throw new ArgumentException("A text-list entry exceeds 65535 LMBCS bytes.", nameof(values));
+            var bytes = new byte[encoded.Length];
+            Marshal.Copy(encoded.Pointer, bytes, 0, bytes.Length);
+            entries.Add(bytes);
         }
-        SetItemFlags(note, info.Name, info.Flags);
+        if (entries.Count > ushort.MaxValue) throw new ArgumentException("A text list exceeds 65535 entries.", nameof(values));
+        var length = checked(2 + entries.Count * 2 + entries.Sum(entry => entry.Length));
+        var pointer = Marshal.AllocHGlobal(length);
+        try
+        {
+            Marshal.WriteInt16(pointer, unchecked((short)entries.Count));
+            var offset = 2 + entries.Count * 2;
+            for (var i = 0; i < entries.Count; i++)
+            {
+                Marshal.WriteInt16(pointer, 2 + i * 2, unchecked((short)entries[i].Length));
+                Marshal.Copy(entries[i], 0, nint.Add(pointer, offset), entries[i].Length);
+                offset += entries[i].Length;
+            }
+            using var itemName = ToLmbcs(info.Name);
+            CheckStatus(Resolve<Ops_NSFItemAppend>("NSFItemAppend")(
+                note, info.Flags, itemName.Pointer, checked((ushort)itemName.Length),
+                NotesTypeTextList, pointer, checked((uint)length)), "NSFItemAppend(text list)");
+            RemoveItemByBlock(note, info.ItemBlock);
+        }
+        finally { Marshal.FreeHGlobal(pointer); }
     }
 
     private void SetNumberListValue(nint note, NotesItemMetadata info, double[] values)
@@ -345,9 +374,7 @@ internal sealed partial class NotesNativeApi
     [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate ushort ItemEx_NSFItemGetTextListEntries(nint note, nint itemName);
     [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate ushort ItemEx_NSFItemGetTextListEntry(nint note, nint itemName, ushort entry, nint text, ushort textLength);
     [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate ushort ItemEx_NSFItemConvertToText(nint note, nint itemName, nint text, ushort textLength, byte separator);
-    [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate ushort ItemEx_NSFItemCreateTextList(nint note, nint itemName, nint firstText, ushort firstTextLength);
-    [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate ushort ItemEx_NSFItemAppendTextList(nint note, nint itemName, nint text, ushort textLength, int allowDuplicates);
     [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate ushort ItemEx_NSFItemModifyValue(nint note, NotesBlockId itemBlock, ushort itemFlags, ushort dataType, nint value, uint valueLength);
-    [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate nint ItemEx_OSLockObject(nint handle);
-    [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate void ItemEx_OSUnlockObject(nint handle);
+    [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate nint ItemEx_OSLockObject(uint handle);
+    [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate void ItemEx_OSUnlockObject(uint handle);
 }
