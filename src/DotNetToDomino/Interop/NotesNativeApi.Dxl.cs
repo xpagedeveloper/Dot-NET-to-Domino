@@ -237,8 +237,9 @@ internal sealed partial class NotesNativeApi
         ArgumentException.ThrowIfNullOrWhiteSpace(filePath);
         var fullPath = Path.GetFullPath(filePath);
         var directory = Path.GetDirectoryName(fullPath);
-        if (!string.IsNullOrEmpty(directory) && !Directory.Exists(directory))
-            throw new DirectoryNotFoundException($"The DXL output directory was not found: '{directory}'.");
+        if (!string.IsNullOrEmpty(directory))
+            try { Directory.CreateDirectory(directory); }
+            catch (IOException ex) { throw new IOException($"The DXL output directory '{directory}' could not be created.", ex); }
         try { File.WriteAllBytes(fullPath, bytes); }
         catch (UnauthorizedAccessException ex) { throw new UnauthorizedAccessException($"Access was denied when writing DXL file '{fullPath}'.", ex); }
         catch (IOException ex) { throw new IOException($"The DXL file '{fullPath}' could not be written.", ex); }

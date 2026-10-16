@@ -15,8 +15,9 @@ public sealed class NotesInlineImage
         ArgumentException.ThrowIfNullOrWhiteSpace(path);
         var fullPath = Path.GetFullPath(path.Trim());
         var directory = Path.GetDirectoryName(fullPath);
-        if (!string.IsNullOrWhiteSpace(directory) && !Directory.Exists(directory))
-            throw new DirectoryNotFoundException($"The output directory for the inline image was not found: '{directory}'.");
+        if (!string.IsNullOrWhiteSpace(directory))
+            try { Directory.CreateDirectory(directory); }
+            catch (IOException ex) { throw new IOException($"The output directory for the inline image could not be created: '{directory}'.", ex); }
         try { File.WriteAllBytes(fullPath, _data); }
         catch (UnauthorizedAccessException ex) { throw new UnauthorizedAccessException($"The inline image could not be written to '{fullPath}'. Access was denied.", ex); }
     }

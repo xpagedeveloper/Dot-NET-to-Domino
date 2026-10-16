@@ -36,8 +36,9 @@ public sealed class NotesStream : NotesObject
         var directory = Path.GetDirectoryName(fullPath);
         if (_readOnly && !File.Exists(fullPath))
             throw new FileNotFoundException($"The stream file was not found: '{fullPath}'.", fullPath);
-        if (!_readOnly && !string.IsNullOrEmpty(directory) && !Directory.Exists(directory))
-            throw new DirectoryNotFoundException($"The stream output directory was not found: '{directory}'.");
+        if (!_readOnly && !string.IsNullOrEmpty(directory))
+            try { Directory.CreateDirectory(directory); }
+            catch (IOException ex) { throw new IOException($"The stream output directory '{directory}' could not be created.", ex); }
         try
         {
             _file = new FileStream(fullPath, _readOnly ? FileMode.Open : FileMode.OpenOrCreate, _readOnly ? FileAccess.Read : FileAccess.ReadWrite, FileShare.Read);
