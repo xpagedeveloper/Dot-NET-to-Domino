@@ -1,7 +1,7 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio Version 17
-VisualStudioVersion = 17.0.31903.59
+# Visual Studio Version 18
+VisualStudioVersion = 18.11.12306.390 stable
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DotNetToDomino", "src\DotNetToDomino\DotNetToDomino.csproj", "{8A0BEA59-46D6-4E3E-84B5-5B4ECF12F46B}"
 EndProject
@@ -64,5 +64,8 @@ Global
 	GlobalSection(NestedProjects) = preSolution
 		{AA368E77-B9EA-4F92-B379-44E1C797B0DC} = {0C88DD14-F956-CE84-757C-A364CCF449FC}
 		{0E68C007-DDB2-4BB2-AFD0-BB4B7399BD8A} = {0C88DD14-F956-CE84-757C-A364CCF449FC}
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {6E560F42-C817-4454-9DB7-E85C0C03D567}
 	EndGlobalSection
 EndGlobal

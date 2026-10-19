@@ -80,12 +80,12 @@ For duplicate attachment names, Domino assigns an effective stored name such as
 `mytestdoc.002.txt`. `NotesEmbeddedObject.Name` and `Source` expose that name;
 the C API does not provide a separate original filename for the renamed copy.
 
-### Läsa list- och paragraftext
+### Reading list and paragraph text
 
-`NotesRichTextItem.Paragraphs` returnerar en stabil, nollbaserad ordning med
-`NotesRichTextParagraph.Index` och `Text`. Den kombinerar `CDTEXT`-runs under
-varje `CDPARAGRAPH`, vilket gör det möjligt att loopa igenom listinnehåll även
-när Notes inte lagrar någon separat listtyp i compound text.
+`NotesRichTextItem.Paragraphs` returns a stable, zero-based sequence with
+`NotesRichTextParagraph.Index` and `Text`. It combines `CDTEXT` runs under
+each `CDPARAGRAPH`, allowing list content to be traversed even when Notes does
+not store a separate list type in compound text.
 
 ```csharp
 foreach (var paragraph in body.Paragraphs)
@@ -100,17 +100,17 @@ style.Bold = -1;
 style.FontSize = 14;
 
 using var cell = table.GetCell(0, 0);
-cell.AppendText("Viktig celltext", style);
-cell.Clear(); // tömmer innehållet och behåller cellen
+cell.AppendText("Important cell text", style);
+cell.Clear(); // clears the content while preserving the cell
 ```
 
-`cell.CreateRange()` returnerar en range över cellens innehåll för läsning,
-formatering och partiell borttagning.
+`cell.CreateRange()` returns a range over the cell content for reading,
+formatting, and partial removal.
 
-Cellspecifik text ersättning använder:
+Cell-specific text replacement uses:
 
 ```csharp
-var count = cell.FindAndReplace("gammal", "ny", NotesConst.RT_REPL_ALL);
+var count = cell.FindAndReplace("old", "new", NotesConst.RT_REPL_ALL);
 ```
 
-Sökningen begränsas till cellens egna richtext-records.
+The search is limited to the cell's own rich-text records.

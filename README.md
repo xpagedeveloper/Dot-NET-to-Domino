@@ -2,10 +2,6 @@
 
 Native .NET wrappers for the HCL Notes/Domino C API.
 
-[Databasoperationer med C#-exempel: titel, replica-ID och kopiering](docs/database-operations.sv.md).
-[Signera dokument och hantera objektens livslängd](docs/document-signatures.sv.md).
-[Felsökning av lokal databas och DXL-import](docs/database-create-troubleshooting.sv.md).
-
 Dot-NET-to-Domino provides a managed object model inspired by the HCL Notes object model while calling the native Notes/Domino C API directly.
 
 ## Goals
