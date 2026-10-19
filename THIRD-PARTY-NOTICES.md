@@ -2,6 +2,8 @@
 
 `DotNetToDomino` is an independent .NET wrapper around the HCL Notes/Domino native API. The projects and documentation below are implementation references only; their source code and binaries are not copied into or redistributed by this repository.
 
+The commercial HCL Notes/Domino runtime, native libraries and product documentation are not included. HCL, Notes and Domino marks belong to their respective owners. References are for attribution, interoperability and compatibility identification only.
+
 ## HCL Domino C API documentation
 
 Copyright HCL Software.
@@ -24,4 +26,4 @@ The runtime and integration test projects currently declare no external `Package
 
 The library is built on the [.NET platform](https://github.com/dotnet/runtime), generally distributed under the [MIT License](https://github.com/dotnet/runtime/blob/main/LICENSE.TXT). This package does not redistribute the .NET runtime; self-contained applications must retain notices from their runtime distribution.
 
-The commercial HCL Notes/Domino runtime, native libraries and product documentation are not included. HCL, Notes and Domino marks belong to their respective owners. References are for attribution, interoperability and compatibility identification only.
+
