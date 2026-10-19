@@ -8,6 +8,6 @@
   </PropertyGroup>
   <ItemGroup>
     <!-- Always consume the newest locally packed prerelease. -->
-    <PackageReference Include="DotNetToDomino" Version="0.1.0-beta.1" />
+    <PackageReference Include="DotNetToDomino" Version="0.1.0-beta.2" />
   </ItemGroup>
 </Project>

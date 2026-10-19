@@ -30,7 +30,7 @@ CI builds the project to catch public API/compiler regressions. Native execution
 
 ## Full NuGet test CLI
 
-`DotNetToDomino.FullTestCli` and `DotNetToDomino.DxlImporter` reference the library project directly, so they exercise current source rather than an older cached package. `DotNetToDomino.PackageConsumer` consumes the locally packed `0.1.0-beta.1` NuGet package during restore. Build the library first so `src/DotNetToDomino/publish` contains the current package. Failures are printed with the fully qualified C# exception type and return exit code `1`.
+`DotNetToDomino.FullTestCli` and `DotNetToDomino.DxlImporter` reference the library project directly, so they exercise current source rather than an older cached package. `DotNetToDomino.PackageConsumer` consumes the locally packed `0.1.0-beta.2` NuGet package during restore. Build the library first so `src/DotNetToDomino/publish` contains the current package. Failures are printed with the fully qualified C# exception type and return exit code `1`.
 
 `Run-NativeTests.ps1` runs each native test group in a separate process, with a 45-second default timeout. Full logs are saved under `artifacts/native-tests`; use `-ShowOutput` to print all checks. On a crash or timeout it attempts `nsd -kill` from the selected runtime. Use an imported, disposable test database and supply `-Database` and `-Runtime` as needed. The property sweep exercises real object instances and reports uninstantiated types; it is separate from the reflection-only API audit. `NOTES_TEST_FILTER` selects semicolon-separated test-group name fragments for focused CLI runs.
 
