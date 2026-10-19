@@ -72,7 +72,7 @@ Required arguments are validated before native calls and produce clear `Argument
 
 ## License notes
 
-- [License] (License)
+- [License](LICENSE)
 - [Project NOTICE](NOTICE)
 - [Third-party reference notices and licenses](THIRD-PARTY-NOTICES.md)
 
