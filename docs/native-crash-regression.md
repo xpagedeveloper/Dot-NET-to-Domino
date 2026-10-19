@@ -1,15 +1,15 @@
 # Native crash regression audit
 
-The native test failure was reproduced against HCL Notes 12.0.2 x64. XPScript was inspected read-only, including the final runtime emitted by `NotesRuntimeSourceBuilder.Build()`, rather than only the source templates.
+The native test failure was reproduced against HCL Notes 12.0.2 x64. HCL C API and JNI projects was inspected read-only, including the final runtime emitted by `NotesRuntimeSourceBuilder.Build()`, rather than only the source templates.
 
 Corrections:
 
 - Cache native delegates by export name and delegate type, preventing casts between distinct declarations for the same export.
-- Use a 32-bit pool in BLOCKID and 16-bit HCOLLECTION handles, matching the generated XPScript runtime.
+- Use a 32-bit pool in BLOCKID and 16-bit HCOLLECTION handles, matching the generated HCL C API and JNI projects runtime.
 - Bind OSMemGetSize with its output-size pointer, as specified in the HCL C API reference. This deliberately corrects the one-argument declaration also found in the reference runtime.
 - Remove children from recycle queues before invoking child cleanup. Cleanup uses owner fields rather than public getters that reject already recycled objects.
 - Use INDEXPOSITION `0x4000`, SUMMARYVALUES `0x2000`, and MIME_INCLUDE_HEADERS `0x10`, matching the final generated reference runtime.
-- Itemize MIME on an unsaved temporary note and copy Body and file items by BLOCKID, matching XPScript's final JNX-derived writer.
+- Itemize MIME on an unsaved temporary note and copy Body and file items by BLOCKID, matching HCL C API and JNI projects's final JNX-derived writer.
 - Resolve relative ID-file paths against the Notes data directory, and resolve an explicit relative notes.ini before loading the runtime changes the working directory.
 - Handle empty and wildcard date/time properties without invoking native conversions on missing values.
 - Replace item flags with an append-before-delete operation: Notes 12.0.2 retained old flags when NSFItemModifyValue received unchanged bytes. Regression tests verify all seven writable flags, value preservation and absence of duplicate items.

@@ -1,6 +1,6 @@
 # LotusScript Notes objects missing from this repository
 
-The earlier inventory only covered the Notes object families already represented by the XPscript runtime. This expanded baseline compares the repository's public C# types with the broader LotusScript backend object families. These objects are not currently exposed as public DotNetToDomino types unless explicitly marked as present.
+The earlier inventory only covered the Notes object families already represented by the HCL C API and JNI projects runtime. This expanded baseline compares the repository's public C# types with the broader LotusScript backend object families. These objects are not currently exposed as public DotNetToDomino types unless explicitly marked as present.
 
 Complexity uses the same 1–5 scale as [lotusscript-member-gaps.md](lotusscript-member-gaps.md). The list is a work inventory: each candidate still needs member-by-member confirmation against the HCL LotusScript Language Reference before implementation.
 

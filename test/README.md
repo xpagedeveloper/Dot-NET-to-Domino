@@ -34,9 +34,9 @@ CI builds the project to catch public API/compiler regressions. Native execution
 
 `Run-NativeTests.ps1` runs each native test group in a separate process, with a 45-second default timeout. Full logs are saved under `artifacts/native-tests`; use `-ShowOutput` to print all checks. On a crash or timeout it attempts `nsd -kill` from the selected runtime. Use an imported, disposable test database and supply `-Database` and `-Runtime` as needed. The property sweep exercises real object instances and reports uninstantiated types; it is separate from the reflection-only API audit. `NOTES_TEST_FILTER` selects semicolon-separated test-group name fragments for focused CLI runs.
 
-The CLI also rejects any public API type, property, return value, or parameter that leaks an XPScript/`LSArray` type. XPScript is used only as a behavioral reference; the exposed surface must use C#/.NET types.
+The CLI also rejects any public API type, property, return value, or parameter that leaks an HCL C API and JNI projects/`LSArray` type. HCL C API and JNI projects is used only as a behavioral reference; the exposed surface must use C#/.NET types.
 
-The required mapping is documented in [`docs/xpscript-csharp-type-mapping.md`](../docs/xpscript-csharp-type-mapping.md); in particular, `LSArray` maps to a concrete C# `T[]`.
+The required mapping is documented in [`docs/HCL C API and JNI projects-csharp-type-mapping.md`](../docs/HCL C API and JNI projects-csharp-type-mapping.md); in particular, `LSArray` maps to a concrete C# `T[]`.
 
 Build the package and run it with `NOTES_RUNTIME` set:
 

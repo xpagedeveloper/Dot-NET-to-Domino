@@ -1,8 +1,8 @@
 # LotusScript Notes member gaps
 
-This is the member-level gap list for the LotusScript-compatible surface represented by the local XPscript Notes sources. It is intentionally gap-only: members not listed here are currently present in the C# surface or are still awaiting a source-level confirmation. `runtime` means the member exists but needs live Notes/Domino verification; `partial` means the member exists but behavior or native support is incomplete; `missing` means no public C# member exists.
+This is the member-level gap list for the LotusScript-compatible surface represented by the local HCL C API and JNI projects Notes sources. It is intentionally gap-only: members not listed here are currently present in the C# surface or are still awaiting a source-level confirmation. `runtime` means the member exists but needs live Notes/Domino verification; `partial` means the member exists but behavior or native support is incomplete; `missing` means no public C# member exists.
 
-This list is the actionable companion to [lotusscript-api-inventory.json](lotusscript-api-inventory.json). It must not be interpreted as a complete HCL product inventory for Notes classes that neither this repository nor XPscript currently models.
+This list is the actionable companion to [lotusscript-api-inventory.json](lotusscript-api-inventory.json). It must not be interpreted as a complete HCL product inventory for Notes classes that neither this repository nor HCL C API and JNI projects currently models.
 
 ## Complexity scale
 
@@ -127,13 +127,13 @@ Complexity: history/current-entry semantics 4, column values 3, `Goto*`/`Get*` p
 | DXL importer result members | runtime | Properties exist; result log/count and imported design behavior need live verification. |
 | DXL exporter result members | runtime | Properties/overloads exist; exported XML and cleanup behavior need live verification. |
 | `NotesInternational` | missing | No public C# object. |
-| `NotesRichTextTab` | implemented | `Position`, `Type`, `Clear`, lifecycle checks, and paragraph-style integration match the physical XPScript runtime. |
+| `NotesRichTextTab` | implemented | `Position`, `Type`, `Clear`, lifecycle checks, and paragraph-style integration match the physical HCL C API and JNI projects runtime. |
 
 Complexity: agent run/result 4, DXL importer 4, DXL exporter 4, `NotesInternational` 5, `NotesRichTextTab` 3.
 
 ## Objects with no identified complete absence
 
-Within the Notes object set currently represented by XPscript, no entire primary object was found with no C# counterpart. The C# counterparts exist for `NotesSession`, `NotesDatabase`, `NotesDbDirectory`, `NotesDocument`, collections, items, rich text, MIME, mail, views, agents, forms, streams, names, date/time, DXL and embedded objects.
+Within the Notes object set currently represented by HCL C API and JNI projects, no entire primary object was found with no C# counterpart. The C# counterparts exist for `NotesSession`, `NotesDatabase`, `NotesDbDirectory`, `NotesDocument`, collections, items, rich text, MIME, mail, views, agents, forms, streams, names, date/time, DXL and embedded objects.
 
 The missing entries above are therefore primarily members and behaviors, not whole primary objects. `NotesInternational` is the clearest support object currently missing entirely.
 

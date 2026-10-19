@@ -9,7 +9,7 @@ Completed/physically compared in the current parity work:
 - SetEnvironmentVar
 - GetDatabase
 
-Still requiring physical comparison against current XPScript implementation and native behavior:
+Still requiring physical comparison against current HCL C API and JNI projects implementation and native behavior:
 
 1. AddressBooks
 2. OpenByReplicaID
