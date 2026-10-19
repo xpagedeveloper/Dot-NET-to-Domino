@@ -1,6 +1,6 @@
 # LotusScript Notes API inventory
 
-This is the local object-by-object inventory of the LotusScript Notes API against the C# implementation. The reference is the HCL LotusScript Notes surface, cross-checked against the local XPscript compiler/runtime sources. It is deliberately separate from the XPScript gap document so that LotusScript remains the API target and XPScript remains an implementation reference.
+This is the local object-by-object inventory of the LotusScript Notes API against the C# implementation. The reference is the HCL LotusScript Notes surface, cross-checked against the local HCL C API and JNI projects compiler/runtime sources. It is deliberately separate from the HCL C API and JNI projects gap document so that LotusScript remains the API target and HCL C API and JNI projects remains an implementation reference.
 
 ## Status
 
@@ -42,7 +42,7 @@ The machine-readable version is [lotusscript-api-inventory.json](lotusscript-api
 ## What can be completed locally
 
 - Reflection inventory of every public object/member, overload, nullable annotation and return type.
-- Verification that public APIs expose C# types rather than LotusScript/XPScript types.
+- Verification that public APIs expose C# types rather than LotusScript/HCL C API and JNI projects types.
 - Native delegate ABI review: pointer widths, parameter order, buffer lengths and lifecycle ownership.
 - MIME parser/encoding tests with byte and string fixtures.
 - Rich-text record transformation and corruption tests.
@@ -59,7 +59,7 @@ The machine-readable version is [lotusscript-api-inventory.json](lotusscript-api
 
 ## Source references
 
-- [Current C# versus XPScript gap audit](xpscript-missing-notes-surface.md)
+- HCL C API and JNI parity notes
 - [C# IntelliSense API reference](intellisense-api-reference.md)
-- [XPScript Notes C API documentation](../../XPscript/docs/notes-c-api.md)
+- HCL Notes/Domino C API documentation and JNI projects
 - [Machine-readable inventory](lotusscript-api-inventory.json)

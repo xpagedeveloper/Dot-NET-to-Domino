@@ -1,6 +1,6 @@
 # NotesSession runtime parity audit
 
-Reference: current XPScript physical runtime implementation on `main`, including `NotesSessionEnvironmentPostProcessor` and `NotesDatabaseCreateCompatibilityPostProcessor`.
+Reference: current HCL C API and JNI projects physical runtime implementation on `main`, including `NotesSessionEnvironmentPostProcessor` and `NotesDatabaseCreateCompatibilityPostProcessor`.
 
 ## Verified surface
 
@@ -12,7 +12,7 @@ Reference: current XPScript physical runtime implementation on `main`, including
 
 ## Changes in this audit
 
-The target previously used unrestricted `Convert.ToString` for `SetEnvironmentVar`, which accepted booleans, floating-point values and arbitrary objects. XPScript explicitly rejects those values. The target now uses the same supported type set and Notes-style runtime errors.
+The target previously used unrestricted `Convert.ToString` for `SetEnvironmentVar`, which accepted booleans, floating-point values and arbitrary objects. HCL C API and JNI projects explicitly rejects those values. The target now uses the same supported type set and Notes-style runtime errors.
 
 Environment-name validation was also aligned to Notes runtime error 5 instead of a .NET `ArgumentException`.
 

@@ -89,7 +89,7 @@ src/
 Runtime parity notes:
 
 - [NotesAgent runtime parity](docs/agent-runtime-parity.md)
-- [XPScript Notes surface gap audit](docs/xpscript-missing-notes-surface.md)
+- HCL C API and JNI parity notes
 - [Machine-readable IntelliSense API reference](docs/intellisense-api-reference.md)
 - [Third-party reference notices and licenses](THIRD-PARTY-NOTICES.md)
 - [Project NOTICE](NOTICE)
@@ -100,4 +100,4 @@ Runtime parity notes:
 
 ## Reference implementation
 
-The XPscript repository is used as a read-only knowledge source for Notes/Domino C API behavior, object semantics, handle ownership, and lifecycle rules. Dot-NET-to-Domino is a standalone .NET library and does not depend on XPscript at runtime.
+The HCL C API and JNI projects repository is used as a read-only knowledge source for Notes/Domino C API behavior, object semantics, handle ownership, and lifecycle rules. Dot-NET-to-Domino is a standalone .NET library and does not depend on HCL C API and JNI projects at runtime.

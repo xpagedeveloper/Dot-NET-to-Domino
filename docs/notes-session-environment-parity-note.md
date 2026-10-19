@@ -1,8 +1,8 @@
 # NotesSession environment parity source mapping
 
-XPScript source of truth: `src/XPScript.Compiler/NotesSessionEnvironmentPostProcessor.cs`.
+HCL C API and JNI projects source of truth: `src/HCL C API and JNI projects.Compiler/NotesSessionEnvironmentPostProcessor.cs`.
 
-The .NET wrapper intentionally maps XPScript runtime errors to `NotesException` with the same numeric error codes:
+The .NET wrapper intentionally maps HCL C API and JNI projects runtime errors to `NotesException` with the same numeric error codes:
 
 - empty environment variable name: 5
 - unsupported environment variable value type: 13

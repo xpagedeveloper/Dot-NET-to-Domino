@@ -1,6 +1,6 @@
 # NotesAgent runtime parity
 
-This update aligns Dot-NET-to-Domino with the current XPScript NotesAgent runtime implementation rather than only its public surface.
+This update aligns Dot-NET-to-Domino with the current HCL C API and JNI projects NotesAgent runtime implementation rather than only its public surface.
 
 Included behavior:
 
@@ -14,6 +14,6 @@ Included behavior:
 - `NSFNoteDelete` uses the correct database-handle + NOTEID ABI.
 - `NotesDocument.Remove()` closes/recycles the open note before deleting it by database handle and NOTEID.
 
-Properties that are still constant/no-op in XPScript remain constant/no-op here (`IsEnabled`, `Target`, `ParameterDocID`, `HasRunSinceModified`, `ProhibitDesignUpdate`, `HttpURL`, `OnBehalfOf`, etc.) rather than being presented as native-backed functionality.
+Properties that are still constant/no-op in HCL C API and JNI projects remain constant/no-op here (`IsEnabled`, `Target`, `ParameterDocID`, `HasRunSinceModified`, `ProhibitDesignUpdate`, `HttpURL`, `OnBehalfOf`, etc.) rather than being presented as native-backed functionality.
 
-The parity audit and remaining work are tracked in [`todo/xpscript-notes-runtime-parity.md`](../todo/xpscript-notes-runtime-parity.md).
+The parity audit and remaining work are tracked in [`todo/HCL C API and JNI projects-notes-runtime-parity.md`](../todo/HCL C API and JNI projects-notes-runtime-parity.md).

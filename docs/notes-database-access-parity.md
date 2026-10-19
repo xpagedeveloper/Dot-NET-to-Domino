@@ -1,16 +1,16 @@
 # NotesDatabaseAccess parity audit
 
-Reference: current XPScript `NotesDatabaseAccessPostProcessor` on `main`.
+Reference: current HCL C API and JNI projects `NotesDatabaseAccessPostProcessor` on `main`.
 
 ## Public/runtime parity
 
-Dot-NET-to-Domino matches the implemented XPScript surface for `NotesDatabase.QueryAccess()` / `QueryAccess(userName)`, the effective user/access properties, expanded names/groups/roles, and the exposed ACL capability flags. The target intentionally represents XPScript `LSArray` string lists as .NET `IReadOnlyList<string>`.
+Dot-NET-to-Domino matches the implemented HCL C API and JNI projects surface for `NotesDatabase.QueryAccess()` / `QueryAccess(userName)`, the effective user/access properties, expanded names/groups/roles, and the exposed ACL capability flags. The target intentionally represents HCL C API and JNI projects `LSArray` string lists as .NET `IReadOnlyList<string>`.
 
 ## Native implementation
 
 The physical path is `NSFBuildNamesList` -> lock `NAMES_LIST` -> `NSFDbReadACL` -> `ACLLookupAccess` -> `ListGetText` for roles, followed by deterministic unlock/free of the role list, ACL and names-list handles.
 
-The parity correction adds checks that the names-list and ACL handles are non-zero, that the names list contains an effective user, that the packed 14-byte `NAMES_LIST` header and entries stay inside the returned allocation, that entries are NUL terminated, and that a non-empty role-list handle can actually be locked. These checks match the physical XPScript implementation instead of the previous audit's API-only conclusion.
+The parity correction adds checks that the names-list and ACL handles are non-zero, that the names list contains an effective user, that the packed 14-byte `NAMES_LIST` header and entries stay inside the returned allocation, that entries are NUL terminated, and that a non-empty role-list handle can actually be locked. These checks match the physical HCL C API and JNI projects implementation instead of the previous audit's API-only conclusion.
 
 The .NET wrapper retains native-sized `nint` handles. Calling convention is `Winapi`; access level and access flags are `ushort`.
 
