@@ -2,7 +2,7 @@
 
 Native .NET wrappers for the HCL Notes/Domino C API.
 
-Dot-NET-to-Domino provides a managed object model inspired by the HCL Notes object model while calling the native Notes/Domino C API directly.
+Dot-NET-to-Domino provides a managed object model inspired by the HCL Notes object model while calling the native Notes/Domino C API directly, with a familiar syntax.
 
 ## Goals
 
@@ -10,7 +10,6 @@ Dot-NET-to-Domino provides a managed object model inspired by the HCL Notes obje
 - Familiar objects such as `NotesSession`, `NotesDatabase`, `NotesView`, and `NotesDocument`.
 - Deterministic cleanup through `IDisposable` and Notes-compatible `Recycle()` methods.
 - No Java, JNI, JNA, or JNX dependency.
-- HCL native runtime binaries are not redistributed in the NuGet package.
 
 ## NuGet package
 
@@ -56,17 +55,6 @@ Console.WriteLine(document.ParentDatabase.ReplicaID);
 
 Required arguments are validated before native calls and produce clear `ArgumentNullException`, `ArgumentException`, or `ArgumentOutOfRangeException` errors. A member access on a variable that is already null happens in the caller before the library can run; use nullable warnings and an explicit null check as shown above.
 
-## Repository layout
-
-```text
-DotNetToDomino.sln
-src/
-  DotNetToDomino/
-    DotNetToDomino.csproj
-    Internal/
-    Interop/
-```
-
 ## Initial object model
 
 - `NotesSession`
@@ -82,17 +70,11 @@ src/
 - `NotesAgent`
 - `NotesAgentResult`
 
-Runtime parity notes:
+## License notes
 
-- [NotesAgent runtime parity](docs/agent-runtime-parity.md)
-- HCL C API and JNI parity notes
-- [Machine-readable IntelliSense API reference](docs/intellisense-api-reference.md)
-- [Third-party reference notices and licenses](THIRD-PARTY-NOTICES.md)
+- [License] (License)
 - [Project NOTICE](NOTICE)
-- [Licensing](docs/licensing.md)
-- `NotesStream`
-- `NotesDXLImporter`
-- `NotesDXLExporter`
+- [Third-party reference notices and licenses](THIRD-PARTY-NOTICES.md)
 
 ## Reference implementation
 
