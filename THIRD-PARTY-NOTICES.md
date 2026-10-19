@@ -2,7 +2,7 @@
 
 `DotNetToDomino` is an independent .NET wrapper around the HCL Notes/Domino native API. The projects and documentation below are implementation references only; their source code and binaries are not copied into or redistributed by this repository.
 
-The commercial HCL Notes/Domino runtime, native libraries and product documentation are not included. HCL, Notes and Domino marks belong to their respective owners. References are for attribution, interoperability and compatibility identification only.
+The commercial HCL Notes/Domino runtime, native libraries and product documentation are not included. HCL, Notes, Domino,.Net and Microsoft marks belong to their respective owners. References are for attribution, interoperability and compatibility identification only.
 
 ## HCL Domino C API documentation
 
@@ -12,11 +12,11 @@ The [HCL Domino C API documentation](https://opensource.hcltechsw.com/domino-c-a
 
 ## HCL Domino JNX
 
-Copyright 2019–2021 HCL. The [Domino JNX project](https://github.com/HCL-TECH-SOFTWARE/domino-jnx) is used as a secondary reference for Notes behavior and native API mapping. It is licensed under the [Apache License, Version 2.0](https://www.apache.org/licenses/LICENSE-2.0). No JNX source or binary is distributed here.
+Copyright 2019–2021 HCL. The [Domino JNX project](https://github.com/HCL-TECH-SOFTWARE/domino-jnx) is used as a secondary reference for Notes behavior and native API mapping. It is licensed under the [Apache License, Version 2.0](https://www.apache.org/licenses/LICENSE-2.0). 
 
 ## Domino JNA
 
-Copyright Klehmann and contributors. The [Domino JNA project](https://github.com/klehmann/domino-jna) is used as a reference for MIME serialization and Notes item writeback. It is licensed under the [Apache License, Version 2.0](https://www.apache.org/licenses/LICENSE-2.0). No Domino JNA source or binary is distributed here.
+Copyright Klehmann and contributors. The [Domino JNA project](https://github.com/klehmann/domino-jna) is used as a reference for MIME serialization and Notes item writeback. It is licensed under the [Apache License, Version 2.0](https://www.apache.org/licenses/LICENSE-2.0). 
 
 ## NuGet dependencies
 
