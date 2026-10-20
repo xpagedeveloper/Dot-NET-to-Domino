@@ -129,31 +129,11 @@ internal sealed partial class NotesNativeApi
     {
         EnsureInitialized();
         using var thread = EnterThread();
-        using var file = ToLmbcs(filePath);
-        using var serverName = ToLmbcs(server);
-
-        nint networkPath = 0;
-        try
-        {
-            var path = filePath.Length == 0 && server.Length == 0 ? 0 : file.Pointer;
-            if (server.Length > 0)
-            {
-                networkPath = Marshal.AllocHGlobal(4096);
-                Zero(networkPath, 4096);
-                CheckStatus(
-                    Resolve<OSPathNetConstructDelegate>("OSPathNetConstruct")(0, serverName.Pointer, file.Pointer, networkPath),
-                    "OSPathNetConstruct");
-                path = networkPath;
-            }
-
-            CheckStatus(Resolve<NSFDbOpenDelegate>("NSFDbOpen")(path, out var handle), "NSFDbOpen");
-            return handle;
-        }
-        finally
-        {
-            if (networkPath != 0)
-                Marshal.FreeHGlobal(networkPath);
-        }
+        var openPath = server.Length > 0 ? server + "!!" + filePath : filePath;
+        using var file = ToLmbcs(openPath);
+        var path = filePath.Length == 0 && server.Length == 0 ? 0 : file.Pointer;
+        CheckStatus(Resolve<NSFDbOpenDelegate>("NSFDbOpen")(path, out var handle), "NSFDbOpen");
+        return handle;
     }
 
     internal void CloseDatabase(nint handle)
