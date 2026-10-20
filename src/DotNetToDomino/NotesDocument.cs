@@ -1,10 +1,12 @@
 using System.Collections;
+using System.Diagnostics;
 using System.Globalization;
 using DotNetToDomino.Interop;
 
 namespace DotNetToDomino;
 
 /// <summary>Represents an open Notes document.</summary>
+[DebuggerDisplay("{DebuggerDisplay,nq}")]
 public sealed class NotesDocument : NotesObject
 {
     private nint _handle;
@@ -25,6 +27,8 @@ public sealed class NotesDocument : NotesObject
         try { NoteId = knownNoteId ?? Session.Api.GetNoteId(handle); _isValidAtCreation = NoteId == 0 || Session.Api.IsDocumentValid(parent.Handle, NoteId); _knownUniversalId = knownUnid ?? (handle == 0 ? string.Empty : Session.Api.GetUnid(handle)); }
         catch { _handle = 0; try { if (handle != 0) Session.Api.CloseNote(handle); } finally { Session.Unregister(this); } throw; }
     }
+
+    private string DebuggerDisplay => $"{nameof(NotesDocument)}: NoteID={NoteIdHex}, IsNewNote={IsNewNote}, IsRecycled={IsRecycled}";
 
     public NotesDatabase ParentDatabase { get; } public NotesDatabase Parent => ParentDatabase; public uint NoteId { get; private set; } public string NoteIdHex => NoteId.ToString("X8", CultureInfo.InvariantCulture); public string NoteID => NoteIdHex;
     public string UniversalId { get { EnsureAlive(); return _handle == 0 ? _knownUniversalId : Session.Api.GetUnid(_handle); } set { EnsureOpen(); ArgumentNullException.ThrowIfNull(value); Session.Api.SetUnid(_handle, value); _knownUniversalId = value; } } public string UniversalID { get => UniversalId; set => UniversalId = value; }

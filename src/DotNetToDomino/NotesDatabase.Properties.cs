@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Diagnostics;
 using System.Xml.Linq;
 
 namespace DotNetToDomino;
@@ -9,11 +10,19 @@ public sealed partial class NotesDatabase
     public void SetTemplateName(string name) { EnsureOpen(); ArgumentNullException.ThrowIfNull(name); Session.Api.SetDatabaseTemplateName(_handle, name); }
     /// <summary>Explicit .NET extension for configuring design inheritance; the property remains read-only.</summary>
     public void SetDesignTemplateName(string name) { EnsureOpen(); ArgumentNullException.ThrowIfNull(name); Session.Api.SetDatabaseDesignTemplateName(_handle, name); }
-    public string[] ACLActivityLog { get { EnsureOpen(); return Session.Api.GetAclHistory(_handle); } }
-    public string[] Managers { get { using var acl = ACL; return acl.Entries.Where(x => x.Level == NotesConst.ACLLEVEL_MANAGER).Select(x => x.Name).ToArray(); } }
+    public string[] ACLActivityLog
+    {
+        get
+        {
+            EnsureOpen();
+            try { return Session.Api.GetAclHistory(_handle); }
+            catch (NotesException) { return []; }
+        }
+    }
+    public string[] Managers { get { if (!IsOpen) return []; using var acl = ACL; return acl?.Entries.Where(x => x.Level == NotesConst.ACLLEVEL_MANAGER).Select(x => x.Name).ToArray() ?? []; } }
     public bool IsCurrentAccessPublicReader { get { using var access = QueryAccess(); return access.IsPublicReader; } }
     public bool IsCurrentAccessPublicWriter { get { using var access = QueryAccess(); return access.IsPublicWriter; } }
-    public bool FolderReferencesEnabled { get => Option(20); set => Option(20, value); }
+    public bool FolderReferencesEnabled { get => IsOpen && Option(20); set => Option(20, value); }
     public bool IsDesignLockingEnabled { get => Option(31); set => Option(31, value); }
     public bool IsDocumentLockingEnabled { get => Option(30); set => Option(30, value); }
     public bool IsConfigurationDirectory => Option(57);
@@ -23,11 +32,11 @@ public sealed partial class NotesDatabase
     public bool IsInService { get => !Option(10); set => Option(10, !value); }
     public bool IsInMultiDbIndexing { get => ReplicaFlag(0x2000); set => ReplicaFlag(0x2000, value); }
     public bool ListInDbCatalog { get => !ReplicaFlag(0x0040); set => ReplicaFlag(0x0040, !value); }
-    public int SizeQuota { get { EnsureOpen(); return checked((int)Session.Api.GetDatabaseQuota(_handle).Quota); } set { EnsureOpen(); ArgumentOutOfRangeException.ThrowIfNegative(value); Session.Api.SetDatabaseQuota(_handle, (uint)value, false); } }
-    public int SizeWarning { get { EnsureOpen(); return checked((int)Session.Api.GetDatabaseQuota(_handle).Warning); } set { EnsureOpen(); ArgumentOutOfRangeException.ThrowIfNegative(value); Session.Api.SetDatabaseQuota(_handle, (uint)value, true); } }
-    public double MaxSize { get { EnsureOpen(); return Session.Api.GetDatabaseQuota(_handle).Maximum * 1024.0; } }
+    public int SizeQuota { get { if (!IsOpen) return 0; return checked((int)Session.Api.GetDatabaseQuota(_handle).Quota); } set { EnsureOpen(); ArgumentOutOfRangeException.ThrowIfNegative(value); Session.Api.SetDatabaseQuota(_handle, (uint)value, false); } }
+    public int SizeWarning { get { if (!IsOpen) return 0; return checked((int)Session.Api.GetDatabaseQuota(_handle).Warning); } set { EnsureOpen(); ArgumentOutOfRangeException.ThrowIfNegative(value); Session.Api.SetDatabaseQuota(_handle, (uint)value, true); } }
+    public double MaxSize { get { if (!IsOpen) return 0; return Session.Api.GetDatabaseQuota(_handle).Maximum * 1024.0; } }
     public bool IsLocallyEncrypted { get { EnsureOpen(); return Session.Api.IsDatabaseLocallyEncrypted(_handle); } }
-    public int EncryptionStrength { get { EnsureOpen(); return Session.Api.GetDatabaseEncryption(_handle).Strength; } }
+    public int EncryptionStrength { get { if (!IsOpen) return 0; return Session.Api.GetDatabaseEncryption(_handle).Strength; } }
     public NotesReplication ReplicationInfo { get { EnsureOpen(); return Own(new NotesReplication(Session, this)); } }
     /// <summary>Clears this database's replication history.</summary>
     /// <remarks>Requires Manager access. The next replication performs a full history scan.</remarks>
@@ -56,13 +65,13 @@ public sealed partial class NotesDatabase
             return type switch { "mailfile" => 2, "mailbox" => 3, "subscriptions" => 4, "newsproxy" => 5, "imapproxy" => 6, "portfolio" => 7, "multidbsearch" => 8, "lightaddressbook" => 9, "addressbook" => 10, "personaljournal" => 11, "library" => 12, "standard" => 13, _ => throw new NotesException("Unknown native database type: " + type) };
         }
     }
-    public int FTIndexFrequency
+    public int? FTIndexFrequency
     {
         get
         {
-            EnsureServerFullText();
+            if (!HasServerFullText()) return null;
             var settings = Session.Api.ReadDatabaseDxlProperties(_handle).Elements().FirstOrDefault(x => x.Name.LocalName == "fulltextsettings");
-            return (string?)settings?.Attribute("update") switch { "daily" => 1, "scheduled" => 2, "hourly" => 3, "immediate" => 4, _ => throw new NotesException("Full-text index frequency is not available.") };
+            return (string?)settings?.Attribute("update") switch { "daily" => 1, "scheduled" => 2, "hourly" => 3, "immediate" => 4, _ => null };
         }
         set
         {
@@ -91,9 +100,13 @@ public sealed partial class NotesDatabase
         EnsureOpen(); ArgumentOutOfRangeException.ThrowIfNegative(value);
         var root = Session.Api.ReadDatabaseDxlProperties(_handle); root.SetAttributeValue(name, value.ToString(CultureInfo.InvariantCulture)); Session.Api.WriteDatabaseDxlProperties(_handle, root);
     }
+    private bool HasServerFullText()
+    {
+        EnsureOpen();
+        return Server.Length != 0 && IsFTIndexed;
+    }
     private void EnsureServerFullText()
     {
-        EnsureOpen(); if (Server.Length == 0) throw new InvalidOperationException("FTIndexFrequency applies to server databases only.");
-        if (!IsFTIndexed) throw new InvalidOperationException("FTIndexFrequency requires a full-text index.");
+        if (!HasServerFullText()) throw new InvalidOperationException("FTIndexFrequency requires a server database with a full-text index.");
     }
 }

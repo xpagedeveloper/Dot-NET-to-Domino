@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using DotNetToDomino.Interop;
 
 namespace DotNetToDomino;
@@ -443,6 +444,7 @@ public sealed class NotesViewEntryCollection : NotesObject, IReadOnlyCollection<
 }
 
 /// <summary>Cursor-based navigator over document, category, and total rows in a Notes view.</summary>
+[DebuggerDisplay("{DebuggerDisplay,nq}")]
 public sealed class NotesViewNavigator : NotesObject
 {
     private NotesViewRow[] _rows;
@@ -464,6 +466,8 @@ public sealed class NotesViewNavigator : NotesObject
         _bufferMaxEntries = cacheSize;
         _cacheSize = Math.Clamp(cacheSize, 0, 512);
     }
+
+    private string DebuggerDisplay => $"{nameof(NotesViewNavigator)}: View={_view.Name}, Count={_rows.Count(IsVisible)}, CurrentIndex={_currentIndex}, IsRecycled={IsRecycled}";
 
     public NotesView ParentView => _view;
     public int Count { get { EnsureAlive(); return _rows.Count(IsVisible); } }

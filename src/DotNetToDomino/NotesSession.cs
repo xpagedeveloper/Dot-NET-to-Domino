@@ -6,11 +6,13 @@ using DotNetToDomino.Interop;
 namespace DotNetToDomino;
 
 /// <summary>Represents one initialized HCL Notes/Domino runtime session.</summary>
+[DebuggerDisplay("{DebuggerDisplay,nq}")]
 public sealed class NotesSession : IDisposable
 {
     private static readonly object SessionGate = new();
     private static NotesSession? _activeSession;
     private readonly object _childrenGate = new();
+    private readonly object _nativeGate = new();
     private readonly List<NotesObject> _children = [];
     private readonly NotesRuntimeLibrary _runtime;
     private readonly NotesNativeApi _api;
@@ -65,7 +67,18 @@ public sealed class NotesSession : IDisposable
     public NotesInternational International { get; }
     public bool ConvertMIME { get; set; } = true;
     public bool IsRecycled => _recycled;
+    private string DebuggerDisplay => $"{nameof(NotesSession)}: {UserName}, Runtime={RuntimeDirectory}, IsRecycled={IsRecycled}";
     internal NotesNativeApi Api => _api;
+    internal object NativeGate => _nativeGate;
+
+    internal T WithNativeLock<T>(Func<T> action)
+    {
+        lock (_nativeGate)
+        {
+            EnsureAlive();
+            return action();
+        }
+    }
 
     public IReadOnlyList<NotesDatabase> AddressBooks { get { EnsureAlive(); return _api.GetAddressBooks().Select(book => new NotesDatabase(this, 0, book.Server, book.FilePath)).ToArray(); } }
     public string HashPassword(string password) { EnsureAlive(); ArgumentException.ThrowIfNullOrWhiteSpace(password); return _api.HashPassword(password); }

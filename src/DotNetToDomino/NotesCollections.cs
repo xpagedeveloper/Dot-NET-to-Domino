@@ -1,9 +1,11 @@
 using System.Globalization;
+using System.Diagnostics;
 using DotNetToDomino.Interop;
 
 namespace DotNetToDomino;
 
 /// <summary>In-memory collection of Notes document note IDs.</summary>
+[DebuggerDisplay("{DebuggerDisplay,nq}")]
 public sealed class NotesDocumentCollection : NotesObject, IReadOnlyCollection<uint>
 {
     private uint[] _noteIds;
@@ -12,6 +14,7 @@ public sealed class NotesDocumentCollection : NotesObject, IReadOnlyCollection<u
     private uint _lastFetchedNoteId;
     private bool _hasModifiedMetadata;
     private NotesTimeDate _untilTime;
+    private string DebuggerDisplay => $"{nameof(NotesDocumentCollection)}: Count={_noteIds.Length}, FirstNoteId={( _noteIds.Length == 0 ? "(none)" : _noteIds[0].ToString("X8", CultureInfo.InvariantCulture) )}, IsRecycled={IsRecycled}";
     private uint[]? _documentNoteIds;
     private uint[]? _designNoteIds;
     private readonly NotesDatabase _parent;
@@ -32,8 +35,8 @@ public sealed class NotesDocumentCollection : NotesObject, IReadOnlyCollection<u
     public NotesDocumentCollection Clone() { EnsureAlive(); return Parent.Own(new NotesDocumentCollection(Session, Parent, _noteIds)); }
     public string? FirstNoteId => Count == 0 ? null : _noteIds[0].ToString("X8", CultureInfo.InvariantCulture);
     public NotesDateTime? UntilTime { get { EnsureAlive(); return _hasModifiedMetadata ? NotesDateTime.FromNative(Session, _untilTime) : null; } }
-    public NotesDocumentCollection Documents { get { EnsureAlive(); EnsureModifiedMetadata(); return CreateModifiedSubset(_documentNoteIds!, true); } }
-    public NotesDocumentCollection DesignElements { get { EnsureAlive(); EnsureModifiedMetadata(); return CreateModifiedSubset(_designNoteIds!, false); } }
+    public NotesDocumentCollection Documents { get { EnsureAlive(); return _hasModifiedMetadata && _documentNoteIds is not null ? CreateModifiedSubset(_documentNoteIds, true) : Parent.Own(new NotesDocumentCollection(Session, Parent, [])); } }
+    public NotesDocumentCollection DesignElements { get { EnsureAlive(); return _hasModifiedMetadata && _designNoteIds is not null ? CreateModifiedSubset(_designNoteIds, false) : Parent.Own(new NotesDocumentCollection(Session, Parent, [])); } }
 
     public bool Contains(NotesDocument document)
     {

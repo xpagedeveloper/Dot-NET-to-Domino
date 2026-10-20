@@ -1,6 +1,9 @@
+using System.Diagnostics;
+
 namespace DotNetToDomino;
 
 /// <summary>Represents a Notes view collection.</summary>
+[DebuggerDisplay("{DebuggerDisplay,nq}")]
 public sealed class NotesView : NotesObject
 {
     private ushort _handle;
@@ -12,6 +15,8 @@ public sealed class NotesView : NotesObject
         _handle = handle;
         Name = name;
     }
+
+    private string DebuggerDisplay => $"{nameof(NotesView)}: {Name}, File={Parent.FileName}, IsRecycled={IsRecycled}";
 
     public NotesDatabase Parent { get { EnsureAlive(); return _parent; } }
     public string Name { get; }
