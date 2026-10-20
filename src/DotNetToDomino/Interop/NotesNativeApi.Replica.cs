@@ -45,12 +45,12 @@ internal sealed partial class NotesNativeApi
             var pointer = Resolve<Replica_OSLockObject>("OSLockObject")(handle); if (pointer == 0) throw new NotesException("Unable to lock replication history.");
             try
             {
-                const int entrySize = 22; var result = new List<ReplicationHistoryData>(checked((int)count));
+                const int entrySize = 32; var result = new List<ReplicationHistoryData>(checked((int)count));
                 for (var i = 0; i < count && (i + 1) * entrySize <= size; i++)
                 {
                     var entry = pointer + (nint)(i * entrySize);
                     var time = new NotesTimeDate { Innards0 = unchecked((uint)Marshal.ReadInt32(entry, 0)), Innards1 = unchecked((uint)Marshal.ReadInt32(entry, 4)) };
-                    var packed = pointer + (nint)Marshal.ReadInt32(entry, 14); var serverLength = Marshal.ReadInt16(entry, 18); var fileLength = Marshal.ReadInt16(entry, 20);
+                    var packed = pointer + (nint)Marshal.ReadInt32(entry, 16); var serverLength = Marshal.ReadInt16(entry, 20); var fileLength = Marshal.ReadInt16(entry, 22);
                     result.Add(new ReplicationHistoryData(time, FromLmbcs(packed, serverLength), FromLmbcsZeroTerminated(packed + serverLength + 2, fileLength + 1), (NotesReplicationDirection)Marshal.ReadInt16(entry, 12), unchecked((ushort)Marshal.ReadInt16(entry, 8)), unchecked((ushort)Marshal.ReadInt16(entry, 10))));
                 }
                 return result;
