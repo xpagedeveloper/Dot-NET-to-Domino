@@ -86,13 +86,40 @@ public sealed class NotesDocument : NotesObject
     public NotesItem ReplaceItemValue(string itemName, object? value) { SetValue(itemName, value); return GetFirstItem(itemName) ?? ParentDatabase.Own(new NotesItem(Session, this, itemName)); }
     public bool HasItem(string itemName) { EnsureOpen(); ArgumentException.ThrowIfNullOrWhiteSpace(itemName); return Session.Api.HasItem(_handle, itemName); } public object? GetValue(string n) { var v=GetItemValue(n); return v.Length switch {0=>null,1=>v[0],_=>v}; } public object?[] GetItemValue(string n){EnsureOpen();ArgumentException.ThrowIfNullOrWhiteSpace(n);return Session.Api.GetItemValues(_handle,n,td=>NotesDateTime.FromNative(Session,td));} public string GetString(string n){EnsureOpen();ArgumentException.ThrowIfNullOrWhiteSpace(n);return Session.Api.GetItemText(_handle,n);} public double GetNumber(string n){EnsureOpen();ArgumentException.ThrowIfNullOrWhiteSpace(n);return Session.Api.GetItemNumber(_handle,n);} public NotesDateTime GetDateTime(string n){EnsureOpen();ArgumentException.ThrowIfNullOrWhiteSpace(n);return NotesDateTime.FromNative(Session,Session.Api.GetItemTime(_handle,n));}
     public void SetValue(string n,object? v){EnsureOpen();ArgumentException.ThrowIfNullOrWhiteSpace(n);ArgumentNullException.ThrowIfNull(v);Session.Api.SetItemValue(_handle,n,v);} public void SetString(string n,string v){EnsureOpen();ArgumentException.ThrowIfNullOrWhiteSpace(n);ArgumentNullException.ThrowIfNull(v);Session.Api.SetItemText(_handle,n,v);} public void SetNumber(string n,double v){EnsureOpen();ArgumentException.ThrowIfNullOrWhiteSpace(n);Session.Api.SetItemNumber(_handle,n,v);} public void SetDateTime(string n,NotesDateTime v){EnsureOpen();ArgumentException.ThrowIfNullOrWhiteSpace(n);ArgumentNullException.ThrowIfNull(v);Session.Api.SetItemTime(_handle,n,v.NativeValue);} public void RemoveItem(string n){EnsureOpen();ArgumentException.ThrowIfNullOrWhiteSpace(n);Session.Api.DeleteItem(_handle,n);} public bool SaveAttachment(string n,string p){EnsureOpen();ArgumentException.ThrowIfNullOrWhiteSpace(n);ArgumentException.ThrowIfNullOrWhiteSpace(p);return Session.Api.SaveAttachment(_handle,n,p);}
-    public bool ComputeWithForm(bool d,bool r){EnsureOpen();var ok=Session.Api.ComputeDocumentWithForm(_handle);if(!ok&&r)throw new NotesException(5,"ComputeWithForm validation failed.");return ok;} public bool ComputeWithForm(bool d,bool r,out string[] f){EnsureOpen();var x=Session.Api.ComputeDocumentWithFormAndCollectErrors(_handle);f=x.FailedFields;if(!x.Success&&r)throw new NotesException(5,"ComputeWithForm validation failed.");return x.Success;}
-    public bool ComputeWithForm(NotesDocument? formDocument, uint flags, bool raiseError, out NotesComputeWithFormError[] errors)
+    /// <summary>
+    /// Computes the document using its form, with LotusScript-compatible error handling.
+    /// </summary>
+    /// <param name="doDataTypes">Ignored for LotusScript compatibility, as in NotesDocument.ComputeWithForm.</param>
+    /// <param name="raiseError">If <see langword="true" />, throws when form validation fails; otherwise returns <see langword="false" />.</param>
+    /// <returns><see langword="true" /> when computation succeeds; otherwise <see langword="false" />.</returns>
+    public bool ComputeWithForm(bool doDataTypes, bool raiseError)
+    {
+        EnsureOpen();
+        var success = Session.Api.ComputeDocumentWithForm(_handle);
+        if (!success && raiseError) throw new NotesException(5, "ComputeWithForm validation failed.");
+        return success;
+    }
+
+    /// <summary>Computes the document using its form and returns the fields that failed validation.</summary>
+    /// <param name="doDataTypes">Ignored for LotusScript compatibility, as in NotesDocument.ComputeWithForm.</param>
+    /// <param name="raiseError">If <see langword="true" />, throws when form validation fails; otherwise returns <see langword="false" />.</param>
+    /// <param name="failedFields">Receives the names of fields whose validation failed.</param>
+    public bool ComputeWithForm(bool doDataTypes, bool raiseError, out string[] failedFields)
+    {
+        EnsureOpen();
+        var result = Session.Api.ComputeDocumentWithFormAndCollectErrors(_handle);
+        failedFields = result.FailedFields;
+        if (!result.Success && raiseError) throw new NotesException(5, "ComputeWithForm validation failed.");
+        return result.Success;
+    }
+    /// <summary>Computes the document using the supplied form document.</summary>
+    /// <remarks>The native ComputeWithForm flags are always zero to match LotusScript behavior.</remarks>
+    public bool ComputeWithForm(NotesDocument? formDocument, bool raiseError, out NotesComputeWithFormError[] errors)
     {
         EnsureOpen();
         if (formDocument is not null && !ReferenceEquals(formDocument.ParentDatabase, ParentDatabase))
             throw new ArgumentException("The form document must belong to the same database.", nameof(formDocument));
-        var result = Session.Api.ComputeDocumentWithFormAndCollectErrors(_handle, formDocument?.Handle ?? 0, flags, out errors);
+        var result = Session.Api.ComputeDocumentWithFormAndCollectErrors(_handle, formDocument?.Handle ?? 0, 0, out errors);
         if (!result.Success && raiseError) throw new NotesException(5, "ComputeWithForm validation failed.");
         return result.Success;
     }
