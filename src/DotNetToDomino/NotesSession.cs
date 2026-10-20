@@ -77,6 +77,8 @@ public sealed class NotesSession : IDisposable
     /// <param name="server">Server name, or empty string (also <c>local</c>) for the local server.</param>
     /// <param name="command">The Domino console command.</param>
     public string SendConsoleCommand(string server, string command) { EnsureAlive(); return _api.SendConsoleCommand(NormalizeServerName(server), command); }
+    /// <summary>Checks whether a Domino server is reachable using the native NSPingServer API.</summary>
+    public NotesServerPingResult PingServer(string server) { EnsureAlive(); ArgumentException.ThrowIfNullOrWhiteSpace(server); return _api.PingServer(server.Trim()); }
 
     public NotesDatabase? GetDatabase(string server, string filePath, bool createOnFail = true) { EnsureAlive(); var database = OpenDatabase(server, filePath); if (database.IsOpen || createOnFail) return database; database.Recycle(); return null; }
     public NotesDatabase OpenDatabase(string server, string filePath) { EnsureAlive(); ArgumentException.ThrowIfNullOrWhiteSpace(filePath); server = NotesSession.NormalizeServerName(server); filePath = filePath.Trim(); var directPath = IsDirectWindowsPath(filePath); if (server.Length > 0 && directPath) throw new ArgumentException("An absolute database path is valid only when server is empty.", nameof(filePath)); var nativeFilePath = server.Length == 0 && !directPath && DataDir.Length > 0 ? Path.Combine(DataDir, filePath.TrimStart('/', '\\')) : filePath; try { return new NotesDatabase(this, _api.OpenDatabase(server, nativeFilePath), server, filePath); } catch (NotesException ex) { return new NotesDatabase(this, 0, server, filePath, openError: ex.Message); } }

@@ -156,6 +156,15 @@ internal sealed partial class NotesNativeApi
         }
     }
 
+    internal NotesServerPingResult PingServer(string server)
+    {
+        EnsureInitialized(); using var thread = EnterThread(); using var name = ToLmbcs(server);
+        uint index = 0; uint list = 0;
+        var status = Resolve<NSPingServerDelegate>("NSPingServer")(name.Pointer, out index, out list);
+        if (list != 0) Resolve<OSMemFreeAccessDelegate>("OSMemFree")(list);
+        return new NotesServerPingResult(server, status == 0, status, index);
+    }
+
     internal void CloseDatabase(nint handle)
     {
         if (handle == 0 || !_initialized)
@@ -464,6 +473,7 @@ internal sealed partial class NotesNativeApi
     [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate ushort OSLoadStringDelegate(nint module, ushort code, nint output, ushort outputLength);
     [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate ushort SECKFMGetUserNameDelegate(nint output);
     [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate ushort OSPathNetConstructDelegate(nint portName, nint serverName, nint fileName, nint pathName);
+    [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate ushort NSPingServerDelegate(nint serverName, out uint availabilityIndex, out uint clusterList);
     [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate ushort NSFDbOpenDelegate(nint pathName, out nint db);
     [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate ushort NSFDbCloseDelegate(nint db);
     [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate ushort DNCanonicalizeDelegate(uint flags, nint templateName, nint input, nint output, ushort outputSize, out ushort outputLength);
