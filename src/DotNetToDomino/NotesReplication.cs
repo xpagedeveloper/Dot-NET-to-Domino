@@ -1,5 +1,9 @@
 namespace DotNetToDomino;
 
+/// <summary>A single entry from a database's replication history.</summary>
+public sealed record NotesReplicationHistoryEntry(NotesDateTime ReplicationTime, string ServerName, string FileName, NotesReplicationDirection Direction, ushort AccessLevel, ushort AccessFlags);
+public enum NotesReplicationDirection { Never = 0, Send = 1, Receive = 2 }
+
 /// <summary>An editable snapshot of database replication settings. Call Save to persist changes.</summary>
 public sealed class NotesReplication : NotesObject
 {
@@ -30,6 +34,7 @@ public sealed class NotesReplication : NotesObject
     }
     /// <summary>Clears the parent database's replication history.</summary>
     public void ClearHistory() { Check(); Session.Api.ClearDatabaseReplicationHistory(_database.Handle); }
+    public IReadOnlyList<NotesReplicationHistoryEntry> History => Session.Api.GetDatabaseReplicationHistory(_database.Handle).Select(x => new NotesReplicationHistoryEntry(NotesDateTime.FromNative(Session, x.ReplicationTime), x.ServerName, x.FileName, x.Direction, x.AccessLevel, x.AccessFlags)).ToArray();
     public void Save()
     {
         Check();

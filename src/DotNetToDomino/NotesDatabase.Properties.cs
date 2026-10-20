@@ -32,6 +32,7 @@ public sealed partial class NotesDatabase
     /// <summary>Clears this database's replication history.</summary>
     /// <remarks>Requires Manager access. The next replication performs a full history scan.</remarks>
     public void ClearReplicationHistory() { EnsureOpen(); Session.Api.ClearDatabaseReplicationHistory(_handle); }
+    public IReadOnlyList<NotesReplicationHistoryEntry> ReplicationHistory { get { EnsureOpen(); return Session.Api.GetDatabaseReplicationHistory(_handle).Select(x => new NotesReplicationHistoryEntry(NotesDateTime.FromNative(Session, x.ReplicationTime), x.ServerName, x.FileName, x.Direction, x.AccessLevel, x.AccessFlags)).ToArray(); } }
     public string NotesURL { get { EnsureOpen(); return $"notes://{Uri.EscapeDataString(Server)}/{ReplicaID}"; } }
     /// <summary>
     /// Indicates a private address book using the only stable information available to a standalone C API client:
