@@ -29,6 +29,9 @@ public sealed partial class NotesDatabase
     public bool IsLocallyEncrypted { get { EnsureOpen(); return Session.Api.IsDatabaseLocallyEncrypted(_handle); } }
     public int EncryptionStrength { get { EnsureOpen(); return Session.Api.GetDatabaseEncryption(_handle).Strength; } }
     public NotesReplication ReplicationInfo { get { EnsureOpen(); return Own(new NotesReplication(Session, this)); } }
+    /// <summary>Clears this database's replication history.</summary>
+    /// <remarks>Requires Manager access. The next replication performs a full history scan.</remarks>
+    public void ClearReplicationHistory() { EnsureOpen(); Session.Api.ClearDatabaseReplicationHistory(_handle); }
     public string NotesURL { get { EnsureOpen(); return $"notes://{Uri.EscapeDataString(Server)}/{ReplicaID}"; } }
     /// <summary>
     /// Indicates a private address book using the only stable information available to a standalone C API client:

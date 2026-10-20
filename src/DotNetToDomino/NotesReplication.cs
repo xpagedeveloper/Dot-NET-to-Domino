@@ -28,6 +28,8 @@ public sealed class NotesReplication : NotesObject
         get { Check(); return (Flags & 0xC000) switch { 0x4000 => 1, 0 => 2, _ => 3 }; }
         set { Check(); Flags = (ushort)((Flags & 0x3FFF) | (value switch { 1 => 0x4000, 2 => 0, 3 => 0xC000, _ => throw new ArgumentOutOfRangeException(nameof(value)) })); }
     }
+    /// <summary>Clears the parent database's replication history.</summary>
+    public void ClearHistory() { Check(); Session.Api.ClearDatabaseReplicationHistory(_database.Handle); }
     public void Save()
     {
         Check();

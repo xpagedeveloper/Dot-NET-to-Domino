@@ -25,6 +25,13 @@ internal sealed partial class NotesNativeApi
         finally { Marshal.FreeHGlobal(buffer); }
     }
 
+    internal void ClearDatabaseReplicationHistory(nint db)
+    {
+        EnsureInitialized();
+        using var thread = EnterThread();
+        CheckStatus(Resolve<Replica_NSFDbClearReplHistory>("NSFDbClearReplHistory")(db, 0), "NSFDbClearReplHistory");
+    }
+
     internal nint CreateDatabaseCopy(string sourceServer, string sourceFile, string destinationServer, string destinationFile, bool includeDocuments, bool replica = false)
     {
         EnsureInitialized();
@@ -83,6 +90,7 @@ internal sealed partial class NotesNativeApi
 
     [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate ushort Replica_NSFDbReplicaInfoGet(nint db, nint replicaInfo);
     [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate ushort Replica_NSFDbReplicaInfoSet(nint db, nint replicaInfo);
+    [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate ushort Replica_NSFDbClearReplHistory(nint db, ushort flags);
     [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate ushort Replica_NSFDbCreateAndCopy(nint sourceDb, nint destinationDb, ushort noteClass, ushort limit, uint flags, out uint returnHandle);
     [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate ushort Replica_OSPathNetConstruct(nint portName, nint serverName, nint fileName, nint pathName);
 }
