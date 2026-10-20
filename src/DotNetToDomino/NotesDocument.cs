@@ -112,6 +112,15 @@ public sealed class NotesDocument : NotesObject
         if (!result.Success && raiseError) throw new NotesException(5, "ComputeWithForm validation failed.");
         return result.Success;
     }
+
+    /// <summary>Computes the document using its default form and returns validation errors.</summary>
+    public bool ComputeWithForm(bool raiseError, out NotesComputeWithFormError[] errors) =>
+        ComputeWithForm(null, raiseError, out errors);
+
+    /// <summary>Computes the document using its default form.</summary>
+    public bool ComputeWithForm(bool raiseError) =>
+        ComputeWithForm(null, raiseError, out _);
+
     /// <summary>Computes the document using the supplied form document.</summary>
     /// <remarks>The native ComputeWithForm flags are always zero to match LotusScript behavior.</remarks>
     public bool ComputeWithForm(NotesDocument? formDocument, bool raiseError, out NotesComputeWithFormError[] errors)
