@@ -47,6 +47,9 @@ internal sealed class NotesRuntimeLibrary : IDisposable
                     // resolves those dependencies from the selected Notes runtime,
                     // matching the XPScript host setup.
                     SetDllDirectory(resolvedDirectory);
+                    // Domino's native runtime also expects the process working
+                    // directory to be the Notes program directory during startup.
+                    SetCurrentDirectory(resolvedDirectory);
                 }
                 return new NotesRuntimeLibrary(resolvedDirectory, path, NativeLibrary.Load(path));
             }
@@ -62,6 +65,9 @@ internal sealed class NotesRuntimeLibrary : IDisposable
 
     [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
     private static extern bool SetDllDirectory(string? path);
+
+    [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+    private static extern bool SetCurrentDirectory(string path);
 
     internal nint GetExport(string name)
     {
