@@ -104,6 +104,10 @@ public sealed class NotesDocument : NotesObject
         return success;
     }
 
+    /// <summary>XPscript-compatible overload accepting Variant-like Boolean values.</summary>
+    public bool ComputeWithForm(object? doDataTypesValue, object? raiseErrorValue) =>
+        ComputeWithForm(ToBoolean(doDataTypesValue), ToBoolean(raiseErrorValue));
+
     /// <summary>Computes the document using its form and returns the fields that failed validation.</summary>
     /// <param name="doDataTypes">Ignored for LotusScript compatibility, as in NotesDocument.ComputeWithForm.</param>
     /// <param name="raiseError">If <see langword="true" />, throws when form validation fails; otherwise returns <see langword="false" />.</param>
@@ -117,6 +121,23 @@ public sealed class NotesDocument : NotesObject
         return result.Success;
     }
 
+    /// <summary>XPscript-compatible ByRef overload for failed field names.</summary>
+    public bool ComputeWithForm(object? doDataTypesValue, object? raiseErrorValue, ref object? failedFields)
+    {
+        EnsureOpen();
+        _ = ToBoolean(doDataTypesValue);
+        var raiseError = ToBoolean(raiseErrorValue);
+        failedFields = null;
+        var result = Session.Api.ComputeDocumentWithFormAndCollectErrors(_handle);
+        if (!result.Success && raiseError)
+        {
+            if (result.FailedFields.Length > 0)
+                failedFields = result.FailedFields.Cast<object?>().ToArray();
+            throw new NotesException(5, "ComputeWithForm validation failed.");
+        }
+        return result.Success;
+    }
+
     /// <summary>Computes the document using its default form and returns validation errors.</summary>
     public bool ComputeWithForm(bool raiseError, out NotesComputeWithFormError[] errors) =>
         ComputeWithForm(null, raiseError, out errors);
@@ -124,6 +145,10 @@ public sealed class NotesDocument : NotesObject
     /// <summary>Computes the document using its default form.</summary>
     public bool ComputeWithForm(bool raiseError) =>
         ComputeWithForm(null, raiseError, out _);
+
+    /// <summary>Computes the document using the supplied form document.</summary>
+    public bool ComputeWithForm(NotesDocument? formDocument, bool raiseError)
+        => ComputeWithForm(formDocument, raiseError, out _);
 
     /// <summary>Computes the document using the supplied form document.</summary>
     /// <remarks>The native ComputeWithForm flags are always zero to match LotusScript behavior.</remarks>
@@ -136,6 +161,26 @@ public sealed class NotesDocument : NotesObject
         if (!result.Success && raiseError) throw new NotesException(5, "ComputeWithForm validation failed.");
         return result.Success;
     }
+
+    private static bool ToBoolean(object? value) => value switch
+    {
+        null => false,
+        bool boolean => boolean,
+        string text when bool.TryParse(text.Trim(), out var boolean) => boolean,
+        string text when double.TryParse(text.Trim(), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var number) => number != 0,
+        sbyte number => number != 0,
+        byte number => number != 0,
+        short number => number != 0,
+        ushort number => number != 0,
+        int number => number != 0,
+        uint number => number != 0,
+        long number => number != 0,
+        ulong number => number != 0,
+        float number => number != 0,
+        double number => number != 0,
+        decimal number => number != 0,
+        _ => Convert.ToBoolean(value, System.Globalization.CultureInfo.InvariantCulture)
+    };
     public void MarkRead(string? u=null){EnsureOpen();if(!IsNewNote)Session.Api.SetDocumentUnread(ParentDatabase.Handle,NoteId,string.IsNullOrWhiteSpace(u)?Session.UserName:u,false);} public void MarkUnread(string? u=null){EnsureOpen();if(!IsNewNote)Session.Api.SetDocumentUnread(ParentDatabase.Handle,NoteId,string.IsNullOrWhiteSpace(u)?Session.UserName:u,true);} public void PutInFolder(string f,bool c=false){EnsureOpen();ArgumentException.ThrowIfNullOrWhiteSpace(f);if(!IsNewNote)Session.Api.PutDocumentInFolder(ParentDatabase.Handle,NoteId,f.Trim(),c);} public void RemoveFromFolder(string f){EnsureOpen();ArgumentException.ThrowIfNullOrWhiteSpace(f);if(!IsNewNote)Session.Api.RemoveDocumentFromFolder(ParentDatabase.Handle,NoteId,f.Trim());}
     public void MakeResponse(NotesDocument p){EnsureOpen();ArgumentNullException.ThrowIfNull(p);if(!string.Equals(ParentDatabase.ReplicaID,p.ParentDatabase.ReplicaID,StringComparison.OrdinalIgnoreCase))throw new ArgumentException("MakeResponse requires documents in the same database replica.",nameof(p));Session.Api.MakeResponse(_handle,p.Handle);} public NotesDocument CopyToDatabase(NotesDatabase d){EnsureOpen();ArgumentNullException.ThrowIfNull(d);var c=Session.Api.CopyDocumentToDatabase(_handle,d.Handle);return d.Own(new NotesDocument(Session,d,c,Session.Api.GetNoteId(c),null));} public void CopyAllItems(NotesDocument d,bool r=false){EnsureOpen();ArgumentNullException.ThrowIfNull(d);Session.Api.CopyAllItems(_handle,d.Handle,r);} public NotesItem CopyItem(NotesItem i,string? n=null){EnsureOpen();ArgumentNullException.ThrowIfNull(i);var t=string.IsNullOrWhiteSpace(n)?i.Name:n.Trim();Session.Api.CopyItemToDocument(i.Parent.Handle,i.Name,_handle,t);return GetFirstItem(t)!;}
     public void Send() => Send(false, null);

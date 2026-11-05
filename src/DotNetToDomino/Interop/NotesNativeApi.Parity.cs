@@ -63,7 +63,7 @@ internal sealed partial class NotesNativeApi
             validationFailed = true;
             var fieldName = GetComputeWithFormFieldName(field);
             if (fieldName.Length > 0 && seenFields.Add(fieldName)) failedFields.Add(fieldName);
-            var message = errorText == 0 || errorTextSize == 0 ? string.Empty : FromLmbcs((nint)errorText, errorTextSize);
+            var message = errorText == 0 || errorTextSize == 0 ? string.Empty : ReadComputeWithFormErrorText(errorText, errorTextSize);
             detailedErrors.Add(new NotesComputeWithFormError(fieldName, error, message));
             return ComputeWithFormNextFieldAction;
         };
@@ -156,6 +156,14 @@ internal sealed partial class NotesNativeApi
         if (nameLength == 0) return string.Empty;
         var name = nint.Add(field, ComputeWithFormCdFieldFixedLength + dvLength + itLength + ivLength);
         return FromLmbcs(name, nameLength);
+    }
+
+    private string ReadComputeWithFormErrorText(uint handle, ushort length)
+    {
+        var pointer = Resolve<Parity_OSLockObject>("OSLockObject")(handle);
+        if (pointer == 0) return string.Empty;
+        try { return FromLmbcs(pointer, length); }
+        finally { Resolve<Parity_OSUnlockObject>("OSUnlockObject")(handle); }
     }
 
     private NotesTimeDate GetMinimumTimeDate()
@@ -252,6 +260,12 @@ internal sealed partial class NotesNativeApi
 
     [UnmanagedFunctionPointer(CallingConvention.Winapi)]
     private delegate ushort Parity_ComputeWithFormErrorProc(nint field, ushort phase, ushort error, uint errorText, ushort errorTextSize, nint context);
+
+    [UnmanagedFunctionPointer(CallingConvention.Winapi)]
+    private delegate nint Parity_OSLockObject(uint handle);
+
+    [UnmanagedFunctionPointer(CallingConvention.Winapi)]
+    private delegate void Parity_OSUnlockObject(uint handle);
 
     [UnmanagedFunctionPointer(CallingConvention.Winapi)]
     private delegate ushort Parity_NSFNoteComputeWithForm(nint note, nint formNote, uint flags, Parity_ComputeWithFormErrorProc? errorRoutine, nint context);
